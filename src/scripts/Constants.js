@@ -17,3 +17,9 @@ export const StorageLabel = {
   [StorageType.LOCAL]: 'Local-Only',
   [StorageType.REMOTE]: 'Encrypted Sync',
 };
+
+/* Enum for authentication mode */
+export const AuthMode = {
+  ANON: 'anonymous',
+  AUTH: 'authenticated',
+}

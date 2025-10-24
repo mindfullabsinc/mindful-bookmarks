@@ -19,12 +19,18 @@ import {
 
 export const AppContext = createContext();
 
-export function AppContextProvider({ user, children }) {
+/** Stable sentinel used for anonymous/local mode keys & caches */
+const LOCAL_USER_ID = 'local';
+
+export function AppContextProvider({
+  user,
+  preferredStorageType = StorageType.LOCAL, // NEW: let caller prefer local/remote
+  children
+}) {
   // ----- state -----
   const [userAttributes, setUserAttributes] = useState(null);
 
   // Seed immediately from a synchronous snapshot (pre-user, pre-mode) to avoid flicker.
-  // We’ll refine once we know userId/storageType.
   const seed = readBookmarkCacheSync(undefined, undefined) || { data: [] };
   const [bookmarkGroups, setBookmarkGroups] = useState(seed.data || []);
   const [groupsIndex, setGroupsIndex] = useState([]); // [{ id, groupName }]
@@ -75,16 +81,20 @@ export function AppContextProvider({ user, children }) {
     let cancelled = false;
 
     (async () => {
-      // If opened while signed out, default to LOCAL immediately
+      // If opened while signed out, run in LOCAL immediately.
       if (!user) {
         if (!cancelled) {
-          setUserId(null);
-          setStorageType(StorageType.LOCAL);
+          setUserId(LOCAL_USER_ID);
+          // If caller asked for remote while signed out, coerce to LOCAL.
+          const effective = preferredStorageType === StorageType.REMOTE
+            ? StorageType.LOCAL
+            : preferredStorageType || StorageType.LOCAL;
+          setStorageType(effective);
         }
         return;
       }
 
-      // Signed-in: we *may* use REMOTE, but keep this fast.
+      // Signed-in: prefer (1) caller hint, then (2) user attribute, then (3) default.
       try {
         const { identityId } = await fetchAuthSession();
         if (!cancelled) setUserId(identityId || null);
@@ -93,37 +103,42 @@ export function AppContextProvider({ user, children }) {
         if (!cancelled) setUserAttributes(attributes);
 
         const storedType = attributes?.['custom:storage_type'];
-        const effectiveType = storedType || DEFAULT_STORAGE_TYPE;
+        const effectiveType =
+          preferredStorageType || storedType || DEFAULT_STORAGE_TYPE;
+
         if (!cancelled) setStorageType(effectiveType);
 
-        // If the custom attribute wasn’t set, set it asynchronously (don’t block UI)
+        // If the custom attribute wasn’t set, set a sane default asynchronously
         if (!storedType) {
           updateUserAttribute({
-            userAttribute: { attributeKey: 'custom:storage_type', value: StorageType.LOCAL },
+            userAttribute: { attributeKey: 'custom:storage_type', value: effectiveType }
           }).catch(() => {});
         }
       } catch (err) {
         console.warn('Auth bootstrap failed, falling back to LOCAL:', err);
         if (!cancelled) {
-          setUserId(null);
+          setUserId(LOCAL_USER_ID);
           setStorageType(StorageType.LOCAL);
         }
       }
     })();
 
     return () => { cancelled = true; };
-  }, [user]);
+  }, [user, preferredStorageType]);
 
   // ----- phase 1a: refine first paint from *sync* cache when user/mode become known -----
   useEffect(() => {
-    // As soon as we know the real key (userId + storageType), try a *synchronous* read.
     if (!storageType) return;
-    const cached = readBookmarkCacheSync(userId, storageType);
+    // Always have a concrete userId: LOCAL_USER_ID when anonymous.
+    const id = user ? userId : LOCAL_USER_ID;
+
+    const cached = readBookmarkCacheSync(id, storageType);
     if (cached?.data && !deepEqual(bookmarkGroups, cached.data)) {
       setBookmarkGroups(cached.data);
       setHasHydrated(true); // we’ve shown meaningful content
     }
-  }, [userId, storageType]); // sync, no flicker
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user ? userId : 'anon-key', storageType]); // treat anon as stable key
 
   // ----- phase 1b: render ASAP with groups index (async but cheap) -----
   useEffect(() => {
@@ -132,9 +147,9 @@ export function AppContextProvider({ user, children }) {
     (async () => {
       setIsLoading(true);
 
-      // Optionally: read session cache (async) — won’t affect first paint, but helps warm state.
       try {
-        const cached = await readBookmarkCacheSession(userId, storageType);
+        const id = user ? userId : LOCAL_USER_ID;
+        const cached = await readBookmarkCacheSession(id, storageType);
         if (!cancelled && cached?.data?.length) {
           setBookmarkGroups(prev => (deepEqual(prev, cached.data) ? prev : cached.data));
           setHasHydrated(true);
@@ -149,50 +164,51 @@ export function AppContextProvider({ user, children }) {
     })();
 
     return () => { cancelled = true; };
-  }, [userId, storageType]);
+  }, [user ? userId : 'anon-key', storageType, user]);
 
   // ----- phase 2: hydrate full groups in background once mode is known -----
   useEffect(() => {
     if (isMigrating) return;
-    if (!userId || !storageType) return; // require userId in both modes to match tests/contract
+    if (!storageType) return;
+
+    // Always resolve a concrete id (LOCAL_USER_ID for anon)
+    const id = user ? userId : LOCAL_USER_ID;
+    if (!id) return;
 
     let cancelled = false;
 
-    (async () => {
-      try {
-        // Don’t block paint; schedule on idle/tick
-        const kickoff = () =>
-          loadInitialBookmarks(userId, storageType)
-            .then(full => {
-              if (cancelled) return;
-              setBookmarkGroups(prev => (deepEqual(prev, full) ? prev : full));
+    const kickoff = () =>
+      loadInitialBookmarks(id, storageType)
+        .then(full => {
+          if (cancelled) return;
+          setBookmarkGroups(prev => (deepEqual(prev, full) ? prev : full));
 
-              // Persist/refresh the tiny index for quick future loads
-              const idx = (full || []).map(g => ({ id: g.id, groupName: g.groupName }));
-              try { chrome?.storage?.local?.set?.({ groupsIndex: idx }); } catch {}
-              try { chrome?.storage?.session?.set?.({ groupsIndex: idx }); } catch {}
+          // Persist/refresh the tiny index for quick future loads
+          const idx = (full || []).map(g => ({ id: g.id, groupName: g.groupName }));
+          try { chrome?.storage?.local?.set?.({ groupsIndex: idx }); } catch {}
+          try { chrome?.storage?.session?.set?.({ groupsIndex: idx }); } catch {}
 
-              // Warm both caches for instant next paint
-              writeBookmarkCacheSync(userId, storageType, full);
-              writeBookmarkCacheSession(userId, storageType, full).catch(() => {});
-            })
-            .finally(() => { if (!cancelled) setHasHydrated(true); });
+          // Warm both caches for instant next paint
+          writeBookmarkCacheSync(id, storageType, full);
+          writeBookmarkCacheSession(id, storageType, full).catch(() => {});
+        })
+        .finally(() => { if (!cancelled) setHasHydrated(true); });
 
-        if ('requestIdleCallback' in window) {
-          const id = requestIdleCallback(() => kickoff());
-          return () => cancelIdleCallback(id);
-        } else {
-          const t = setTimeout(() => kickoff(), 0);
-          return () => clearTimeout(t);
-        }
-      } catch (e) {
-        console.error('Error hydrating bookmarks:', e);
-        if (!cancelled) setBookmarkGroups([]);
+    try {
+      if ('requestIdleCallback' in window) {
+        const idleId = requestIdleCallback(() => kickoff());
+        return () => cancelIdleCallback(idleId);
+      } else {
+        const t = setTimeout(() => kickoff(), 0);
+        return () => clearTimeout(t);
       }
-    })();
+    } catch (e) {
+      console.error('Error hydrating bookmarks:', e);
+      if (!cancelled) setBookmarkGroups([]);
+    }
 
     return () => { cancelled = true; };
-  }, [userId, storageType, isMigrating]);
+  }, [user ? userId : 'anon-key', storageType, isMigrating, user]);
 
   // ----- background reloads (don’t flip isLoading) -----
   useEffect(() => {
@@ -200,7 +216,8 @@ export function AppContextProvider({ user, children }) {
 
     const reload = async () => {
       try {
-        const fresh = await loadInitialBookmarks(userId, storageType);
+        const id = user ? userId : LOCAL_USER_ID;
+        const fresh = await loadInitialBookmarks(id, storageType);
         setBookmarkGroups(prev => (deepEqual(prev, fresh) ? prev : fresh));
 
         const idx = (fresh || []).map(g => ({ id: g.id, groupName: g.groupName }));
@@ -208,8 +225,8 @@ export function AppContextProvider({ user, children }) {
         try { chrome?.storage?.session?.set?.({ groupsIndex: idx }); } catch {}
 
         // Keep caches hot
-        writeBookmarkCacheSync(userId, storageType, fresh);
-        writeBookmarkCacheSession(userId, storageType, fresh).catch(() => {});
+        writeBookmarkCacheSync(id, storageType, fresh);
+        writeBookmarkCacheSession(id, storageType, fresh).catch(() => {});
       } catch (e) {
         console.error('Reload after update failed:', e);
       }
@@ -239,11 +256,19 @@ export function AppContextProvider({ user, children }) {
       try { bc?.close?.(); } catch {}
       document.removeEventListener('visibilitychange', onVis);
     };
-  }, [userId, storageType, isMigrating]);
+  }, [user ? userId : 'anon-key', storageType, isMigrating, user]);
 
   // ----- storage type changes -----
   const handleStorageTypeChange = useCallback(async (newStorageType) => {
+    // If not signed in, silently coerce to LOCAL
+    if (!user && newStorageType === StorageType.REMOTE) {
+      setStorageType(StorageType.LOCAL);
+      return;
+    }
+
     setStorageType(newStorageType);
+
+    // Persist preference to Cognito when signed in
     if (user) {
       updateUserAttribute({
         userAttribute: {
@@ -264,7 +289,7 @@ export function AppContextProvider({ user, children }) {
     groupsIndex,
     bookmarkGroups, setBookmarkGroups,
 
-    userId,
+    userId: user ? userId : LOCAL_USER_ID, // expose concrete id to consumers
     storageType,
     setStorageType: handleStorageTypeChange,
 

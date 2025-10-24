@@ -5,11 +5,11 @@ Amplify.configure({ ...config, ssr: false });
 
 // Import Hub from the correct package for Amplify v6+
 import { Hub } from 'aws-amplify/utils';
-import { Authenticator, ThemeProvider } from '@aws-amplify/ui-react';
-import { useAuthenticator } from '@aws-amplify/ui-react'; 
+import { Authenticator, ThemeProvider, useAuthenticator } from '@aws-amplify/ui-react';
 
 /* Scripts */
 import { AppContextProvider } from '@/scripts/AppContextProvider';
+import { AuthMode } from '@/scripts/Constants';
 
 /* Components */
 import PopUpComponent from '@/components/PopUpComponent';
@@ -18,18 +18,14 @@ import PopupAutosize from "@/components/PopupAutosize";
 
 /* CSS styling */
 import '@aws-amplify/ui-react/styles.css';
-import '@/styles/amplify-auth-tailwind.css'; 
-
-/* Shared theme + props */
+import '@/styles/amplify-auth-tailwind.css';
 import { amplifyTheme } from '@/theme/amplifyTheme';
 import formFields from "@/config/formFields"
 
 /* Analytics */
 import AnalyticsProvider from "@/analytics/AnalyticsProvider";
 
-
-// Function to open a new tab for Create Account or Verify Account (to avoid infinite email loop + popup closing)
-async function openAuthTab(route /* 'signUp' | 'confirmSignUp' */ = 'signUp', extras = {}) {
+async function openAuthTab(route = 'signUp', extras = {}) {
   const url = chrome.runtime.getURL(`newtab.html#auth=${route}`);
   chrome.tabs.create({ url }, () => {
     const err = chrome.runtime.lastError;
@@ -38,24 +34,16 @@ async function openAuthTab(route /* 'signUp' | 'confirmSignUp' */ = 'signUp', ex
   });
 }
 
-// Watch Amplify route in popup to auto-handoff on confirm
-function PopupRouteWatcher() {
-  const { route } = useAuthenticator((ctx) => [ctx.route]);
-
+// Helper that nudges the Authenticator to the Sign In view
+function KickToSignIn() {
+  const { route, toSignIn } = useAuthenticator((ctx) => [ctx.route]);
   React.useEffect(() => {
-    const isVerify =
-      route === 'confirmSignUp' ||
-      route === 'verifyUser' ||
-      route === 'confirmVerifyUser';
-
-    if (isVerify) {
-      openAuthTab('confirmSignUp');
-    }
-  }, [route]);
-
+    // If it isn't already on signIn, push it there on mount
+    if (route !== 'signIn') toSignIn();
+  }, [route, toSignIn]);
   return null;
 }
-// --- Reload helpers ---
+
 function reloadActiveTabIfNewTab() {
   try {
     const extNtp = chrome.runtime.getURL('newtab.html');
@@ -89,9 +77,7 @@ function refreshNewTabPagesBestEffort() {
     const newTabUrl = chrome.runtime.getURL('newtab.html');
     const views = (chrome.extension?.getViews?.({ type: 'tab' }) || []);
     for (const v of views) {
-      try {
-        if (v?.location?.href?.startsWith?.(newTabUrl)) v.location.reload();
-      } catch {}
+      try { if (v?.location?.href?.startsWith?.(newTabUrl)) v.location.reload(); } catch {}
     }
   } catch {}
 }
@@ -99,48 +85,160 @@ function refreshNewTabPagesBestEffort() {
 // --- Broadcast utility (used only on real sign-in/out edges) ---
 function broadcastAuthEdge(type /* 'USER_SIGNED_IN' | 'USER_SIGNED_OUT' */) {
   const at = Date.now();
-
-  // 1) storage ping
-  try {
-    chrome.storage?.local?.set({ authSignalAt: at, authSignal: type === 'USER_SIGNED_IN' ? 'signedIn' : 'signedOut' });
-  } catch {}
-
-  // 2) runtime message (ignore no receiver errors)
-  try {
-    chrome.runtime.sendMessage({ type, at }, () => { chrome.runtime.lastError; });
-  } catch {}
+  try { chrome.storage?.local?.set({ authSignalAt: at, authSignal: type === 'USER_SIGNED_IN' ? 'signedIn' : 'signedOut' }); } catch {}
+  try { chrome.runtime.sendMessage({ type, at }, () => { chrome.runtime.lastError; }); } catch {}
 }
 
-// Footer component that shows on the Sign In screen
-function SignInFooter() {
+/* ---------- Persist the popup auth mode ---------- */
+function usePopupMode() {
+  const [mode, setMode] = React.useState(AuthMode.ANON);
+  const [ready, setReady] = React.useState(false);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { mindful_auth_mode } = await chrome.storage?.local?.get?.('mindful_auth_mode') ?? {};
+        if (!cancelled && (mindful_auth_mode === AuthMode.ANON || mindful_auth_mode === AuthMode.AUTH)) {
+          setMode(mindful_auth_mode);
+        }
+      } catch {}
+      if (!cancelled) setReady(true);
+    })();
+    return () => { cancelled = true; }
+  }, []);
+
+  const save = React.useCallback(async (next) => {
+    setMode(next);
+    try { await chrome.storage?.local?.set?.({ mindful_auth_mode: next }); } catch {}
+  }, []);
+
+  return { mode, setMode: save, ready };
+}
+
+/* ---------- UI: small toggle header ---------- */
+function ModeSwitcher({ mode, onSwitch }) {
   return (
-    <div className="mt-3 text-center">
-      <button
-        type="button"
-        className="amplify-button--link"
-        onClick={() => openAuthTab('signUp')}
-      >
-        Create account
-      </button>
+    <div className="flex items-center justify-between mb-3">
+      <div className="text-sm opacity-80">
+        {mode === AuthMode.ANON ? 'Local mode (no account)' : 'Sync enabled (signed in)'}
+      </div>
+      <div className="flex gap-2">
+        {mode === AuthMode.ANON ? (
+          <button
+            type="button"
+            className="amplify-button--link"
+            onClick={() => onSwitch(AuthMode.AUTH)}
+            aria-label="Enable sync by signing in"
+          >
+            Sign in to sync
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="amplify-button--link"
+            onClick={() => onSwitch(AuthMode.ANON)}
+            aria-label="Use without account"
+          >
+            Use without account
+          </button>
+        )}
+      </div>
     </div>
   );
 }
 
+/* ---------- Watch Amplify route to auto-handoff verify in new tab ---------- */
+function PopupRouteWatcher() {
+  const { route } = useAuthenticator((ctx) => [ctx.route]);
+  React.useEffect(() => {
+    const isVerify =
+      route === 'confirmSignUp' || route === 'verifyUser' || route === 'confirmVerifyUser';
+    if (isVerify) openAuthTab('confirmSignUp');
+  }, [route]);
+  return null;
+}
+
+/* ---------- Gate: anon vs auth ---------- */
+function AuthGate({ mode, onWantAuth }) {
+  // ANON: No Authenticator at all. App runs local-only with user=null.
+  if (mode === AuthMode.ANON) {
+    return (
+      <>
+        <AppContextProvider user={null} preferredStorageType="local">
+          <PopUpComponent />
+        </AppContextProvider>
+      </>
+    );
+  } 
+
+  // AUTH: Render Authenticator and pass user into AppContextProvider.
+  // AUTH branch
+  return (
+    <Authenticator
+      className="!p-0"
+      hideSignUp={true}
+      formFields={formFields}
+      components={{
+        SignIn: {
+          Footer: () => (
+            <div className="mt-3 text-center">
+              <button type="button" className="amplify-button--link" onClick={() => openAuthTab('signUp')}>
+                Create account
+              </button>
+            </div>
+          )
+        }
+      }}
+    >
+      {({ user }) => (
+        <>
+          {/* Ensure we’re on the sign-in panel the moment this mounts */}
+          <KickToSignIn />
+
+          <AppContextProvider user={user}>
+            {!user && (
+              <div className="mt-3">
+                <button
+                  className="amplify-button--link"
+                  onClick={() => openAuthTab('signUp')}
+                  type="button"
+                >
+                  Create account (opens full page)
+                </button>
+              </div>
+            )}
+            <PopUpComponent />
+            <PopupRouteWatcher />
+          </AppContextProvider>
+        </>
+      )}
+    </Authenticator>
+  ); 
+}
+
 export default function PopupPage() {
-  // Listen only for real Hub auth edges so we don’t fire on popup open
+  const { mode, setMode, ready } = usePopupMode();
+
+  // Listen for real sign-in/out edges to refresh new-tab & broadcast
   useEffect(() => {
-    const unsub = Hub.listen('auth', ({ payload }) => {
+    const unsub = Hub.listen(AuthMode.AUTH, ({ payload }) => {
       // Common events: 'signedIn', 'signedOut', 'tokenRefresh', etc.
       if (payload?.event === 'signedIn') {
         broadcastAuthEdge('USER_SIGNED_IN');
         refreshNewTabPagesBestEffort();
+        // stay in AuthMode.AUTH mode
       } else if (payload?.event === 'signedOut') {
         broadcastAuthEdge('USER_SIGNED_OUT');
         refreshNewTabPagesBestEffort();
+        // optionally fall back to anon on sign out:
+        setMode(AuthMode.ANON);
       }
     });
     return () => unsub();
-  }, []);
+  }, [setMode]);
+
+  if (!ready) return null; // tiny guard to avoid flicker
 
   return (
     <Authenticator.Provider>
@@ -149,40 +247,20 @@ export default function PopupPage() {
           <div className="popup-root mindful-auth p-4">
             <PopupAutosize selector=".popup-root" maxH={600} />
             <LogoComponent />
-            <Authenticator
-              className="!p-0"
-              hideSignUp={true}  // Hide Create Account in the popup in order to open a new tab, for easier email verification                   
-              formFields={formFields}
-              components={{
-                SignIn: { Footer: SignInFooter },
-              }}
-            >
-              {({ user }) => (
-                <AppContextProvider user={user}>
-                  {/* Offer a create-account link */}
-                  {!user && (
-                    <div className="mt-3">
-                      <button
-                        className="text-sm text-blue-600 hover:underline"
-                        onClick={() => openAuthTab('signUp')}
-                        type="button"
-                      >
-                        Create account (opens full page)
-                      </button>
-                    </div>
-                  )}
-
-                  <PopUpComponent />
-
-                  {/* Silently watch for confirm step and auto-handoff */}
-                  <PopupRouteWatcher />
-                </AppContextProvider>
-              )}
-            </Authenticator>
+            <ModeSwitcher mode={mode} onSwitch={(next) => {
+              console.log("next: ", next);
+              if (next === AuthMode.AUTH) {
+                // switching to auth: show sign-in inside popup first
+                setMode(AuthMode.AUTH);
+              } else {
+                // switching to anon: clear to local-only
+                setMode(AuthMode.ANON);
+              }
+            }} />
+            <AuthGate mode={mode} onWantAuth={() => setMode(AuthMode.AUTH)} /> 
           </div>
         </ThemeProvider>
       </AnalyticsProvider>
     </Authenticator.Provider>
   );
-
 }
