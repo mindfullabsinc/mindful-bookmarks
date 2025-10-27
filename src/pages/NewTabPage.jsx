@@ -36,13 +36,14 @@ export function NewTabPage({ user, signIn, signOut }) {
   console.log("window.location.hash: ", window.location.hash);
 
   // Consume state from the context
-  const {  
-    bookmarkGroups, 
-    setBookmarkGroups, 
-    userId, 
-    storageType, 
+  const {
+    bookmarkGroups,
+    setBookmarkGroups,
+    userId,
+    storageType,
     isMigrating,
-    userAttributes
+    userAttributes,
+    isSignedIn,
   } = useContext(AppContext);
 
   const gridRef = useRef(null);
@@ -190,9 +191,6 @@ export function NewTabPage({ user, signIn, signOut }) {
   }, []);
 
   /* ------------------- Derive isSignedIn + safe fallbacks ------------------- */
-  // Treat StorageType.LOCAL sentinel (from AppContextProvider) as anonymous.
-  const isSignedIn = !!userId && userId !== StorageType.LOCAL;
-
   // If caller doesn’t provide a signIn handler, use a safe default that
   // navigates to the in-app auth view on New Tab (hash route).
   const defaultSignIn = () => {
@@ -234,7 +232,7 @@ export function NewTabPage({ user, signIn, signOut }) {
         />
         <DraggableGrid
           ref={gridRef}
-          user={isSignedIn ? (user || { sub: userId }) : null /* optional: keep prop shape */}
+          user={isSignedIn ? { sub: userId } : null} 
           bookmarkGroups={bookmarkGroups}
         />
         <EmptyBookmarksState

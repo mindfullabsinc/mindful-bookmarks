@@ -42,6 +42,10 @@ export function AppContextProvider({
   const [isLoading, setIsLoading] = useState(true);   // only for the very first paint
   const [isMigrating, setIsMigrating] = useState(false);
 
+  const resolvedUserId = userId ?? LOCAL_USER_ID;
+  const isSignedIn = !!userId && userId !== LOCAL_USER_ID && storageType === StorageType.REMOTE;
+  const authKey = isSignedIn ? resolvedUserId : 'anon-key';
+
   const deepEqual = (a, b) => {
     try { return JSON.stringify(a) === JSON.stringify(b); } catch { return false; }
   };
@@ -78,7 +82,7 @@ export function AppContextProvider({
 
   useEffect(() => {
     if (storageType) {
-      console.log('[AppContext] state change:', { userId, storageType, surface: (globalThis).__surface, href: location?.href });
+      console.debug('[AppContext] ready:', { userId, storageType });
     }
   }, [userId, storageType]);
 
@@ -101,11 +105,36 @@ export function AppContextProvider({
         }
       } catch {}
 
-      // If opened while signed out, run in LOCAL immediately.
+      // If no user prop, we might still have an existing session (silent sign-in).
       if (!user) {
+        try {
+          const session = await fetchAuthSession().catch(() => null);
+          // Note: v6 returns an object; treat presence of tokens/userSub/identityId as "has session"
+          const hasSession = !!(session?.tokens || session?.userSub || session?.identityId);
+          if (hasSession) {
+            const attributes = await fetchUserAttributes().catch(() => ({}));
+            const sub = attributes?.sub || attributes?.['sub'];
+            const derivedUserId = sub || session?.identityId || null;
+            if (!cancelled) {
+              setUserId(derivedUserId);
+              setUserAttributes(attributes);
+              const storedType = attributes?.['custom:storage_type'];
+              const effectiveType = preferredStorageType || storedType || DEFAULT_STORAGE_TYPE;
+              setStorageType(effectiveType);
+              console.log('[AppContext] ready (SILENT AUTH):', { userId: derivedUserId, storageType: effectiveType });
+              if (!storedType && effectiveType) {
+                updateUserAttribute({
+                  userAttribute: { attributeKey: 'custom:storage_type', value: effectiveType }
+                }).catch(() => {});
+              }
+            }
+            return; // handled as signed-in
+          }
+        } catch {}
+      
+        // Truly signed out → LOCAL immediately.
         if (!cancelled) {
           setUserId(LOCAL_USER_ID);
-          // If caller asked for remote while signed out, coerce to LOCAL.
           const effective = preferredStorageType === StorageType.REMOTE
             ? StorageType.LOCAL
             : preferredStorageType || StorageType.LOCAL;
@@ -161,7 +190,7 @@ export function AppContextProvider({
   useEffect(() => {
     if (!storageType) return;
     // Always have a concrete userId: LOCAL_USER_ID when anonymous.
-    const id = user ? userId : LOCAL_USER_ID;
+    const id = isSignedIn ? resolvedUserId : LOCAL_USER_ID;
     console.log("user id: ", id);
 
     const cached = readBookmarkCacheSync(id, storageType);
@@ -171,7 +200,7 @@ export function AppContextProvider({
       setHasHydrated(true); // we’ve shown meaningful content
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user ? userId : 'anon-key', storageType]); // treat anon as stable key
+  }, [authKey, storageType]); // treat anon as stable key
 
   // ----- phase 1b: render ASAP with groups index (async but cheap) -----
   useEffect(() => {
@@ -181,7 +210,7 @@ export function AppContextProvider({
       setIsLoading(true);
 
       try {
-        const id = user ? userId : LOCAL_USER_ID;
+        const id = isSignedIn ? resolvedUserId: LOCAL_USER_ID;
         const cached = await readBookmarkCacheSession(id, storageType);
         if (!cancelled && cached?.data?.length) {
           setBookmarkGroups(prev => (deepEqual(prev, cached.data) ? prev : cached.data));
@@ -197,7 +226,7 @@ export function AppContextProvider({
     })();
 
     return () => { cancelled = true; };
-  }, [user ? userId : 'anon-key', storageType, user]);
+  }, [authKey, storageType, user]);
 
   // ----- phase 2: hydrate full groups in background once mode is known -----
   useEffect(() => {
@@ -205,7 +234,7 @@ export function AppContextProvider({
     if (!storageType) return;
 
     // Always resolve a concrete id (LOCAL_USER_ID for anon)
-    const id = user ? userId : LOCAL_USER_ID;
+    const id = isSignedIn ? resolvedUserId: LOCAL_USER_ID;
     if (!id) return;
 
     let cancelled = false;
@@ -241,7 +270,7 @@ export function AppContextProvider({
     }
 
     return () => { cancelled = true; };
-  }, [user ? userId : 'anon-key', storageType, isMigrating, user]);
+  }, [authKey, storageType, isMigrating, user]);
 
   // ----- background reloads (don’t flip isLoading) -----
   useEffect(() => {
@@ -249,7 +278,7 @@ export function AppContextProvider({
 
     const reload = async () => {
       try {
-        const id = user ? userId : LOCAL_USER_ID;
+        const id = isSignedIn ? resolvedUserId: LOCAL_USER_ID;
         const fresh = await loadInitialBookmarks(id, storageType);
         setBookmarkGroups(prev => (deepEqual(prev, fresh) ? prev : fresh));
 
@@ -289,7 +318,7 @@ export function AppContextProvider({
       try { bc?.close?.(); } catch {}
       document.removeEventListener('visibilitychange', onVis);
     };
-  }, [user ? userId : 'anon-key', storageType, isMigrating, user]);
+  }, [authKey, storageType, isMigrating, user]);
 
   // ----- storage type changes -----
   const handleStorageTypeChange = useCallback(async (newStorageType) => {
@@ -321,11 +350,10 @@ export function AppContextProvider({
     // for popup & new tab
     groupsIndex,
     bookmarkGroups, setBookmarkGroups,
-
-    userId: user ? userId : LOCAL_USER_ID, // expose concrete id to consumers
+    userId: userId ?? LOCAL_USER_ID,  // Always expose the actual resolved userId (LOCAL_USER_ID when anon)
     storageType,
     setStorageType: handleStorageTypeChange,
-
+    isSignedIn,
     isLoading,
     isMigrating, setIsMigrating,
     userAttributes, setUserAttributes,

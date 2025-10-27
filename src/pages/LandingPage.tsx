@@ -28,7 +28,6 @@ import '@aws-amplify/ui-react/styles.css';
 /* Analytics */
 import AnalyticsProvider from "@/analytics/AnalyticsProvider";
 
-
 // Utility for simple fade-up animations
 const fadeUp = {
   initial: { opacity: 0, y: 24 },

@@ -12,8 +12,7 @@ import { AppContext } from '@/scripts/AppContextProvider';
 import { constructValidURL } from "@/scripts/Utilities";
 
 /* Analytics */
-import { useAnalytics } from "@/analytics/AnalyticsProvider";
-
+import { useAnalytics } from "@/analytics/AnalyticsContext";
 
 function AddBookmarkInline(props) {
   const {
