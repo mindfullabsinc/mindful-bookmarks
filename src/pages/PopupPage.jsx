@@ -89,6 +89,14 @@ function broadcastAuthEdge(type /* 'USER_SIGNED_IN' | 'USER_SIGNED_OUT' */) {
   try { chrome.runtime.sendMessage({ type, at }, () => { chrome.runtime.lastError; }); } catch {}
 }
 
+// --- Broadcast utility for switching to anon mode (without signing out) ---
+function broadcastLocalModeEdge() {
+  const at = Date.now();
+  // persist the mode and a timestamp that New Tab can observe
+  try { chrome.storage?.local?.set({ mindful_auth_mode: AuthMode.ANON, modeSignalAt: at }); } catch {}
+  try { chrome.runtime.sendMessage({ type: 'MODE_SWITCHED_TO_ANON', at }, () => { chrome.runtime.lastError; }); } catch {}
+}
+
 /* ---------- Persist the popup auth mode ---------- */
 function usePopupMode() {
   const [mode, setMode] = React.useState(AuthMode.ANON);
@@ -258,6 +266,9 @@ export default function PopupPage() {
               } else {
                 // switching to anon: clear to local-only
                 setMode(AuthMode.ANON);
+                // tell any open New Tab pages to flip to LOCAL and refresh
+                broadcastLocalModeEdge();
+                refreshNewTabPagesBestEffort();
               }
             }} />
             <AuthGate mode={mode} onWantAuth={() => setMode(AuthMode.AUTH)} /> 

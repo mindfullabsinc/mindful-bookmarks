@@ -88,6 +88,19 @@ export function AppContextProvider({
     console.log('[AppContext] phase0 start: user?', !!user);
 
     (async () => {
+      // If user explicitly chose anon mode in the popup, force LOCAL immediately.
+      try {
+        const { mindful_auth_mode } = await chrome?.storage?.local?.get?.('mindful_auth_mode') ?? {};
+        if (mindful_auth_mode === 'anon') {
+          if (!cancelled) {
+            setUserId(LOCAL_USER_ID);
+            setStorageType(StorageType.LOCAL);
+            console.log('[AppContext] forced LOCAL due to anon mode');
+          }
+          return; // short-circuit phase 0
+        }
+      } catch {}
+
       // If opened while signed out, run in LOCAL immediately.
       if (!user) {
         if (!cancelled) {

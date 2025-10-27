@@ -33,6 +33,8 @@ import AnalyticsProvider from "@/analytics/AnalyticsProvider";
 
 
 export function NewTabPage({ user, signIn, signOut }) {
+  console.log("window.location.hash: ", window.location.hash);
+
   // Consume state from the context
   const {  
     bookmarkGroups, 
@@ -47,6 +49,19 @@ export function NewTabPage({ user, signIn, signOut }) {
 
   // --- De-dupe bursts from message + storage ---
   const lastAuthSignalAtRef = useRef(0);
+  const lastModeSignalAtRef = useRef(0);
+
+  const clearAuthHash = () => {
+    console.log("Got to clearAuthHash");
+    try {
+      const h = window.location.hash || '';
+      if (h.includes('auth=')) {
+        // Clear hash without pushing history
+        history.replaceState(null, '', window.location.pathname + window.location.search);
+      }
+    } catch {}
+  };
+
   const handleAuthSignal = (at = Date.now()) => {
     if (at <= lastAuthSignalAtRef.current) return; // ignore duplicates
     lastAuthSignalAtRef.current = at;
@@ -55,6 +70,18 @@ export function NewTabPage({ user, signIn, signOut }) {
     // If you prefer a soft refresh, swap the line above for:
     // - re-check auth + re-run your initial data loads
     // - e.g., await getCurrentUser(); reloadBookmarks(); etc.
+  };
+
+  const handleModeAnonSignal = (at = Date.now()) => {
+    if (at <= lastModeSignalAtRef.current) return;
+    lastModeSignalAtRef.current = at;
+    // clear any auth route and reload so AppContext re-reads LOCAL
+    console.log("In handleModeAnonSignal, calling clearAuthHash");
+    clearAuthHash();
+    window.location.reload();
+    console.log("window.location.hash: ", window.location.hash);
+    // (If you prefer a soft flip, you could call setStorageType(StorageType.LOCAL)
+    //  and reload bookmarks; reload is cleaner across providers/hooks.)
   };
 
   // Get all actions from the custom bookmarks hook
@@ -69,6 +96,21 @@ export function NewTabPage({ user, signIn, signOut }) {
   const handleLoadBookmarks = () => {
     importBookmarksFromJSON();
   };
+
+  // After initial mount, if saved mode is 'anon', strip any auth hash right away.
+  useEffect(() => {
+    (async () => {
+      try {
+        const { mindful_auth_mode } = await chrome?.storage?.local?.get?.('mindful_auth_mode') ?? {};
+        if (mindful_auth_mode === 'anon') {
+          const h = window.location.hash || '';
+          if (h.includes('auth=')) {
+            history.replaceState(null, '', window.location.pathname + window.location.search);
+          }
+        }
+      } catch {}
+    })();
+  }, []);
 
   // Effect to ensure an empty group for adding new bookmarks always exists.
   const { hasHydrated } = useContext(AppContext);
@@ -120,13 +162,16 @@ export function NewTabPage({ user, signIn, signOut }) {
     const onMsg = (msg) => {
       if (msg?.type === 'USER_SIGNED_IN' || msg?.type === 'USER_SIGNED_OUT') {
         handleAuthSignal(Number(msg.at) || Date.now());
+      } else if (msg?.type === 'MODE_SWITCHED_TO_ANON') {
+        clearAuthHash();
+        handleModeAnonSignal(Number(msg.at) || Date.now());
       }
     };
     try { chrome?.runtime?.onMessage?.addListener?.(onMsg); } catch {}
     return () => { try { chrome?.runtime?.onMessage?.removeListener?.(onMsg); } catch {} };
   }, []); 
 
-  // --- Also watch storage for 'authSignalAt' (works even if listener missed runtime msg) ---
+  // --- Also watch storage for 'authSignalAt' and 'modeSignalAt' --- 
   useEffect(() => {
     const storageEvents = chrome?.storage?.onChanged;
     if (!storageEvents?.addListener) return () => {};
@@ -134,6 +179,10 @@ export function NewTabPage({ user, signIn, signOut }) {
       if (area !== StorageType.LOCAL) return;
       if (changes?.authSignalAt?.newValue) {
         handleAuthSignal(Number(changes.authSignalAt.newValue));
+      }
+      if (changes?.modeSignalAt?.newValue) {
+        clearAuthHash();
+        handleModeAnonSignal(Number(changes.modeSignalAt.newValue));
       }
     };
     try { storageEvents.addListener(onStorageAuth); } catch {}
