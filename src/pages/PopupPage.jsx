@@ -9,7 +9,7 @@ import { Authenticator, ThemeProvider, useAuthenticator } from '@aws-amplify/ui-
 
 /* Scripts */
 import { AppContextProvider } from '@/scripts/AppContextProvider';
-import { AuthMode } from '@/scripts/Constants';
+import { AuthMode, AMPLIFY_HUB_AUTH_CHANNEL } from '@/scripts/Constants';
 
 /* Components */
 import PopUpComponent from '@/components/PopUpComponent';
@@ -118,6 +118,7 @@ function usePopupMode() {
 
 /* ---------- UI: small toggle header ---------- */
 function ModeSwitcher({ mode, onSwitch }) {
+  console.log("In ModeSwitcher. mode: ", mode, " onSwitch: ", onSwitch);
   return (
     <div className="flex items-center justify-between mb-3">
       <div className="text-sm opacity-80">
@@ -223,7 +224,8 @@ export default function PopupPage() {
 
   // Listen for real sign-in/out edges to refresh new-tab & broadcast
   useEffect(() => {
-    const unsub = Hub.listen(AuthMode.AUTH, ({ payload }) => {
+    // Amplify v6 Hub uses the literal 'auth' channel, so need to use the string literal
+    const unsub = Hub.listen(AMPLIFY_HUB_AUTH_CHANNEL, ({ payload }) => {
       // Common events: 'signedIn', 'signedOut', 'tokenRefresh', etc.
       if (payload?.event === 'signedIn') {
         broadcastAuthEdge('USER_SIGNED_IN');

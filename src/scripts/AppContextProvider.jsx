@@ -6,7 +6,9 @@ import {
 } from 'aws-amplify/auth';
 
 /* Scripts */
-import { StorageType, DEFAULT_STORAGE_TYPE, LOCAL_USER_ID } from '@/scripts/Constants.js';
+import { 
+  StorageType, DEFAULT_STORAGE_TYPE, LOCAL_USER_ID 
+} from '@/scripts/Constants.js';
 import { loadInitialBookmarks } from '@/hooks/useBookmarkManager.js';
 
 /* Caching: synchronous snapshot for first-paint + session cache for reopens */

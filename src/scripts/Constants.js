@@ -25,3 +25,4 @@ export const AuthMode = {
 }
 /** Stable sentinel used for anonymous/local mode keys & caches */
 export const LOCAL_USER_ID = 'local';
+export const AMPLIFY_HUB_AUTH_CHANNEL = 'auth';

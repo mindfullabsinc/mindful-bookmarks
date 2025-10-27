@@ -119,47 +119,30 @@ export function NewTabPage({ user, signIn, signOut }) {
   useEffect(() => {
     const onMsg = (msg) => {
       if (msg?.type === 'USER_SIGNED_IN' || msg?.type === 'USER_SIGNED_OUT') {
-        handleAuthSignal(msg.at);
+        handleAuthSignal(Number(msg.at) || Date.now());
       }
     };
-    const runtime = typeof chrome !== 'undefined' ? chrome.runtime : undefined;
-    if (runtime?.onMessage?.addListener && runtime?.onMessage?.removeListener) {
-      runtime.onMessage.addListener(onMsg);
-      return () => runtime.onMessage.removeListener(onMsg);
-    }
-    // In non-extension envs (tests), do nothing.
-    return () => {};
-  }, []);
+    try { chrome?.runtime?.onMessage?.addListener?.(onMsg); } catch {}
+    return () => { try { chrome?.runtime?.onMessage?.removeListener?.(onMsg); } catch {} };
+  }, []); 
 
-  // --- Listen for auth storage ping (fallback/decoupled path) ---
+  // --- Also watch storage for 'authSignalAt' (works even if listener missed runtime msg) ---
   useEffect(() => {
-    // Only use this fallback if runtime messaging isn't available.
-    const hasRuntimeMessaging =
-      !!chrome?.runtime?.onMessage?.addListener &&
-      !!chrome?.runtime?.onMessage?.removeListener;
-    if (hasRuntimeMessaging) {
-      // Runtime path exists; skip the storage fallback to avoid double listeners.
-      return () => {};
-    }
-    
     const storageEvents = chrome?.storage?.onChanged;
-    if (!storageEvents?.addListener || !storageEvents?.removeListener) {
-      return () => {};
-    }
-    
+    if (!storageEvents?.addListener) return () => {};
     const onStorageAuth = (changes, area) => {
-      if (area !== 'local') return;
-      if (changes.authSignalAt?.newValue) {
+      if (area !== StorageType.LOCAL) return;
+      if (changes?.authSignalAt?.newValue) {
         handleAuthSignal(Number(changes.authSignalAt.newValue));
       }
     };
-    storageEvents.addListener(onStorageAuth);
-    return () => storageEvents.removeListener(onStorageAuth);
+    try { storageEvents.addListener(onStorageAuth); } catch {}
+    return () => { try { storageEvents.removeListener(onStorageAuth); } catch {} };
   }, []);
 
   /* ------------------- Derive isSignedIn + safe fallbacks ------------------- */
-  // Treat 'local' sentinel (from AppContextProvider) as anonymous.
-  const isSignedIn = !!userId && userId !== 'local';
+  // Treat StorageType.LOCAL sentinel (from AppContextProvider) as anonymous.
+  const isSignedIn = !!userId && userId !== StorageType.LOCAL;
 
   // If caller doesn’t provide a signIn handler, use a safe default that
   // navigates to the in-app auth view on New Tab (hash route).
