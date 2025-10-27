@@ -157,20 +157,52 @@ export function NewTabPage({ user, signIn, signOut }) {
     return () => storageEvents.removeListener(onStorageAuth);
   }, []);
 
+  /* ------------------- Derive isSignedIn + safe fallbacks ------------------- */
+  // Treat 'local' sentinel (from AppContextProvider) as anonymous.
+  const isSignedIn = !!userId && userId !== 'local';
+
+  // If caller doesn’t provide a signIn handler, use a safe default that
+  // navigates to the in-app auth view on New Tab (hash route).
+  const defaultSignIn = () => {
+    try {
+      // Convention: NewTab auth route reader can pick this up.
+      // For example, the router (or a small effect) can detect #auth=signIn
+      // and render the <Authenticator> panel inline.
+      const h = window.location.hash || '';
+      if (!h.includes('auth=')) {
+        window.location.hash = '#auth=signIn';
+        // Trigger a hashchange in case the same hash is set elsewhere
+        window.dispatchEvent(new HashChangeEvent('hashchange'));
+      }
+      // Optionally focus an auth container 
+      const el = document.querySelector('[data-auth-root]');
+      if (el) el.scrollIntoView({ block: 'center' });
+    } catch (e) {
+      console.warn('defaultSignIn failed:', e);
+    }
+  };
+
+  // If caller doesn’t provide a signOut handler, no-op (or soft reload pattern).
+  const defaultSignOut = () => {
+    // Intentionally blank – the higher-level page should replace this when Amplify is present.
+    // Can also choose to postMessage to a top-level auth orchestrator if we have one.
+  };
+  /* ------------------------------------------------------------------------------ */
+
   return (
     <AnalyticsProvider>
       <div className="min-h-screen bg-gray-100 dark:bg-neutral-950">
         <TopBanner
           onExportBookmarks={exportBookmarksToJSON}
           userAttributes={userAttributes}
-          onSignIn={signIn}
-          onSignOut={signOut}
-          isSignedIn={!!user}
+          onSignIn={signIn || defaultSignIn}
+          onSignOut={signOut || defaultSignOut}
+          isSignedIn={isSignedIn /* prefer context-derived status over props */}
           onStorageTypeChange={changeStorageType}
         />
         <DraggableGrid
           ref={gridRef}
-          user={user}
+          user={isSignedIn ? (user || { sub: userId }) : null /* optional: keep prop shape */}
           bookmarkGroups={bookmarkGroups}
         />
         <EmptyBookmarksState

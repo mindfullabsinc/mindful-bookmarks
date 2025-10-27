@@ -6,7 +6,7 @@ import {
 } from 'aws-amplify/auth';
 
 /* Scripts */
-import { StorageType, DEFAULT_STORAGE_TYPE } from '@/scripts/Constants.js';
+import { StorageType, DEFAULT_STORAGE_TYPE, LOCAL_USER_ID } from '@/scripts/Constants.js';
 import { loadInitialBookmarks } from '@/hooks/useBookmarkManager.js';
 
 /* Caching: synchronous snapshot for first-paint + session cache for reopens */
@@ -17,14 +17,12 @@ import {
   writeBookmarkCacheSession,       // chrome.storage.session (async)
 } from '@/scripts/BookmarkCache';
 
-export const AppContext = createContext();
 
-/** Stable sentinel used for anonymous/local mode keys & caches */
-const LOCAL_USER_ID = 'local';
+export const AppContext = createContext();
 
 export function AppContextProvider({
   user,
-  preferredStorageType = StorageType.LOCAL, // NEW: let caller prefer local/remote
+  preferredStorageType = null, // Let caller prefer local/remote
   children
 }) {
   // ----- state -----
@@ -76,9 +74,16 @@ export function AppContextProvider({
     return [];
   }
 
+  useEffect(() => {
+    if (storageType) {
+      console.log('[AppContext] state change:', { userId, storageType, surface: (globalThis).__surface, href: location?.href });
+    }
+  }, [userId, storageType]);
+
   // ----- phase 0: decide mode quickly (no blocking on Amplify for LOCAL) -----
   useEffect(() => {
     let cancelled = false;
+    console.log('[AppContext] phase0 start: user?', !!user);
 
     (async () => {
       // If opened while signed out, run in LOCAL immediately.
@@ -90,21 +95,32 @@ export function AppContextProvider({
             ? StorageType.LOCAL
             : preferredStorageType || StorageType.LOCAL;
           setStorageType(effective);
+          console.log('[AppContext] ready (UNAUTH):', { userId: LOCAL_USER_ID, storageType: effective });
         }
         return;
       }
 
       // Signed-in: prefer (1) caller hint, then (2) user attribute, then (3) default.
       try {
-        const { identityId } = await fetchAuthSession();
-        if (!cancelled) setUserId(identityId || null);
+        const session = await fetchAuthSession().catch(() => ({}));
+        const attributes = await fetchUserAttributes().catch(() => ({}));
+        console.log("Signed in user attributes: ", attributes);
 
-        const attributes = await fetchUserAttributes();
-        if (!cancelled) setUserAttributes(attributes);
+        // Robust user id derivation for remote data keys
+        const sub = attributes?.sub || attributes?.['sub'];
+        const identityId = session?.identityId; // only when Identity Pool is configured
+        const derivedUserId = sub || identityId || user?.username || null;
+
+        if (!cancelled) {
+          setUserId(derivedUserId);
+          setUserAttributes(attributes);
+        }
 
         const storedType = attributes?.['custom:storage_type'];
+        console.log("User provided storage type: ", storedType);
         const effectiveType =
           preferredStorageType || storedType || DEFAULT_STORAGE_TYPE;
+        console.log("effectiveType: ", effectiveType);
 
         if (!cancelled) setStorageType(effectiveType);
 
@@ -117,10 +133,10 @@ export function AppContextProvider({
       } catch (err) {
         console.warn('Auth bootstrap failed, falling back to LOCAL:', err);
         if (!cancelled) {
-          setUserId(LOCAL_USER_ID);
+          setUserId('local');
           setStorageType(StorageType.LOCAL);
         }
-      }
+      } 
     })();
 
     return () => { cancelled = true; };
@@ -131,8 +147,10 @@ export function AppContextProvider({
     if (!storageType) return;
     // Always have a concrete userId: LOCAL_USER_ID when anonymous.
     const id = user ? userId : LOCAL_USER_ID;
+    console.log("user id: ", id);
 
     const cached = readBookmarkCacheSync(id, storageType);
+    console.log("cached bookmarks in phase 1a: ", cached);
     if (cached?.data && !deepEqual(bookmarkGroups, cached.data)) {
       setBookmarkGroups(cached.data);
       setHasHydrated(true); // we’ve shown meaningful content

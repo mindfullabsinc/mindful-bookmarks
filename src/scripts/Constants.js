@@ -23,3 +23,5 @@ export const AuthMode = {
   ANON: 'anonymous',
   AUTH: 'authenticated',
 }
+/** Stable sentinel used for anonymous/local mode keys & caches */
+export const LOCAL_USER_ID = 'local';

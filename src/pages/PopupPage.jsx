@@ -163,6 +163,7 @@ function PopupRouteWatcher() {
 function AuthGate({ mode, onWantAuth }) {
   // ANON: No Authenticator at all. App runs local-only with user=null.
   if (mode === AuthMode.ANON) {
+    console.log("Authentication mode is ANON, setting preferredStorageType to local");
     return (
       <>
         <AppContextProvider user={null} preferredStorageType="local">
