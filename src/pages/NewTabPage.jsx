@@ -7,6 +7,7 @@ import '@aws-amplify/ui-react/styles.css';
 // Import Amplify configuration and configure Amplify
 import config from '/amplify_outputs.json';
 Amplify.configure(config);
+import { signOut as amplifySignOut } from 'aws-amplify/auth';
 
 /* CSS styles */
 import "@/styles/Login.css";
@@ -212,11 +213,28 @@ export function NewTabPage({ user, signIn, signOut }) {
     }
   };
 
-  // If caller doesn’t provide a signOut handler, no-op (or soft reload pattern).
-  const defaultSignOut = () => {
-    // Intentionally blank – the higher-level page should replace this when Amplify is present.
-    // Can also choose to postMessage to a top-level auth orchestrator if we have one.
-  };
+  // --- Broadcast utilities (mirror Popup) ---
+  function broadcastAuthEdge(type /* 'USER_SIGNED_OUT' */) {
+    const at = Date.now();
+    try { chrome.storage?.local?.set({ authSignalAt: at, authSignal: 'signedOut' }); } catch {}
+    try { chrome.runtime?.sendMessage?.({ type, at }, () => { chrome.runtime?.lastError; }); } catch {}
+  }
+  function broadcastLocalModeEdge() {
+    const at = Date.now();
+    try { chrome.storage?.local?.set({ mindful_auth_mode: 'anon', modeSignalAt: at }); } catch {}
+    try { chrome.runtime?.sendMessage?.({ type: 'MODE_SWITCHED_TO_ANON', at }, () => { chrome.runtime?.lastError; }); } catch {}
+  }
+  
+  // Real default sign-out for the silent-auth New Tab path.
+  const defaultSignOut = async () => {
+    try { await amplifySignOut({ global: true }); } catch {}
+    // flip UI to anon for any open New Tab pages
+    broadcastAuthEdge('USER_SIGNED_OUT');
+    broadcastLocalModeEdge();
+    clearAuthHash();
+    // simplest: full reload so providers/hooks re-init cleanly
+    try { window.location.reload(); } catch {}
+  }; 
   /* ------------------------------------------------------------------------------ */
 
   return (
