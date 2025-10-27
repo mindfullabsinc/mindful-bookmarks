@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useContext } from "react";
+import React, { useMemo, useState, useContext, useEffect } from "react";
 import PhoneInput from 'react-phone-number-input';
 
 /* Amplify auth */
@@ -22,46 +22,56 @@ import { Avatar } from "@/components/ui/Avatar";
 
 
 export default function ManageAccountComponent({ user, signIn, signOut }) {
-  const {  
+  const {
     userAttributes,
     setUserAttributes,
     storageType,
     setStorageType,
   } = useContext(AppContext);
 
+   // Consider ourselves "hydrating" when the user is known but attributes are not yet loaded.
+  const isHydrating = !!user && userAttributes == null;
+
+   // Local form state starts empty; we’ll hydrate it when attributes arrive.
+  const [form, setForm] = useState({
+    given_name: "",
+    family_name: "",
+    email: "",
+    phone: "",
+    storage_type: storageType ?? StorageType.LOCAL,
+  });
+  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+
   const [pendingVerify, setPendingVerify] = useState(null); // "email" | "phone_number" | null
   const [verifyCode, setVerifyCode] = useState("");
 
-  const given_name = useMemo(() => {
-    return userAttributes?.given_name || "";
-  }, [userAttributes]);
-
-  const family_name = useMemo(() => {
-    return userAttributes?.family_name || "";
-  }, [userAttributes]);
-
-  const initials = useMemo(() => {
-    const a = (userAttributes?.given_name || "Y")[0];
-    const b = (userAttributes?.family_name || "N")[0];
-    return `${a}${b}`.toUpperCase();
-  }, [userAttributes]);
-
-  const email = userAttributes?.email || "yourname@gmail.com";
-  const phone = userAttributes?.phone_number || "+15555555555";
-
-  const [form, setForm] = useState({
-    given_name,
-    family_name,
-    email,
-    phone,
-    storage_type: storageType ?? StorageType.LOCAL,
-  });
-  const [saving, setSaving] = useState(false);
+  // Refill the form when attributes/storage change (unless user has started editing).
+  useEffect(() => {
+    if (!dirty && userAttributes) {
+      setForm((f) => ({
+        ...f,
+        given_name: userAttributes.given_name ?? "",
+        family_name: userAttributes.family_name ?? "",
+        email: userAttributes.email ?? "",
+        phone: userAttributes.phone_number ?? "",
+        storage_type: storageType ?? StorageType.LOCAL,
+      }));
+    }
+  }, [userAttributes, storageType, dirty]);
 
   const handle = (key) => (valueOrEvent) => {
     const newValue = valueOrEvent?.target ? valueOrEvent.target.value : valueOrEvent;
+    setDirty(true);
     setForm((f) => ({ ...f, [key]: newValue }));
   };
+
+  // Header values (can be blank while hydrating; UI still renders)
+  const initials = useMemo(() => {
+    const a = (form.given_name || " ").trim()[0] || " ";
+    const b = (form.family_name || " ").trim()[0] || " ";
+    return `${a}${b}`.toUpperCase();
+  }, [form.given_name, form.family_name]);
 
   const save = async () => {
     setSaving(true);
@@ -105,18 +115,24 @@ export default function ManageAccountComponent({ user, signIn, signOut }) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-neutral-950 py-10 px-4 flex justify-center">
+    <div 
+      className="min-h-screen bg-gray-100 dark:bg-neutral-950 py-10 px-4 flex justify-center"
+      aria-busy={isHydrating}
+    >
       <main className="w-full max-w-2xl">
         <div className="rounded-2xl bg-white dark:bg-neutral-900 shadow-xl
                         ring-1 ring-black/5 dark:ring-white/10 p-6">
+
           {/* Header row */}
           <div className="flex items-center gap-4">
             <Avatar initials={initials} />
             <div className="flex-1">
               <div className="text-base font-semibold text-neutral-800 dark:text-neutral-200">
-                {given_name + " " + family_name}
+                {(form.given_name + " " + form.family_name).trim() || "\u00A0"}
               </div>
-              <div className="text-sm text-neutral-500 dark:text-neutral-400">{email}</div> 
+              <div className="text-sm text-neutral-500 dark:text-neutral-400">
+                {form.email || "\u00A0"} 
+              </div> 
             </div>
           </div>
 
@@ -126,11 +142,12 @@ export default function ManageAccountComponent({ user, signIn, signOut }) {
               <input
                 className="w-full bg-transparent text-right
                          text-neutral-500 dark:text-neutral-400
-                          placeholder-neutral-400 dark:placeholder-neutral/30
+                         placeholder-neutral-400 dark:placeholder-neutral/30
                           focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20 rounded-md"
                 value={form.given_name}
                 onChange={handle("given_name")}
-                placeholder="Your given name"
+                // Show no placeholder while hydrating; show normal placeholder otherwise
+                placeholder={isHydrating ? "" : "Your given name"}
               />
             </FieldRow>
             <FieldRow label="Family name">
@@ -141,7 +158,7 @@ export default function ManageAccountComponent({ user, signIn, signOut }) {
                            focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20 rounded-md"
                 value={form.family_name}
                 onChange={handle("family_name")}
-                placeholder="Your family name"
+                placeholder={isHydrating ? "" : "Your family name"}
               />
             </FieldRow>
             <FieldRow label="Email account">
@@ -153,7 +170,7 @@ export default function ManageAccountComponent({ user, signIn, signOut }) {
                            focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20 rounded-md"
                 value={form.email}
                 onChange={handle("email")}
-                placeholder="yourname@gmail.com"
+                placeholder={isHydrating ? "" : "yourname@gmail.com"}
               />
             </FieldRow>
             <FieldRow label="Phone number">
@@ -167,7 +184,7 @@ export default function ManageAccountComponent({ user, signIn, signOut }) {
                   numberInputProps={{
                     className: "w-full bg-transparent text-right text-neutral-500 dark:text-neutral-400 placeholder-neutral-400 dark:placeholder-neutral/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20 rounded-md",
                     //'400 placeholder-gray-400 focus:outline-none',
-                    placeholder: "Add number",
+                   placeholder: isHydrating ? "" : "Add phone number",
                   }}
                 />
               </div>
@@ -176,6 +193,7 @@ export default function ManageAccountComponent({ user, signIn, signOut }) {
               <CompactStorageToggle
                 value={form.storage_type}
                 onChange={handle("storage_type")}
+                disabled={isHydrating}
               />
             </FieldRow>
           </div>
@@ -184,7 +202,7 @@ export default function ManageAccountComponent({ user, signIn, signOut }) {
           <div className="text-sm pt-6">
             <button
               onClick={save}
-              disabled={saving}
+              disabled={saving || isHydrating}
               className="cursor-pointer inline-flex items-center justify-center rounded-xl
                         bg-blue-600 hover:bg-blue-500 text-white font-semibold
                         px-5 py-2.5 shadow-md shadow-black/10 dark:shadow-black/20

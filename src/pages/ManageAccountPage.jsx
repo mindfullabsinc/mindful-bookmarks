@@ -30,7 +30,12 @@ export default function ManageAccountPage({ user, signIn, signOut }) {
           isSignedIn={!!user}
           onStorageTypeChange={changeStorageType}
         />
-        <ManageAccountComponent user={user} signIn={signIn} signOut={signOut} />
+        <ManageAccountComponent 
+          key={user?.userId || user?.username || "anon"}
+          user={user} 
+          signIn={signIn} 
+          signOut={signOut} 
+        />
       </>
     </AnalyticsProvider>
   );

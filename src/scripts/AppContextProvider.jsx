@@ -9,7 +9,7 @@ import {
 import { 
   StorageType, DEFAULT_STORAGE_TYPE, LOCAL_USER_ID 
 } from '@/scripts/Constants.js';
-import { loadInitialBookmarks } from '@/hooks/useBookmarkManager.js';
+import { loadInitialBookmarks } from '@/scripts/bookmarksData.js';
 
 /* Caching: synchronous snapshot for first-paint + session cache for reopens */
 import {

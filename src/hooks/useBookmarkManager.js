@@ -7,14 +7,7 @@ import { refreshOtherMindfulTabs } from '@/scripts/Utilities';
 import { Storage } from '@/scripts/Storage';
 import amplify_outputs from '/amplify_outputs.json';
 
-
 const API_HOST_PATTERN = `https://${new URL(amplify_outputs.custom.API.bookmarks.endpoint).host}/*`;
-
-export async function loadInitialBookmarks(userId, storageType) {
-  if (!userId) return [];
-  const storage = new Storage(storageType);
-  return storage.load(userId);
-}
 
 // Ask for host_permissions only when needed & only once
 async function ensureApiHostPermission() {
