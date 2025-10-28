@@ -30,6 +30,13 @@ import AnalyticsProvider from "@/analytics/AnalyticsProvider";
 
 type AuthModeValue = (typeof AuthMode)[keyof typeof AuthMode];
 
+/**
+ * Open the full new-tab authentication experience and close the popup window.
+ *
+ * @param {'signUp' | 'signIn' | 'confirmSignUp'} [route='signUp'] Auth route to show in the new tab.
+ * @param {Record<string, unknown>} [extras={}] Reserved metadata for future query parameters.
+ * @returns {Promise<void>} Resolves after triggering the tab open request.
+ */
 async function openAuthTab(route: 'signUp' | 'signIn' | 'confirmSignUp' = 'signUp', extras: Record<string, unknown> = {}) {
   const url = chrome.runtime.getURL(`newtab.html#auth=${route}`);
   chrome.tabs.create({ url }, () => {
@@ -39,7 +46,11 @@ async function openAuthTab(route: 'signUp' | 'signIn' | 'confirmSignUp' = 'signU
   });
 }
 
-// Helper that nudges the Authenticator to the Sign In view
+/**
+ * Ensure the Amplify Authenticator is parked on the sign-in route immediately on mount.
+ *
+ * @returns {null}
+ */
 function KickToSignIn(): null {
   const { route, toSignIn } = useAuthenticator((ctx) => [ctx.route]);
   React.useEffect(() => {
@@ -49,6 +60,11 @@ function KickToSignIn(): null {
   return null;
 }
 
+/**
+ * Reload the currently active tab if it is showing the Mindful new-tab experience.
+ *
+ * @returns {void}
+ */
 function reloadActiveTabIfNewTab() {
   try {
     const extNtp = chrome.runtime.getURL('newtab.html');
@@ -73,6 +89,11 @@ function reloadActiveTabIfNewTab() {
   } catch {}
 }
 
+/**
+ * Attempt to refresh all open instances of the Mindful new-tab view to pick up auth changes.
+ *
+ * @returns {void}
+ */
 function refreshNewTabPagesBestEffort() {
   // 1) Active tab (guarded to only reload if it's the New Tab)
   reloadActiveTabIfNewTab();
@@ -87,14 +108,23 @@ function refreshNewTabPagesBestEffort() {
   } catch {}
 }
 
-// --- Broadcast utility (used only on real sign-in/out edges) ---
+/**
+ * Broadcast an authentication edge event to other extension contexts via storage and runtime messaging.
+ *
+ * @param {'USER_SIGNED_IN' | 'USER_SIGNED_OUT'} type Auth event describing the transition.
+ * @returns {void}
+ */
 function broadcastAuthEdge(type: 'USER_SIGNED_IN' | 'USER_SIGNED_OUT' /* 'USER_SIGNED_IN' | 'USER_SIGNED_OUT' */) {
   const at = Date.now();
   try { chrome.storage?.local?.set({ authSignalAt: at, authSignal: type === 'USER_SIGNED_IN' ? 'signedIn' : 'signedOut' }); } catch {}
   try { chrome.runtime.sendMessage({ type, at }, () => { chrome.runtime.lastError; }); } catch {}
 }
 
-// --- Broadcast utility for switching to anon mode (without signing out) ---
+/**
+ * Broadcast that the popup switched into anonymous/local mode without performing a sign-out.
+ *
+ * @returns {void}
+ */
 function broadcastLocalModeEdge() {
   const at = Date.now();
   // persist the mode and a timestamp that New Tab can observe
@@ -102,7 +132,11 @@ function broadcastLocalModeEdge() {
   try { chrome.runtime.sendMessage({ type: 'MODE_SWITCHED_TO_ANON', at }, () => { chrome.runtime.lastError; }); } catch {}
 }
 
-/* ---------- Persist the popup auth mode ---------- */
+/**
+ * Manage the popup's auth mode preference (anon vs auth), persisting it to chrome.storage.
+ *
+ * @returns {{ mode: AuthModeValue; setMode: (next: AuthModeValue) => Promise<void> | void; ready: boolean }}
+ */
 function usePopupMode(): { mode: AuthModeValue; setMode: (next: AuthModeValue) => Promise<void> | void; ready: boolean } {
   const [mode, setMode] = React.useState<AuthModeValue>(AuthMode.ANON);
   const [ready, setReady] = React.useState(false);
@@ -129,7 +163,12 @@ function usePopupMode(): { mode: AuthModeValue; setMode: (next: AuthModeValue) =
   return { mode, setMode: save, ready };
 }
 
-/* ---------- UI: small toggle header ---------- */
+/**
+ * Inline control for switching between anonymous and authenticated popup modes.
+ *
+ * @param {{ mode: AuthModeValue; onSwitch: (next: AuthModeValue) => void | Promise<void> }} props Mode toggle props.
+ * @returns {JSX.Element}
+ */
 function ModeSwitcher({ mode, onSwitch }: { mode: AuthModeValue; onSwitch: (next: AuthModeValue) => void | Promise<void> }) {
   console.log("In ModeSwitcher. mode: ", mode, " onSwitch: ", onSwitch);
   return (
@@ -162,7 +201,11 @@ function ModeSwitcher({ mode, onSwitch }: { mode: AuthModeValue; onSwitch: (next
   );
 }
 
-/* ---------- Watch Amplify route to auto-handoff verify in new tab ---------- */
+/**
+ * Observe Authenticator routes and kick users to the full confirm-signup flow when required.
+ *
+ * @returns {null}
+ */
 function PopupRouteWatcher(): null {
   const { route } = useAuthenticator((ctx) => [ctx.route]);
   React.useEffect(() => {
@@ -173,7 +216,12 @@ function PopupRouteWatcher(): null {
   return null;
 }
 
-/* ---------- Gate: anon vs auth ---------- */
+/**
+ * Decide whether to render the anonymous popup UI or the authenticated Amplify flow.
+ *
+ * @param {{ mode: AuthModeValue; onWantAuth: () => void }} props Auth gating props.
+ * @returns {ReactElement}
+ */
 function AuthGate({ mode, onWantAuth }: { mode: AuthModeValue; onWantAuth: () => void }): ReactElement {
   // ANON: No Authenticator at all. App runs local-only with user=null.
   if (mode === AuthMode.ANON) {
@@ -233,6 +281,11 @@ function AuthGate({ mode, onWantAuth }: { mode: AuthModeValue; onWantAuth: () =>
   ); 
 }
 
+/**
+ * Mindful popup entry point: wires auth mode persistence, Amplify Hub listeners, and renders the UI.
+ *
+ * @returns {ReactElement | null}
+ */
 export default function PopupPage(): ReactElement | null {
   const { mode, setMode, ready } = usePopupMode();
   const suppressNextSignedOut = React.useRef(false);
