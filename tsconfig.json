@@ -2,14 +2,18 @@
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
-    "moduleResolution": "Bundler",
+    "moduleResolution": "bundler",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "strict": true,
     "skipLibCheck": true,
 
     "baseUrl": ".",
-    "paths": { "@/*": ["src/*"], "$amplify/*": ["../.amplify/generated/*"] },
+    "paths": { 
+      "@": ["src"],
+      "@/*": ["src/*"], 
+      "$amplify/*": ["../.amplify/generated/*"] 
+    },
     "types": ["chrome", "vite/client", "react"],
     "allowJs": true,
     "jsx": "react-jsx",
