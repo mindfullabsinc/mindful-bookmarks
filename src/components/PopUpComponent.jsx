@@ -6,7 +6,7 @@ import { constructValidURL } from '@/scripts/Utilities';
 import { useBookmarkManager } from '@/hooks/useBookmarkManager';
 
 /* Constants */
-import { URL_PATTERN, EMPTY_GROUP_IDENTIFIER } from '@/scripts/Constants.js';
+import { URL_PATTERN, EMPTY_GROUP_IDENTIFIER } from '@/scripts/Constants';
 
 /** Build a per-user/per-storage key so anon/local doesn't collide with auth/remote. */
 const lastGroupKey = (userId, storageMode) =>

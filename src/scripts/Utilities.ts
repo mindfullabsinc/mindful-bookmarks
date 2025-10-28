@@ -1,4 +1,4 @@
-import { CHROME_NEW_TAB } from './Constants.js';
+import { CHROME_NEW_TAB } from './Constants';
 
 
 export function getUserStorageKey(userId) {
