@@ -1,12 +1,13 @@
 /* -------------------- Imports -------------------- */
 import React, { useContext, useEffect, useRef } from "react";
+import type { ReactElement } from 'react';
 
 // Import Amplify and the Authenticator UI component
 import { Amplify } from 'aws-amplify';
 import '@aws-amplify/ui-react/styles.css';
 
 // Import Amplify configuration and configure Amplify
-import config from '/amplify_outputs.json';
+import config from '../../amplify_outputs.json';
 Amplify.configure(config);
 import { signOut as amplifySignOut } from 'aws-amplify/auth';
 
@@ -17,7 +18,8 @@ import "@/styles/Login.css";
 import {
   EMPTY_GROUP_IDENTIFIER,
   ONBOARDING_NEW_GROUP_PREFILL,
-  StorageMode
+  StorageMode,
+  StorageModeType
 } from "@/scripts/Constants";
 
 /* Hooks and Utilities */
@@ -26,15 +28,42 @@ import { useBookmarkManager } from '@/hooks/useBookmarkManager';
 import { loadInitialBookmarks } from '@/scripts/bookmarksData';
 import { AppContext } from "@/scripts/AppContextProvider";
 
+/* Types */
+import type { BookmarkGroupType, BookmarkType } from "@/types/bookmarks";
+
 /* Components */
 import TopBanner from "@/components/TopBanner";
-import DraggableGrid from '@/components/DraggableGrid';
+import DraggableGrid, { GridHandle } from '@/components/DraggableGrid';
 import EmptyBookmarksState from '@/components/EmptyBookmarksState';
 
 /* Analytics */
 import AnalyticsProvider from "@/analytics/AnalyticsProvider";
 /* ---------------------------------------------------------- */
 
+/* -------------------- Local types and interfaces -------------------- */
+type Nullable<T> = T | null | undefined;
+
+type AppCtxShape = {
+  bookmarkGroups: BookmarkGroupType[] | null;
+  setBookmarkGroups: (groups: BookmarkGroupType[]) => void;
+  userId: Nullable<string>;
+  storageMode: StorageModeType;
+  isMigrating: boolean;
+  userAttributes: Record<string, any> | undefined;
+  isSignedIn: boolean;
+  hasHydrated: boolean;
+  isHydratingRemote: boolean;
+};
+
+type NewTabPageProps = {
+  /** Authenticated Cognito user object, when available. */
+  user?: { sub?: string };
+  /** Optional callback invoked when the user clicks sign-in. */
+  signIn?: () => Promise<void> | void;
+  /** Optional callback invoked when the user clicks sign-out. */
+  signOut?: () => Promise<void> | void;
+};
+/* ---------------------------------------------------------- */
 
 /**
  * Render the Mindful new-tab surface, wiring bookmark context, storage switching,
@@ -43,12 +72,14 @@ import AnalyticsProvider from "@/analytics/AnalyticsProvider";
  * @param {{ sub?: string }} [user] Authenticated Cognito user object, when available.
  * @param {() => Promise<void> | void} [signIn] Optional callback invoked when the user clicks sign-in.
  * @param {() => Promise<void> | void} [signOut] Optional callback invoked when the user clicks sign-out.
- * @returns {JSX.Element} New tab React tree.
+ * @returns {ReactElement} New tab React tree.
  */
-export function NewTabPage({ user, signIn, signOut }) {
+export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactElement {
   /* -------------------- Context / state --------------------*/
+  const appCtx = useContext(AppContext) as any;
+
   const {
-    bookmarkGroups,
+    bookmarkGroups: bookmarkGroupsRaw,
     setBookmarkGroups,
     userId,
     storageMode,
@@ -57,15 +88,15 @@ export function NewTabPage({ user, signIn, signOut }) {
     isSignedIn,
     hasHydrated,
     isHydratingRemote,
-  } = useContext(AppContext);
+  } = useContext(AppContext) as AppCtxShape;
 
-  const gridRef = useRef(null);
+  const gridRef = useRef<GridHandle | null>(null);
 
-  const ready = hasHydrated && !(storageMode !== StorageMode.LOCAL && isHydratingRemote);
+  const ready: boolean = !!(hasHydrated && !(storageMode !== StorageMode.LOCAL && isHydratingRemote));
 
   // --- De-dupe bursts from message + storage ---
-  const lastAuthSignalAtRef = useRef(0);
-  const lastModeSignalAtRef = useRef(0);
+  const lastAuthSignalAtRef = useRef<number>(0);
+  const lastModeSignalAtRef = useRef<number>(0);
 
   // Get all actions from the custom bookmarks hook
   const {
@@ -80,7 +111,7 @@ export function NewTabPage({ user, signIn, signOut }) {
   /**
    * Remove any `auth=` hash fragment so we do not show the inline authenticator unintentionally.
    */
-  const clearAuthHash = () => {
+  const clearAuthHash = (): void => {
     try {
       const h = window.location.hash || '';
       if (h.includes('auth=')) {
@@ -95,7 +126,7 @@ export function NewTabPage({ user, signIn, signOut }) {
    *
    * @param {number} [at=Date.now()] Millisecond timestamp associated with the auth event.
    */
-  const handleAuthSignal = (at = Date.now()) => {
+  const handleAuthSignal = (at: number = Date.now()): void => {
     if (at <= lastAuthSignalAtRef.current) return; // ignore duplicates
     lastAuthSignalAtRef.current = at;
     // Easiest & safest: full reload so all providers/hooks re-init with the new session
@@ -107,7 +138,7 @@ export function NewTabPage({ user, signIn, signOut }) {
    *
    * @param {number} [at=Date.now()] Millisecond timestamp tagging the mode switch event.
    */
-  const handleModeAnonSignal = (at = Date.now()) => {
+  const handleModeAnonSignal = (at: number = Date.now()): void => {
     if (at <= lastModeSignalAtRef.current) return;
     lastModeSignalAtRef.current = at;
     // clear any auth route and reload so AppContext re-reads LOCAL
@@ -119,7 +150,7 @@ export function NewTabPage({ user, signIn, signOut }) {
   /**
    * Trigger the import flow via the bookmarks manager without surfacing errors here.
    */
-  const handleLoadBookmarks = () => {
+  const handleLoadBookmarks = (): void => {
     importBookmarksFromJSON();
   };
 
@@ -128,9 +159,9 @@ export function NewTabPage({ user, signIn, signOut }) {
    *
    * @returns {Promise<void>} Resolves after attempting to clear storage namespaces.
    */
-  async function clearBookmarkCaches() {
-    try { await chrome?.storage?.session?.remove?.(['groupsIndex', 'bookmarkGroups']); } catch {}
-    try { await chrome?.storage?.local?.remove?.(['groupsIndex', 'bookmarkGroups']); } catch {}
+  async function clearBookmarkCaches(): Promise<void> {
+    try { await (globalThis as any)?.chrome?.storage?.session?.remove?.(['groupsIndex', 'bookmarkGroups']); } catch {}
+    try { await (globalThis as any)?.chrome?.storage?.local?.remove?.(['groupsIndex', 'bookmarkGroups']); } catch {}
     // If your BookmarkCache uses localStorage, optionally nuke known keys here.
     try {
       // conservative: only remove keys we know might exist
@@ -147,7 +178,7 @@ export function NewTabPage({ user, signIn, signOut }) {
    *
    * @returns {void}
    */
-  const defaultSignIn = () => {
+  const defaultSignIn = (): void => {
     try {
       // Convention: NewTab auth route reader can pick this up.
       // For example, the router (or a small effect) can detect #auth=signIn
@@ -159,7 +190,7 @@ export function NewTabPage({ user, signIn, signOut }) {
         window.dispatchEvent(new HashChangeEvent('hashchange'));
       }
       // Optionally focus an auth container 
-      const el = document.querySelector('[data-auth-root]');
+      const el = document.querySelector('[data-auth-root]') as HTMLElement | null;
       if (el) el.scrollIntoView({ block: 'center' });
     } catch (e) {
       console.warn('defaultSignIn failed:', e);
@@ -171,18 +202,18 @@ export function NewTabPage({ user, signIn, signOut }) {
    *
    * @param {'USER_SIGNED_OUT' | string} type Message type being sent through chrome runtime.
    */
-  function broadcastAuthEdge(type /* 'USER_SIGNED_OUT' */) {
+  function broadcastAuthEdge(type: 'USER_SIGNED_OUT' | string /* 'USER_SIGNED_OUT' */): void {
     const at = Date.now();
-    try { chrome.storage?.local?.set({ authSignalAt: at, authSignal: 'signedOut' }); } catch {}
-    try { chrome.runtime?.sendMessage?.({ type, at }, () => { chrome.runtime?.lastError; }); } catch {}
+    try { (globalThis as any).chrome?.storage?.local?.set({ authSignalAt: at, authSignal: 'signedOut' }); } catch {}
+    try { (globalThis as any).chrome?.runtime?.sendMessage?.({ type, at }, () => { (globalThis as any).chrome?.runtime?.lastError; }); } catch {}
   }
   /**
    * Notify other contexts that storage preferences switched to anonymous/local mode.
    */
-  function broadcastLocalModeEdge() {
+  function broadcastLocalModeEdge(): void {
     const at = Date.now();
-    try { chrome.storage?.local?.set({ mindful_auth_mode: 'anon', modeSignalAt: at }); } catch {}
-    try { chrome.runtime?.sendMessage?.({ type: 'MODE_SWITCHED_TO_ANON', at }, () => { chrome.runtime?.lastError; }); } catch {}
+    try { (globalThis as any).chrome?.storage?.local?.set({ mindful_auth_mode: 'anon', modeSignalAt: at }); } catch {}
+    try { (globalThis as any).chrome?.runtime?.sendMessage?.({ type: 'MODE_SWITCHED_TO_ANON', at }, () => { (globalThis as any).chrome?.runtime?.lastError; }); } catch {}
   }
   
   /**
@@ -190,7 +221,7 @@ export function NewTabPage({ user, signIn, signOut }) {
    *
    * @returns {Promise<void>} Resolves after the UI reload is requested.
    */
-  const defaultSignOut = async () => {
+  const defaultSignOut = async (): Promise<void> => {
     try { await amplifySignOut({ global: true }); } catch {}
     // flip UI to anon for any open New Tab pages
     await clearBookmarkCaches();  // Ensure anon doesn't inherit remote visuals
@@ -210,7 +241,8 @@ export function NewTabPage({ user, signIn, signOut }) {
   useEffect(() => {
     (async () => {
       try {
-        const { mindful_auth_mode } = await chrome?.storage?.local?.get?.('mindful_auth_mode') ?? {};
+        const { mindful_auth_mode } =
+          (await (globalThis as any)?.chrome?.storage?.local?.get?.('mindful_auth_mode')) ?? {};
         if (mindful_auth_mode === 'anon') {
           const h = window.location.hash || '';
           if (h.includes('auth=')) {
@@ -229,14 +261,14 @@ export function NewTabPage({ user, signIn, signOut }) {
     // Avoid adding an empty group before we know if cache / real data exist
     if (!ready) return; 
     if (!hasHydrated) return;
-    if (!bookmarkGroups) return;
-    if (bookmarkGroups.length === 0) {
+    if (!bookmarkGroupsRaw) return;
+    if (bookmarkGroupsRaw.length === 0) {
       addEmptyBookmarkGroup();
       return;
     }
-    const hasEmpty = bookmarkGroups.some(g => g.groupName === EMPTY_GROUP_IDENTIFIER);
+    const hasEmpty = bookmarkGroupsRaw.some(g => g.groupName === EMPTY_GROUP_IDENTIFIER);
     if (!hasEmpty) addEmptyBookmarkGroup();
-  }, [hasHydrated, bookmarkGroups, addEmptyBookmarkGroup]);
+  }, [hasHydrated, bookmarkGroupsRaw, addEmptyBookmarkGroup]);
 
   /**
    * When operating in LOCAL storage mode, listen for chrome.storage updates from other tabs so
@@ -254,7 +286,10 @@ export function NewTabPage({ user, signIn, signOut }) {
       return;
     }
 
-    const handleStorageChange = async (changes, area) => {
+    const handleStorageChange = async (
+      changes: Record<string, { oldValue?: any; newValue?: any }>,
+      area: string
+    ) => {
       const userStorageKey = getUserStorageKey(userId);
       if (area === "local" && changes[userStorageKey]) {
         console.log("Local storage changed in another tab. Reloading bookmarks...");
@@ -266,11 +301,11 @@ export function NewTabPage({ user, signIn, signOut }) {
       }
     };
 
-    chrome.storage.onChanged.addListener(handleStorageChange);
+    (globalThis as any).chrome?.storage?.onChanged?.addListener(handleStorageChange);
 
     // The cleanup function runs when dependencies change, removing the old listener.
     return () => {
-      chrome.storage.onChanged.removeListener(handleStorageChange);
+      (globalThis as any).chrome?.storage?.onChanged?.removeListener?.(handleStorageChange);
     };
   }, [userId, storageMode, setBookmarkGroups, isMigrating]); // Re-runs if user or storageMode changes
 
@@ -279,7 +314,7 @@ export function NewTabPage({ user, signIn, signOut }) {
    * react to popup-driven events without polling.
    */
   useEffect(() => {
-    const onMsg = (msg) => {
+    const onMsg = (msg: { type?: string; at?: number } | undefined) => {
       if (msg?.type === 'USER_SIGNED_IN' || msg?.type === 'USER_SIGNED_OUT') {
         if (msg?.type === 'USER_SIGNED_OUT') { 
           try { clearBookmarkCaches(); } catch {} 
@@ -290,8 +325,8 @@ export function NewTabPage({ user, signIn, signOut }) {
         handleModeAnonSignal(Number(msg.at) || Date.now());
       }
     };
-    try { chrome?.runtime?.onMessage?.addListener?.(onMsg); } catch {}
-    return () => { try { chrome?.runtime?.onMessage?.removeListener?.(onMsg); } catch {} };
+    try { (globalThis as any).chrome?.runtime?.onMessage?.addListener?.(onMsg); } catch {}
+    return () => { try { (globalThis as any).chrome?.runtime?.onMessage?.removeListener?.(onMsg); } catch {} };
   }, []); 
 
   /**
@@ -299,10 +334,13 @@ export function NewTabPage({ user, signIn, signOut }) {
    * contexts trigger the same auth or mode reactions here.
    */
   useEffect(() => {
-    const storageEvents = chrome?.storage?.onChanged;
+    const storageEvents = (globalThis as any).chrome?.storage?.onChanged;
     if (!storageEvents?.addListener) return () => {};
-    const onStorageAuth = (changes, area) => {
-      if (area !== StorageMode.LOCAL) return;
+    const onStorageAuth = (
+      changes: Record<string, { oldValue?: any; newValue?: any }>,
+      area: string
+    ) => {
+      if (area !== 'local') return;
       if (changes?.authSignalAt?.newValue) {
         handleAuthSignal(Number(changes.authSignalAt.newValue));
       }
@@ -315,6 +353,12 @@ export function NewTabPage({ user, signIn, signOut }) {
     return () => { try { storageEvents.removeListener(onStorageAuth); } catch {} };
   }, []);
   /* ---------------------------------------------------------- */
+
+  // Ensure every group has a bookmarks array, as required by DraggableGrid's type
+  const normalizedGroups: BookmarkGroupType[] = (bookmarkGroupsRaw ?? []).map((g: any) => ({
+    ...g,
+    bookmarks: g?.bookmarks ?? [],
+  }));
 
   return (
     <AnalyticsProvider>
@@ -330,12 +374,12 @@ export function NewTabPage({ user, signIn, signOut }) {
         {ready && (
           <>
             <DraggableGrid
-              ref={gridRef}
-              user={isSignedIn ? { sub: userId } : null} 
-              bookmarkGroups={bookmarkGroups}
+              ref={gridRef as any}
+              user={isSignedIn ? { sub: userId as string } : null}
+              bookmarkGroups={normalizedGroups}
             />
             <EmptyBookmarksState
-              onCreateGroup={() => gridRef.current?.startCreateGroup({ prefill: ONBOARDING_NEW_GROUP_PREFILL, select: 'all' })}
+              onCreateGroup={() => gridRef.current?.startCreateGroup?.({ prefill: ONBOARDING_NEW_GROUP_PREFILL, select: 'all' })}
               onImport={handleLoadBookmarks}
             />
           </>

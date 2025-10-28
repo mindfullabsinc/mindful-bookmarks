@@ -15,7 +15,7 @@ const DISMISS_KEY = "mindful.emptyStateDismissed";
 export default function EmptyBookmarksState({
   onCreateGroup,
   onImport, // optional
-  onClose, // optional: parent can listen if desired
+  onClose = () => {},
 }) {
   const { bookmarkGroups, storageMode } = useContext(AppContext);
 

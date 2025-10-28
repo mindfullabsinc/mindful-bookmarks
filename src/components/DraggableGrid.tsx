@@ -1,4 +1,4 @@
-// components/DraggableGrid.jsx
+// components/DraggableGrid.tsx
 import React, {
   useContext, useState, useRef, useEffect, useLayoutEffect, forwardRef, useImperativeHandle, useMemo
 } from "react";
@@ -9,31 +9,65 @@ import {
   useSensors,
   PointerSensor,
   DragOverlay,
+  type DragStartEvent,
+  type DragEndEvent,
 } from "@dnd-kit/core";
 import { SortableContext, rectSortingStrategy } from "@dnd-kit/sortable";
 
+/* Types */
+import type { BookmarkGroupType, BookmarkType } from "@/types/bookmarks";
+
+/* Components */
 import { BookmarkGroup } from "@/components/BookmarkGroup";
 import { BookmarkItem } from "@/components/BookmarkItem";
 import { AppContext } from "@/scripts/AppContextProvider";
 import { useBookmarkManager } from "@/hooks/useBookmarkManager";
 import { EMPTY_GROUP_IDENTIFIER } from "@/scripts/Constants";
 
-const DraggableGrid = forwardRef(function DraggableGrid(_, ref) {
-  const { bookmarkGroups } = useContext(AppContext);
+/* -------------------- Local helper types (minimal) -------------------- */
+type GroupId = string | number;
 
-  const [activeItem, setActiveItem] = useState(null);
+type AppCtxShape = {
+  bookmarkGroups?: BookmarkGroupType[];
+};
+
+export type GridHandle = {
+  startCreateGroup?: (opts?: { prefill?: string; select?: "all" | "end" }) => Promise<void> | void;
+};
+
+type ActiveItem =
+  | (BookmarkGroupType & { groupIndex: number })
+  | (BookmarkType & { isBookmark: true })
+  | null;
+
+export type DraggableGridProps = {
+  user: { sub: string } | null;                 // accepted even if not used
+  bookmarkGroups: BookmarkGroupType[];              // source of truth from parent
+};
+/* --------------------------------------------------------------------- */
+
+const DraggableGrid = forwardRef<GridHandle, DraggableGridProps>(function DraggableGrid(
+  { user, bookmarkGroups: bookmarkGroupsProp }, // keep comments; user is accepted (can be unused)
+  ref
+) {  
+  const ctx = useContext(AppContext) as unknown as { bookmarkGroups?: unknown };
+  const bookmarkGroupsFromCtx = ctx?.bookmarkGroups;
+  const bookmarkGroups: BookmarkGroupType[] =
+    (bookmarkGroupsProp ?? bookmarkGroupsFromCtx ?? []) as unknown as BookmarkGroupType[];
+
+  const [activeItem, setActiveItem] = useState<ActiveItem>(null);
 
   // Which group title is in edit mode?
-  const [editingGroupId, setEditingGroupId] = useState(null);
+  const [editingGroupId, setEditingGroupId] = useState<GroupId | null>(null);
 
   // Which group should auto-open AddBookmarkInline?
-  const [addingToGroupId, setAddingToGroupId] = useState(null);
+  const [addingToGroupId, setAddingToGroupId] = useState<GroupId | null>(null);
 
   // Refs to contentEditable <h2> nodes for titles
-  const titleInputRefs = useRef(new Map()); // Map<string, HTMLElement>
+  const titleInputRefs = useRef<Map<string, HTMLElement>>(new Map()); // Map<string, HTMLElement>
 
   // Refs to the inline "add link" input (URL or Name field)
-  const addInputRefs = useRef(new Map()); // Map<string, HTMLInputElement | HTMLElement>
+  const addInputRefs = useRef<Map<string, HTMLInputElement | HTMLElement>>(new Map()); // Map<string, HTMLInputElement | HTMLElement>
 
   // Are there any bookmarks anywhere?
   const hasAnyBookmark = useMemo(
@@ -48,10 +82,10 @@ const DraggableGrid = forwardRef(function DraggableGrid(_, ref) {
     moveBookmark,
     addEmptyBookmarkGroup,
     editBookmarkGroupHeading,
-  } = useBookmarkManager();
+  } = useBookmarkManager() as any;
 
   // Keep a live pointer to groups to avoid stale closures inside imperative calls
-  const groupsRef = useRef(bookmarkGroups);
+  const groupsRef = useRef<BookmarkGroupType[] | undefined>(bookmarkGroups);
   useEffect(() => {
     groupsRef.current = bookmarkGroups;
   }, [bookmarkGroups]);
@@ -69,7 +103,7 @@ const DraggableGrid = forwardRef(function DraggableGrid(_, ref) {
     setDismissedOnboarding(localStorage.getItem("mindful.emptyStateDismissed") === "1");
 
     // keep in sync if another tab updates it
-    const onStorage = (e) => {
+    const onStorage = (e: StorageEvent) => {
       if (e.key === "mindful.emptyStateChecklist" && e.newValue) {
         try { setChecklistSnap(JSON.parse(e.newValue)); } catch {}
       }
@@ -117,7 +151,7 @@ const DraggableGrid = forwardRef(function DraggableGrid(_, ref) {
       if (!placeholder) return;
 
       // 2) switch that card into edit mode
-      const id = String(placeholder.id ?? placeholder._id ?? placeholder.uuid ?? "");
+      const id = String((placeholder as any).id ?? (placeholder as any)._id ?? (placeholder as any).uuid ?? "");
       if (!id) return;
       setEditingGroupId(id);
 
@@ -126,7 +160,7 @@ const DraggableGrid = forwardRef(function DraggableGrid(_, ref) {
         const el = titleInputRefs.current.get(id); // this is the <h2 contentEditable>
         if (!el) return;
 
-        el.focus?.();
+        (el as HTMLElement).focus?.();
 
         if (prefill !== undefined) {
           el.textContent = prefill;
@@ -150,7 +184,7 @@ const DraggableGrid = forwardRef(function DraggableGrid(_, ref) {
     const tryFocus = () => {
       const el = titleInputRefs.current.get(String(editingGroupId));
       if (el) {
-        el.focus?.();
+        (el as HTMLElement).focus?.();
         return true;
       }
       return false;
@@ -161,10 +195,10 @@ const DraggableGrid = forwardRef(function DraggableGrid(_, ref) {
   }, [editingGroupId, bookmarkGroups]);
 
   // Detect placeholder → named transition to auto-open AddBookmarkInline
-  const prevNamesRef = useRef(new Map());
+  const prevNamesRef = useRef<Map<GroupId, string>>(new Map());
   useEffect(() => {
     const prev = prevNamesRef.current;
-    let promotedId = null;
+    let promotedId: string | null = null;
 
     (bookmarkGroups || []).forEach((g) => {
       const prevName = prev.get(g.id);
@@ -179,7 +213,7 @@ const DraggableGrid = forwardRef(function DraggableGrid(_, ref) {
     });
 
     // snapshot current
-    const next = new Map();
+    const next = new Map<GroupId, string>();
     (bookmarkGroups || []).forEach((g) => next.set(g.id, g.groupName));
     prevNamesRef.current = next;
 
@@ -191,8 +225,8 @@ const DraggableGrid = forwardRef(function DraggableGrid(_, ref) {
     if (!addingToGroupId) return;
     const el = addInputRefs.current.get(String(addingToGroupId));
     if (!el) return;
-    el.focus?.();
-    el.select?.(); // only works for <input>
+    (el as HTMLInputElement | HTMLElement).focus?.();
+    (el as HTMLInputElement).select?.(); // only works for <input>
   }, [addingToGroupId]);
 
   // DnD sensors
@@ -200,16 +234,16 @@ const DraggableGrid = forwardRef(function DraggableGrid(_, ref) {
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
 
-  function handleDragStart(event) {
+  function handleDragStart(event: DragStartEvent) {
     const { id } = event.active;
-    let currentItem = null;
+    let currentItem: ActiveItem = null;
 
-    const groupIndex = bookmarkGroups.findIndex((g) => g.id === id);
+    const groupIndex = bookmarkGroups.findIndex((g) => String(g.id) === String(id));
     if (groupIndex > -1) {
       currentItem = { ...bookmarkGroups[groupIndex], groupIndex };
     } else {
       for (let i = 0; i < bookmarkGroups.length; i++) {
-        const bookmark = bookmarkGroups[i].bookmarks.find((bm) => bm.id === id);
+        const bookmark = (bookmarkGroups[i].bookmarks || []).find((bm) => String(bm.id) === String(id));
         if (bookmark) {
           currentItem = { ...bookmark, isBookmark: true };
           break;
@@ -219,17 +253,17 @@ const DraggableGrid = forwardRef(function DraggableGrid(_, ref) {
     setActiveItem(currentItem);
   }
 
-  async function handleDragEnd(event) {
+  async function handleDragEnd(event: DragEndEvent) {
     setActiveItem(null);
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
-    const isDraggingGroup = bookmarkGroups.some((g) => g.id === active.id);
+    const isDraggingGroup = bookmarkGroups.some((g) => String(g.id) === String(active.id));
 
     // Reorder groups
     if (isDraggingGroup) {
-      const src = bookmarkGroups.findIndex((g) => g.id === active.id);
-      const dst = bookmarkGroups.findIndex((g) => g.id === over.id);
+      const src = bookmarkGroups.findIndex((g) => String(g.id) === String(active.id));
+      const dst = bookmarkGroups.findIndex((g) => String(g.id) === String(over.id));
       if (src !== -1 && dst !== -1) reorderBookmarkGroups(src, dst);
       return;
     }
@@ -239,7 +273,7 @@ const DraggableGrid = forwardRef(function DraggableGrid(_, ref) {
     const destination = { groupIndex: -1, bookmarkIndex: -1 };
 
     for (let i = 0; i < bookmarkGroups.length; i++) {
-      const idx = bookmarkGroups[i].bookmarks.findIndex((bm) => bm.id === active.id);
+      const idx = (bookmarkGroups[i].bookmarks || []).findIndex((bm) => String(bm.id) === String(active.id));
       if (idx !== -1) {
         source.groupIndex = i;
         source.bookmarkIndex = idx;
@@ -247,14 +281,14 @@ const DraggableGrid = forwardRef(function DraggableGrid(_, ref) {
       }
     }
 
-    const overIsGroupContainer = bookmarkGroups.some((g) => g.id === over.id);
+    const overIsGroupContainer = bookmarkGroups.some((g) => String(g.id) === String(over.id));
     if (overIsGroupContainer) {
-      destination.groupIndex = bookmarkGroups.findIndex((g) => g.id === over.id);
+      destination.groupIndex = bookmarkGroups.findIndex((g) => String(g.id) === String(over.id));
       destination.bookmarkIndex =
-        bookmarkGroups[destination.groupIndex].bookmarks.length;
+        (bookmarkGroups[destination.groupIndex].bookmarks || []).length;
     } else {
       for (let i = 0; i < bookmarkGroups.length; i++) {
-        const idx = bookmarkGroups[i].bookmarks.findIndex((bm) => bm.id === over.id);
+        const idx = (bookmarkGroups[i].bookmarks || []).findIndex((bm) => String(bm.id) === String(over.id));
         if (idx !== -1) {
           destination.groupIndex = i;
           destination.bookmarkIndex = idx;
@@ -272,7 +306,7 @@ const DraggableGrid = forwardRef(function DraggableGrid(_, ref) {
     }
   }
 
-  async function handleDeleteBookmarkGroup(event, groupIndex) {
+  async function handleDeleteBookmarkGroup(event: React.MouseEvent, groupIndex: number) {
     const shouldDelete = window.confirm(
       "Are you sure you want to delete the entire group " +
         bookmarkGroups[groupIndex].groupName +
@@ -281,6 +315,18 @@ const DraggableGrid = forwardRef(function DraggableGrid(_, ref) {
     if (shouldDelete) {
       await deleteBookmarkGroup(groupIndex);
     }
+  }
+
+  function findBookmarkIndices(
+    groups: BookmarkGroupType[],
+    id: string | number
+  ): { groupIndex: number; bookmarkIndex: number } {
+    for (let gi = 0; gi < groups.length; gi++) {
+      const list = groups[gi].bookmarks || [];
+      const bi = list.findIndex((bm) => String(bm.id) === String(id));
+      if (bi !== -1) return { groupIndex: gi, bookmarkIndex: bi };
+    }
+    return { groupIndex: -1, bookmarkIndex: -1 };
   }
 
   return (
@@ -303,38 +349,34 @@ const DraggableGrid = forwardRef(function DraggableGrid(_, ref) {
 
             return (
               <BookmarkGroup
-                key={bookmarkGroup.id}
+                key={bookmarkGroup.id as React.Key}
                 bookmarkGroup={bookmarkGroup}
                 groupIndex={groupIndex}
                 handleDeleteBookmarkGroup={handleDeleteBookmarkGroup}
                 // Only pass title-editing props for the active group
-                {...(isEditing
-                  ? {
-                      isTitleEditing: true,
-                      titleInputRef: (el) => {
-                        if (el) titleInputRefs.current.set(idKey, el);
-                        else titleInputRefs.current.delete(idKey);
-                      },
-                      onCommitTitle: async (newName) => {
-                        if (
-                          newName &&
-                          newName !== bookmarkGroup.groupName
-                        ) {
-                          await editBookmarkGroupHeading(groupIndex, newName);
-                        }
-                        setEditingGroupId(null);
-                      },
-                      onCancelTitleEdit: () => setEditingGroupId(null),
-                    }
-                  : {
-                      // For non-active groups, ensure we clear any stale ref
-                      titleInputRef: (el) => {
-                        if (!el) titleInputRefs.current.delete(idKey);
-                      },
-                    })}
+                isTitleEditing={!!isEditing}
+                titleInputRef={(el: HTMLElement | null) => {
+                  // For non-active groups, ensure we clear any stale ref
+                  if (el) {
+                    titleInputRefs.current.set(idKey, el);
+                  } else {
+                    titleInputRefs.current.delete(idKey);
+                  }
+                }}
+                onCommitTitle={async (newName: string) => {
+                  if (
+                    isEditing &&                      // only commit for the active group
+                    newName &&
+                    newName !== bookmarkGroup.groupName
+                  ) {
+                    await editBookmarkGroupHeading(groupIndex, newName);
+                  }
+                  setEditingGroupId(null);
+                }}
+                onCancelTitleEdit={() => setEditingGroupId(null)}
                 // Auto open + focus AddBookmarkInline after naming
                 autoAddLink={autoAdd}
-                addLinkInputRef={(el) => {
+                addLinkInputRef={(el: HTMLInputElement | HTMLElement | null) => {
                   if (el) addInputRefs.current.set(idKey, el);
                   else addInputRefs.current.delete(idKey);
                 }}
@@ -342,21 +384,44 @@ const DraggableGrid = forwardRef(function DraggableGrid(_, ref) {
                 autofillFromClipboard={shouldAutofillFirstLink}
                 onAddLinkDone={() => setAddingToGroupId(null)}
               />
-            );
+            ); 
           })}
         </div>
       </SortableContext>
 
       <DragOverlay className="drag-overlay-item">
         {activeItem ? (
-          activeItem.isBookmark ? (
-            <BookmarkItem bookmark={activeItem} />
+          (activeItem as any).isBookmark ? (
+            // Pass required indices to BookmarkItem
+            (() => {
+              const b = activeItem as BookmarkType;
+              const { groupIndex, bookmarkIndex } = findBookmarkIndices(
+                bookmarkGroups,
+                b?.id as string | number
+              );
+              return (
+                <BookmarkItem
+                  bookmark={b}
+                  groupIndex={groupIndex}
+                  bookmarkIndex={bookmarkIndex}
+                />
+              );
+            })()
           ) : (
             // In overlay, never show the inline editor
             <BookmarkGroup
-              bookmarkGroup={activeItem}
-              groupIndex={activeItem.groupIndex}
+              bookmarkGroup={activeItem as BookmarkGroupType}
+              groupIndex={(activeItem as any).groupIndex as number}
+              // required props with safe defaults:
+              handleDeleteBookmarkGroup={handleDeleteBookmarkGroup}
               isTitleEditing={false}
+              titleInputRef={() => {}}
+              onCommitTitle={() => {}}
+              onCancelTitleEdit={() => {}}
+              autoAddLink={false}
+              addLinkInputRef={() => {}}
+              onAddLinkDone={() => {}}
+              autofillFromClipboard={false}
             />
           )
         ) : null}

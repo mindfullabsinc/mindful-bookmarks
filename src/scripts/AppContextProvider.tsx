@@ -8,6 +8,9 @@ import {
   updateUserAttribute,
 } from 'aws-amplify/auth';
 
+/* Types */
+import type { BookmarkGroupType, BookmarkType } from "@/types/bookmarks";
+
 /* Scripts */
 import {
   StorageMode,
@@ -27,7 +30,7 @@ import {
 import type { BookmarkSnapshot } from '@/scripts/BookmarkCache';
 /* ---------------------------------------------------------- */
 
-/* -------------------- Types and interfaces -------------------- */
+/* -------------------- Local types and interfaces -------------------- */
 type GroupsIndexEntry = {
   id: string;
   groupName: string;
@@ -35,21 +38,14 @@ type GroupsIndexEntry = {
 
 type UserAttributes = Record<string, string>;
 
-export interface BookmarkGroup {
-  id: string;
-  groupName: string;
-  bookmarks?: Array<Record<string, unknown>>;
-  [key: string]: unknown;
-}
-
 type AppContextProviderUser = {
   username?: string | null;
 } | null | undefined;
 
 export interface AppContextValue {
   groupsIndex: GroupsIndexEntry[];
-  bookmarkGroups: BookmarkGroup[];
-  setBookmarkGroups: Dispatch<SetStateAction<BookmarkGroup[]>>;
+  bookmarkGroups: BookmarkGroupType[];
+  setBookmarkGroups: Dispatch<SetStateAction<BookmarkGroupType[]>>;
   userId: string;
   storageMode: StorageModeType | undefined;
   setStorageMode: (newStorageMode: StorageModeType) => Promise<void>;
@@ -92,8 +88,8 @@ export function AppContextProvider({
 
   // Seed immediately from a synchronous snapshot (pre-user, pre-mode) to avoid flicker.
   const seed = readBookmarkCacheSync(undefined, undefined) as BookmarkSnapshot | null;
-  const initialGroups = Array.isArray(seed?.data) ? (seed?.data as BookmarkGroup[]) : [];
-  const [bookmarkGroups, setBookmarkGroups] = useState<BookmarkGroup[]>(initialGroups);
+  const initialGroups = Array.isArray(seed?.data) ? (seed?.data as BookmarkGroupType[]) : [];
+  const [bookmarkGroups, setBookmarkGroups] = useState<BookmarkGroupType[]>(initialGroups);
   const [groupsIndex, setGroupsIndex] = useState<GroupsIndexEntry[]>([]); // [{ id, groupName }]
   const [hasHydrated, setHasHydrated] = useState<boolean>(initialGroups.length > 0);
   const [isHydratingRemote, setIsHydratingRemote] = useState<boolean>(false);
@@ -165,7 +161,7 @@ export function AppContextProvider({
           (await chrome?.storage?.local?.get?.(['bookmarkGroups'])) ?? {};
         const full = (localPayload as { bookmarkGroups?: unknown }).bookmarkGroups;
         if (Array.isArray(full) && full.length) {
-          const idx = (full as BookmarkGroup[]).map((g) => ({
+          const idx = (full as BookmarkGroupType[]).map((g) => ({
             id: g.id as string,
             groupName: g.groupName as string,
           })) as GroupsIndexEntry[];
@@ -187,7 +183,7 @@ export function AppContextProvider({
   function persistCachesIfNonEmpty(
     id: string,
     storageMode: StorageModeType | undefined,
-    groups: BookmarkGroup[] | undefined | null
+    groups: BookmarkGroupType[] | undefined | null
   ) { // NEW
     if (!Array.isArray(groups) || groups.length === 0) return;
     const idx = groups.map((g) => ({ id: String(g.id), groupName: String(g.groupName) }));
@@ -205,13 +201,13 @@ export function AppContextProvider({
     userIdArg: string | null,
     idForCache: string,
     storageMode: StorageModeType | undefined,
-    setBookmarkGroups: Dispatch<SetStateAction<BookmarkGroup[]>>,
+    setBookmarkGroups: Dispatch<SetStateAction<BookmarkGroupType[]>>,
     deepEqualFn: (a: unknown, b: unknown) => boolean
-  ): Promise<BookmarkGroup[]> { // NEW
+  ): Promise<BookmarkGroupType[]> { // NEW
     const fullRaw = await loadInitialBookmarks(userIdArg, storageMode, {
       noLocalFallback: storageMode !== StorageMode.LOCAL,
     });
-    const full = Array.isArray(fullRaw) ? (fullRaw as BookmarkGroup[]) : [];
+    const full = Array.isArray(fullRaw) ? (fullRaw as BookmarkGroupType[]) : [];
     setBookmarkGroups((prev) => (deepEqualFn(prev, full) ? prev : full));
     persistCachesIfNonEmpty(idForCache, storageMode, full);
     return full;
@@ -427,7 +423,7 @@ export function AppContextProvider({
       Array.isArray(cached.data) &&
       !deepEqual(bookmarkGroups, cached.data)
     ) {
-      setBookmarkGroups(cached.data as BookmarkGroup[]);
+      setBookmarkGroups(cached.data as BookmarkGroupType[]);
       setHasHydrated(true); // we’ve shown meaningful content
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -457,7 +453,7 @@ export function AppContextProvider({
         )) as BookmarkSnapshot | null;
         if (!cancelled && cached?.data && Array.isArray(cached.data) && cached.data.length) {
           setBookmarkGroups((prev) =>
-            deepEqual(prev, cached.data) ? prev : (cached.data as BookmarkGroup[]),
+            deepEqual(prev, cached.data) ? prev : (cached.data as BookmarkGroupType[]),
           );
           setHasHydrated(true);
         }
