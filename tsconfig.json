@@ -3,6 +3,7 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "resolveJsonModule": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "strict": true,
@@ -19,5 +20,10 @@
     "jsx": "react-jsx",
     "lib": ["dom", "esnext"]
   },
-  "include": ["src", "src/vite-env.d.ts", "jest.config.cjs"]
+  "include": [
+    "src", 
+    "src/types",
+    "src/vite-env.d.ts", 
+    "jest.config.cjs"
+  ]
 }
