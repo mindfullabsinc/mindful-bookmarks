@@ -10,9 +10,10 @@
 
     "baseUrl": ".",
     "paths": { "@/*": ["src/*"], "$amplify/*": ["../.amplify/generated/*"] },
-    "types": ["chrome", "vite/client"],
+    "types": ["chrome", "vite/client", "react"],
     "allowJs": true,
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "lib": ["dom", "esnext"]
   },
   "include": ["src", "src/vite-env.d.ts", "jest.config.cjs"]
 }
