@@ -50,7 +50,7 @@ jest.mock("@/scripts/Utilities", () => ({
 
 // 6) Constants
 jest.mock("@/scripts/Constants", () => ({
-  storageMode: { LOCAL: "local", REMOTE: "remote" },
+  StorageMode: { LOCAL: "local", REMOTE: "remote" },
   StorageLabel: { local: "Local-Only", remote: "Encrypted Sync" },
 }));
 
@@ -85,7 +85,7 @@ function renderWithContext(ui, { ctx } = {}) {
     },
     setUserAttributes: jest.fn(),
     storageMode: "local",
-    setstorageMode: jest.fn(),
+    setStorageMode: jest.fn(),
   };
 
   return render(
@@ -156,8 +156,8 @@ describe("ManageAccountComponent", () => {
 
   test("Save with name change updates attributes and refreshes context (no verification step)", async () => {
     const setUserAttributes = jest.fn();
-    const setstorageMode = jest.fn();
-    renderWithContext(<ManageAccountComponent />, { ctx: { setUserAttributes, setstorageMode } });
+    const setStorageMode = jest.fn();
+    renderWithContext(<ManageAccountComponent />, { ctx: { setUserAttributes, setStorageMode } });
 
     await userEvent.clear(screen.getByPlaceholderText("Your given name"));
     await userEvent.type(screen.getByPlaceholderText("Your given name"), "Yasmine");
@@ -169,7 +169,7 @@ describe("ManageAccountComponent", () => {
       });
       expect(mockFetchUserAttributes).toHaveBeenCalledTimes(2); // diff + refresh
       expect(setUserAttributes).toHaveBeenCalled();
-      expect(setstorageMode).toHaveBeenCalledWith("local");
+      expect(setStorageMode).toHaveBeenCalledWith("local");
       expect(screen.queryByText(/Enter the code sent to your/i)).not.toBeInTheDocument();
     });
   });
@@ -229,8 +229,8 @@ describe("ManageAccountComponent", () => {
   });
 
   test("Storage toggle updates only storage type when saved", async () => {
-    const setstorageMode = jest.fn();
-    renderWithContext(<ManageAccountComponent />, { ctx: { setstorageMode } });
+    const setStorageMode = jest.fn();
+    renderWithContext(<ManageAccountComponent />, { ctx: { setStorageMode } });
 
     await userEvent.click(screen.getByRole("button", { name: /Encrypted Sync/i }));
     await userEvent.click(screen.getByRole("button", { name: /save changes/i }));
@@ -239,7 +239,7 @@ describe("ManageAccountComponent", () => {
       expect(mockUpdateUserAttributes).toHaveBeenCalledWith({
         userAttributes: { "custom:storage_type": "remote" },
       });
-      expect(setstorageMode).toHaveBeenCalledWith("remote");
+      expect(setStorageMode).toHaveBeenCalledWith("remote");
       expect(screen.queryByText(/Enter the code sent to your/i)).not.toBeInTheDocument();
     });
   });
