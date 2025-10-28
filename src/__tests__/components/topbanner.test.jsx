@@ -12,7 +12,7 @@ describe('TopBanner Component', () => {
   const mockOnExportBookmarks = jest.fn();
   const mockOnSignIn = jest.fn();
   const mockOnSignOut = jest.fn();
-  const mockChangeStorageType = jest.fn();
+  const mockChangestorageMode = jest.fn();
 
   const mockUserAttributes = {
     given_name: 'Jane',
@@ -26,7 +26,7 @@ describe('TopBanner Component', () => {
   // --- Signed-Out ---
   describe('when user is signed out', () => {
     beforeEach(() => {
-      const mockContext = { storageType: 'local' };
+      const mockContext = { storageMode: 'local' };
 
       render(
         <AppContext.Provider value={mockContext}>
@@ -36,7 +36,7 @@ describe('TopBanner Component', () => {
             onSignIn={mockOnSignIn}
             onSignOut={mockOnSignOut}
             isSignedIn={false}
-            onStorageTypeChange={mockChangeStorageType}
+            onstorageModeChange={mockChangestorageMode}
           />
         </AppContext.Provider>
       );
@@ -85,7 +85,7 @@ describe('TopBanner Component', () => {
   // --- Signed-In ---
   describe('when user is signed in', () => {
     beforeEach(() => {
-      const mockContext = { storageType: 'remote' };
+      const mockContext = { storageMode: 'remote' };
 
       render(
         <AppContext.Provider value={mockContext}>
@@ -95,7 +95,7 @@ describe('TopBanner Component', () => {
             onSignIn={mockOnSignIn}
             onSignOut={mockOnSignOut}
             isSignedIn={true}
-            onStorageTypeChange={mockChangeStorageType}
+            onstorageModeChange={mockChangestorageMode}
           />
         </AppContext.Provider>
       );
@@ -152,7 +152,7 @@ describe('TopBanner Component', () => {
       expect(screen.queryByText('Logout')).not.toBeInTheDocument();
     });
 
-    it('displays storage toggle checked when storageType is remote', async () => {
+    it('displays storage toggle checked when storageMode is remote', async () => {
       const user = userEvent.setup();
       await user.click(getAvatarButton());
 
@@ -160,14 +160,14 @@ describe('TopBanner Component', () => {
       expect(storageToggle).toBeChecked();
     });
 
-    it('calls onStorageTypeChange when the toggle is clicked', async () => {
+    it('calls onstorageModeChange when the toggle is clicked', async () => {
       const user = userEvent.setup();
       await user.click(getAvatarButton());
 
       const storageToggle = await screen.findByRole('checkbox');
       await user.click(storageToggle);
 
-      expect(mockChangeStorageType).toHaveBeenCalledTimes(1);
+      expect(mockChangestorageMode).toHaveBeenCalledTimes(1);
     });
   });
 });

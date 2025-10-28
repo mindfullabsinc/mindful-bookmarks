@@ -16,7 +16,7 @@ import "@/styles/Login.css";
 import { 
   EMPTY_GROUP_IDENTIFIER, 
   ONBOARDING_NEW_GROUP_PREFILL, 
-  StorageType 
+  StorageMode 
 } from "@/scripts/Constants"; 
 
 /* Hooks and Utilities */
@@ -40,7 +40,7 @@ export function NewTabPage({ user, signIn, signOut }) {
     bookmarkGroups,
     setBookmarkGroups,
     userId,
-    storageType,
+    storageMode,
     isMigrating,
     userAttributes,
     isSignedIn,
@@ -50,7 +50,7 @@ export function NewTabPage({ user, signIn, signOut }) {
 
   const gridRef = useRef(null);
 
-  const ready = hasHydrated && !(storageType !== StorageType.LOCAL && isHydratingRemote);
+  const ready = hasHydrated && !(storageMode !== StorageMode.LOCAL && isHydratingRemote);
 
   // --- De-dupe bursts from message + storage ---
   const lastAuthSignalAtRef = useRef(0);
@@ -61,7 +61,7 @@ export function NewTabPage({ user, signIn, signOut }) {
     addEmptyBookmarkGroup,
     exportBookmarksToJSON,
     importBookmarksFromJSON,
-    changeStorageType,
+    changeStorageMode,
   } = useBookmarkManager();
   /* ---------------------------------------------------------- */
 
@@ -93,7 +93,7 @@ export function NewTabPage({ user, signIn, signOut }) {
     clearBookmarkCaches();
     clearAuthHash();
     window.location.reload();
-    // (If you prefer a soft flip, you could call setStorageType(StorageType.LOCAL)
+    // (If you prefer a soft flip, you could call setStorageMode(StorageMode.LOCAL)
     //  and reload bookmarks; reload is cleaner across providers/hooks.)
   };
 
@@ -198,7 +198,7 @@ export function NewTabPage({ user, signIn, signOut }) {
   useEffect(() => {
     // Only attach this listener if we are in LOCAL storage mode.
     // It's irrelevant for remote storage.
-    if (storageType !== StorageType.LOCAL || !userId) {
+    if (storageMode !== StorageMode.LOCAL || !userId) {
       return; // Do nothing if in remote mode or not signed in.
     }
 
@@ -211,9 +211,9 @@ export function NewTabPage({ user, signIn, signOut }) {
       const userStorageKey = getUserStorageKey(userId);
       if (area === "local" && changes[userStorageKey]) {
         console.log("Local storage changed in another tab. Reloading bookmarks...");
-        // Pass the correct storageType to the loading function.
-        const freshGroups = await loadInitialBookmarks(userId, storageType, {
-          noLocalFallback: storageType !== StorageType.LOCAL
+        // Pass the correct storageMode to the loading function.
+        const freshGroups = await loadInitialBookmarks(userId, storageMode, {
+          noLocalFallback: storageMode !== StorageMode.LOCAL
         });
         setBookmarkGroups(freshGroups || []);
       }
@@ -225,7 +225,7 @@ export function NewTabPage({ user, signIn, signOut }) {
     return () => {
       chrome.storage.onChanged.removeListener(handleStorageChange);
     };
-  }, [userId, storageType, setBookmarkGroups, isMigrating]); // Re-runs if user or storageType changes
+  }, [userId, storageMode, setBookmarkGroups, isMigrating]); // Re-runs if user or storageMode changes
 
   // --- Listen for popup auth broadcasts (runtime messages) ---
   useEffect(() => {
@@ -249,7 +249,7 @@ export function NewTabPage({ user, signIn, signOut }) {
     const storageEvents = chrome?.storage?.onChanged;
     if (!storageEvents?.addListener) return () => {};
     const onStorageAuth = (changes, area) => {
-      if (area !== StorageType.LOCAL) return;
+      if (area !== StorageMode.LOCAL) return;
       if (changes?.authSignalAt?.newValue) {
         handleAuthSignal(Number(changes.authSignalAt.newValue));
       }
@@ -272,7 +272,7 @@ export function NewTabPage({ user, signIn, signOut }) {
           onSignIn={signIn || defaultSignIn}
           onSignOut={signOut || defaultSignOut}
           isSignedIn={isSignedIn /* prefer context-derived status over props */}
-          onStorageTypeChange={changeStorageType}
+          onStorageModeChange={changeStorageMode}
         />
         {ready && (
           <>

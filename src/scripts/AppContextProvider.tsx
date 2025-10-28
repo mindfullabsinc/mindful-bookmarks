@@ -10,8 +10,9 @@ import {
 
 /* Scripts */
 import {
-  StorageType,
-  DEFAULT_STORAGE_TYPE,
+  StorageMode,
+  type StorageModeType,
+  DEFAULT_STORAGE_MODE,
   LOCAL_USER_ID,
 } from '@/scripts/Constants';
 import { loadInitialBookmarks } from '@/scripts/bookmarksData.js';
@@ -27,8 +28,6 @@ import type { BookmarkSnapshot } from '@/scripts/BookmarkCache';
 /* ---------------------------------------------------------- */
 
 /* -------------------- Types and interfaces -------------------- */
-type StorageTypeValue = (typeof StorageType)[keyof typeof StorageType];
-
 type GroupsIndexEntry = {
   id: string;
   groupName: string;
@@ -52,8 +51,8 @@ export interface AppContextValue {
   bookmarkGroups: BookmarkGroup[];
   setBookmarkGroups: Dispatch<SetStateAction<BookmarkGroup[]>>;
   userId: string;
-  storageType: StorageTypeValue | null;
-  setStorageType: (newStorageType: StorageTypeValue) => Promise<void>;
+  storageMode: StorageModeType | undefined;
+  setStorageMode: (newStorageMode: StorageModeType) => Promise<void>;
   isSignedIn: boolean;
   isLoading: boolean;
   isMigrating: boolean;
@@ -66,7 +65,7 @@ export interface AppContextValue {
 
 type AppContextProviderProps = {
   user?: AppContextProviderUser;
-  preferredStorageType?: StorageTypeValue | null;
+  preferredStorageMode?: StorageModeType | undefined;
   children: ReactNode;
 };
 /* ---------------------------------------------------------- */
@@ -79,13 +78,13 @@ export const AppContext = createContext<AppContextValue>({} as AppContextValue);
  *
  * @param props Object holding the current user, preferred storage override, and rendered children.
  * @param props.user Optional authenticated Amplify user passed from the caller.
- * @param props.preferredStorageType Optional storage mode hint from the caller.
+ * @param props.preferredStorageMode Optional storage mode hint from the caller.
  * @param props.children React subtree that consumes the context.
  * @returns React provider that exposes bookmark and auth state to descendants.
  */
 export function AppContextProvider({
   user,
-  preferredStorageType = null,
+  preferredStorageMode,
   children,
 }: AppContextProviderProps): ReactElement {
   // ----- state -----
@@ -100,14 +99,14 @@ export function AppContextProvider({
   const [isHydratingRemote, setIsHydratingRemote] = useState<boolean>(false);
 
   const [userId, setUserId] = useState<string | null>(null);
-  const [storageType, setStorageType] = useState<StorageTypeValue | null>(null);
+  const [storageMode, setStorageMode] = useState<StorageModeType | undefined>(undefined); 
 
   const [isLoading, setIsLoading] = useState<boolean>(true); // only for the very first paint
   const [isMigrating, setIsMigrating] = useState<boolean>(false);
 
   const resolvedUserId = userId ?? LOCAL_USER_ID;
   const isSignedIn =
-    !!userId && userId !== LOCAL_USER_ID && storageType === StorageType.REMOTE;
+    !!userId && userId !== LOCAL_USER_ID && storageMode === StorageMode.REMOTE;
   const authKey = isSignedIn ? resolvedUserId : 'anon-key';
 
   /**
@@ -131,12 +130,10 @@ export function AppContextProvider({
    * Resolve a lightweight groups index by probing session and local caches before falling back to
    * deriving it from the full LOCAL storage payload.
    *
-   * @param currentStorageType Storage mode currently active for the user.
+   * @param currentStorageMode Storage mode currently active for the user.
    * @returns Promise resolving to the smallest cached representation of the groups index.
    */
-  async function readGroupsIndexFast(
-    currentStorageType: StorageTypeValue | null,
-  ): Promise<GroupsIndexEntry[]> {
+  async function readGroupsIndexFast(currentStorageMode?: StorageModeType): Promise<GroupsIndexEntry[]> {
     // 1) try memory cache (persists while SW alive)
     try {
       const sessionPayload =
@@ -161,7 +158,7 @@ export function AppContextProvider({
     } catch {}
 
     // 3) last-ditch: derive a tiny index from the full LOCAL blob (LOCAL ONLY)
-    if (currentStorageType === StorageType.LOCAL) {
+    if (currentStorageMode === StorageMode.LOCAL) {
       try {
         const localPayload =
           (await chrome?.storage?.local?.get?.(['bookmarkGroups'])) ?? {};
@@ -183,10 +180,10 @@ export function AppContextProvider({
   }
 
   useEffect(() => {
-    if (storageType) {
-      console.debug('[AppContext] ready:', { userId, storageType });
+    if (storageMode) {
+      console.debug('[AppContext] ready:', { userId, storageMode });
     }
-  }, [userId, storageType]);
+  }, [userId, storageMode]);
 
   // ----- phase 0: decide mode quickly (no blocking on Amplify for LOCAL) -----
   useEffect(() => {
@@ -203,7 +200,7 @@ export function AppContextProvider({
         if (mindfulAuthMode === 'anon') {
           if (!cancelled) {
             setUserId(LOCAL_USER_ID);
-            setStorageType(StorageType.LOCAL as StorageTypeValue);
+            setStorageMode(StorageMode.LOCAL as StorageModeType);
             console.log('[AppContext] forced LOCAL due to anon mode');
           }
           return; // short-circuit phase 0
@@ -233,19 +230,19 @@ export function AppContextProvider({
               setUserAttributes(attributes as UserAttributes);
               const storedType = (attributes as Record<string, string | undefined>)?.[
                 'custom:storage_type'
-              ] as StorageTypeValue | undefined;
+              ] as StorageModeType | undefined;
               const effectiveType =
-                preferredStorageType || storedType || DEFAULT_STORAGE_TYPE;
-              setStorageType(effectiveType as StorageTypeValue);
+                preferredStorageMode || storedType || DEFAULT_STORAGE_MODE;
+              setStorageMode(effectiveType as StorageModeType);
               // If we’re going REMOTE, do NOT show any seed/local cache while we fetch remote
-              if (effectiveType === StorageType.REMOTE) {
+              if (effectiveType === StorageMode.REMOTE) {
                 setIsHydratingRemote(true);
                 setBookmarkGroups([]);
                 setHasHydrated(false);
               }
               console.log('[AppContext] ready (SILENT AUTH):', {
                 userId: derivedUserId,
-                storageType: effectiveType,
+                storageMode: effectiveType,
               });
               if (!storedType && effectiveType) {
                 updateUserAttribute({
@@ -264,13 +261,13 @@ export function AppContextProvider({
         if (!cancelled) {
           setUserId(LOCAL_USER_ID);
           const effective =
-            preferredStorageType === StorageType.REMOTE
-              ? (StorageType.LOCAL as StorageTypeValue)
-              : (preferredStorageType || StorageType.LOCAL);
-          setStorageType(effective as StorageTypeValue);
+            preferredStorageMode === StorageMode.REMOTE
+              ? (StorageMode.LOCAL as StorageModeType)
+              : (preferredStorageMode || StorageMode.LOCAL);
+          setStorageMode(effective as StorageModeType);
           console.log('[AppContext] ready (UNAUTH):', {
             userId: LOCAL_USER_ID,
-            storageType: effective,
+            storageMode: effective,
           });
         }
         return;
@@ -295,15 +292,15 @@ export function AppContextProvider({
         }
 
         const storedType = attributes?.['custom:storage_type'] as
-          | StorageTypeValue
+          | StorageModeType
           | undefined;
         console.log('User provided storage type: ', storedType);
         const effectiveType =
-          preferredStorageType || storedType || DEFAULT_STORAGE_TYPE;
+          preferredStorageMode || storedType || DEFAULT_STORAGE_MODE;
         console.log('effectiveType: ', effectiveType);
 
-        if (!cancelled) setStorageType(effectiveType as StorageTypeValue);
-        if (!cancelled && effectiveType === StorageType.REMOTE) {
+        if (!cancelled) setStorageMode(effectiveType as StorageModeType);
+        if (!cancelled && effectiveType === StorageMode.REMOTE) {
           setIsHydratingRemote(true);
           setBookmarkGroups([]); // guard against any leftover seed
           setHasHydrated(false);
@@ -322,7 +319,7 @@ export function AppContextProvider({
         console.warn('Auth bootstrap failed, falling back to LOCAL:', err);
         if (!cancelled) {
           setUserId('local');
-          setStorageType(StorageType.LOCAL as StorageTypeValue);
+          setStorageMode(StorageMode.LOCAL as StorageModeType);
         }
       }
     })();
@@ -330,18 +327,18 @@ export function AppContextProvider({
     return () => {
       cancelled = true;
     };
-  }, [user, preferredStorageType]);
+  }, [user, preferredStorageMode]);
 
   // ----- phase 1a: refine first paint from *sync* cache when user/mode become known -----
   useEffect(() => {
-    if (!storageType) return;
-    if (storageType === StorageType.REMOTE && isHydratingRemote) return; // don't seed while remote gating
+    if (!storageMode) return;
+    if (storageMode === StorageMode.REMOTE && isHydratingRemote) return; // don't seed while remote gating
 
     // Always have a concrete userId: LOCAL_USER_ID when anonymous.
     const id = isSignedIn ? resolvedUserId : LOCAL_USER_ID;
     console.log('user id: ', id);
 
-    const cached = readBookmarkCacheSync(id, storageType) as BookmarkSnapshot | null;
+    const cached = readBookmarkCacheSync(id, storageMode) as BookmarkSnapshot | null;
     console.log('cached bookmarks in phase 1a: ', cached);
     if (
       cached?.data &&
@@ -352,7 +349,7 @@ export function AppContextProvider({
       setHasHydrated(true); // we’ve shown meaningful content
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authKey, storageType]); // treat anon as stable key
+  }, [authKey, storageMode]); // treat anon as stable key
 
   // ----- phase 1b: render ASAP with groups index (async but cheap) -----
   useEffect(() => {
@@ -361,7 +358,7 @@ export function AppContextProvider({
     (async () => {
       setIsLoading(true);
 
-      if (storageType === StorageType.REMOTE && isHydratingRemote) {
+      if (storageMode === StorageMode.REMOTE && isHydratingRemote) {
         // Don't paint from caches while we’re gating for remote
         setIsLoading(false);
         return;
@@ -371,7 +368,7 @@ export function AppContextProvider({
         const id = isSignedIn ? resolvedUserId : LOCAL_USER_ID;
         const cached = (await readBookmarkCacheSession(
           id,
-          storageType,
+          storageMode,
         )) as BookmarkSnapshot | null;
         if (!cancelled && cached?.data && Array.isArray(cached.data) && cached.data.length) {
           setBookmarkGroups((prev) =>
@@ -381,7 +378,7 @@ export function AppContextProvider({
         }
       } catch {}
 
-      const idx = await readGroupsIndexFast(storageType);
+      const idx = await readGroupsIndexFast(storageMode);
       if (!cancelled) {
         setGroupsIndex(idx);
         setIsLoading(false); // UI can render now
@@ -391,12 +388,12 @@ export function AppContextProvider({
     return () => {
       cancelled = true;
     };
-  }, [authKey, storageType, user]);
+  }, [authKey, storageMode, user]);
 
   // ----- phase 2: hydrate full groups in background once mode is known -----
   useEffect(() => {
     if (isMigrating) return;
-    if (!storageType) return;
+    if (!storageMode) return;
 
     // Always resolve a concrete id (LOCAL_USER_ID for anon)
     const id = isSignedIn ? resolvedUserId : LOCAL_USER_ID;
@@ -405,8 +402,8 @@ export function AppContextProvider({
     let cancelled = false;
 
     const kickoff = () =>
-      loadInitialBookmarks(userId, storageType, {
-        noLocalFallback: storageType !== StorageType.LOCAL,
+      loadInitialBookmarks(userId, storageMode, {
+        noLocalFallback: storageMode !== StorageMode.LOCAL,
       })
         .then((fullRaw) => {
           const full = Array.isArray(fullRaw) ? (fullRaw as BookmarkGroup[]) : [];
@@ -424,14 +421,14 @@ export function AppContextProvider({
               chrome?.storage?.session?.set?.({ groupsIndex: idx });
             } catch {}
             // Warm both caches for instant next paint
-            writeBookmarkCacheSync(id, storageType, full);
-            writeBookmarkCacheSession(id, storageType, full).catch(() => {});
+            writeBookmarkCacheSync(id, storageMode, full);
+            writeBookmarkCacheSession(id, storageMode, full).catch(() => {});
           }
         })
         .finally(() => {
           if (cancelled) return;
           setHasHydrated(true);
-          if (storageType === StorageType.REMOTE) setIsHydratingRemote(false);
+          if (storageMode === StorageMode.REMOTE) setIsHydratingRemote(false);
         });
 
     try {
@@ -444,13 +441,13 @@ export function AppContextProvider({
       }
     } catch (e) {
       console.error('Error hydrating bookmarks:', e);
-      if (!cancelled && storageType === StorageType.REMOTE) setIsHydratingRemote(false);
+      if (!cancelled && storageMode === StorageMode.REMOTE) setIsHydratingRemote(false);
     }
 
     return () => {
       cancelled = true;
     };
-  }, [authKey, storageType, isMigrating, user, isHydratingRemote]);
+  }, [authKey, storageMode, isMigrating, user, isHydratingRemote]);
 
   // ----- background reloads (don’t flip isLoading) -----
   useEffect(() => {
@@ -459,8 +456,8 @@ export function AppContextProvider({
     const reload = async () => {
       try {
         const id = isSignedIn ? resolvedUserId : LOCAL_USER_ID;
-        const freshRaw = await loadInitialBookmarks(id, storageType, {
-          noLocalFallback: storageType !== StorageType.LOCAL,
+        const freshRaw = await loadInitialBookmarks(id, storageMode, {
+          noLocalFallback: storageMode !== StorageMode.LOCAL,
         });
         const fresh = Array.isArray(freshRaw) ? (freshRaw as BookmarkGroup[]) : [];
         setBookmarkGroups((prev) => (deepEqual(prev, fresh) ? prev : fresh));
@@ -475,8 +472,8 @@ export function AppContextProvider({
             chrome?.storage?.session?.set?.({ groupsIndex: idx });
           } catch {}
           // Keep caches hot
-          writeBookmarkCacheSync(id, storageType, fresh);
-          writeBookmarkCacheSession(id, storageType, fresh).catch(() => {});
+          writeBookmarkCacheSync(id, storageMode, fresh);
+          writeBookmarkCacheSession(id, storageMode, fresh).catch(() => {});
         }
       } catch (e) {
         console.error('Reload after update failed:', e);
@@ -515,32 +512,32 @@ export function AppContextProvider({
       } catch {}
       document.removeEventListener('visibilitychange', onVis);
     };
-  }, [authKey, storageType, isMigrating, user]);
+  }, [authKey, storageMode, isMigrating, user]);
 
   // ----- storage type changes -----
   /**
    * Update storage mode, coercing anonymous users to LOCAL and persisting preferences back to Cognito
    * when the user is authenticated.
    *
-   * @param newStorageType Target storage mode selected by the user.
+   * @param newStorageMode Target storage mode selected by the user.
    * @returns Promise that resolves once the preference has been processed.
    */
-  const handleStorageTypeChange = useCallback(
-    async (newStorageType: StorageTypeValue): Promise<void> => {
+  const handleStorageModeChange = useCallback(
+    async (newStorageMode: StorageModeType): Promise<void> => {
       // If not signed in, silently coerce to LOCAL
-      if (!user && newStorageType === StorageType.REMOTE) {
-        setStorageType(StorageType.LOCAL as StorageTypeValue);
+      if (!user && newStorageMode === StorageMode.REMOTE) {
+        setStorageMode(StorageMode.LOCAL as StorageModeType);
         return;
       }
 
-      setStorageType(newStorageType);
+      setStorageMode(newStorageMode);
 
       // Persist preference to Cognito when signed in
       if (user) {
         updateUserAttribute({
           userAttribute: {
             attributeKey: 'custom:storage_type',
-            value: newStorageType,
+            value: newStorageMode,
           },
         }).catch((err) =>
           console.error('Error updating storage type preference:', err),
@@ -561,8 +558,8 @@ export function AppContextProvider({
     bookmarkGroups,
     setBookmarkGroups,
     userId: userId ?? LOCAL_USER_ID, // Always expose the actual resolved userId (LOCAL_USER_ID when anon)
-    storageType,
-    setStorageType: handleStorageTypeChange,
+    storageMode,
+    setStorageMode: handleStorageModeChange,
     isSignedIn,
     isLoading,
     isMigrating,

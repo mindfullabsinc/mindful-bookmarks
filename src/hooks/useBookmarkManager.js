@@ -2,7 +2,7 @@ import { useContext } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { arrayMove } from '@dnd-kit/sortable';
 import { AppContext } from '@/scripts/AppContextProvider';
-import { EMPTY_GROUP_IDENTIFIER, StorageType } from '@/scripts/Constants';
+import { EMPTY_GROUP_IDENTIFIER, StorageMode } from '@/scripts/Constants';
 import { refreshOtherMindfulTabs } from '@/scripts/Utilities';
 import { Storage } from '@/scripts/Storage';
 import amplify_outputs from '/amplify_outputs.json';
@@ -14,7 +14,7 @@ async function ensureApiHostPermission() {
   if (typeof chrome === 'undefined' || !chrome.permissions) return true; // in tests, etc.
   const has_permissions = await chrome.permissions.contains({ origins: [API_HOST_PATTERN] });
   if (has_permissions) return true;
-  // Must be called from a user gesture (e.g., the click that triggers changeStorageType)
+  // Must be called from a user gesture (e.g., the click that triggers changeStorageMode)
   return chrome.permissions.request({ origins: [API_HOST_PATTERN] });
 }
 
@@ -28,8 +28,8 @@ async function maybeRemoveApiHostPermission() {
 // --- The Custom Hook ---
 
 export const useBookmarkManager = () => {
-  const { bookmarkGroups, setBookmarkGroups, userId, storageType, setStorageType, setIsMigrating } = useContext(AppContext);
-  const storage = new Storage(storageType);
+  const { bookmarkGroups, setBookmarkGroups, userId, storageMode, setStorageMode, setIsMigrating } = useContext(AppContext);
+  const storage = new Storage(storageMode);
 
   const updateAndPersistGroups = (updater) => {
     return new Promise((resolve, reject) => {
@@ -50,7 +50,7 @@ export const useBookmarkManager = () => {
             resolve(newGroups); // resolve with the updated value for convenience
           })
           .catch(error => {
-            console.error(`Failed to save bookmarks to ${storageType}:`, error);
+            console.error(`Failed to save bookmarks to ${storageMode}:`, error);
             reject(error);
           });
   
@@ -59,31 +59,31 @@ export const useBookmarkManager = () => {
     });
   }; 
 
-  const changeStorageType = async (newStorageType) => {
+  const changeStorageMode = async (newStorageMode) => {
     if (!userId) {
       throw new Error("Cannot change storage type: User not signed in.");
     }
 
-    const oldStorageType = storageType;
-    if (newStorageType === oldStorageType) {
+    const oldStorageMode = storageMode;
+    if (newStorageMode === oldStorageMode) {
       return;
     }
     
-    console.log(`Migrating bookmarks from ${oldStorageType} to ${newStorageType}...`);
+    console.log(`Migrating bookmarks from ${oldStorageMode} to ${newStorageMode}...`);
     setIsMigrating(true);
 
     try {
       // If enabling cloud/remote, make sure we have the optional host permission
-      if (newStorageType === StorageType.REMOTE) {
+      if (newStorageMode === StorageMode.REMOTE) {
         const granted = await ensureApiHostPermission();
         if (!granted) {
           console.warn("User denied API host permission; staying on local storage.");
-          return; // bail without changing storageType
+          return; // bail without changing storageMode
         }
       }
 
-      const oldStorage = new Storage(oldStorageType);
-      const newStorage = new Storage(newStorageType);
+      const oldStorage = new Storage(oldStorageMode);
+      const newStorage = new Storage(newStorageMode);
 
       // Instead of using the potentially stale 'bookmarkGroups' from React state,
       // we load the fresh data directly from the source before migrating.
@@ -97,17 +97,17 @@ export const useBookmarkManager = () => {
       await oldStorage.delete(userId);
 
       // 3. Update the application's context to reflect the change
-      setStorageType(newStorageType);
+      setStorageMode(newStorageMode);
 
       console.log("Storage migration completed successfully.");
 
       // If leaving remote for local, drop the host_permission
-      if (oldStorageType === StorageType.REMOTE && newStorageType !== StorageType.REMOTE) {
+      if (oldStorageMode === StorageMode.REMOTE && newStorageMode !== StorageMode.REMOTE) {
         await maybeRemoveApiHostPermission();
       }
 
     } catch (error) {
-      console.error(`Failed to migrate storage from ${oldStorageType} to ${newStorageType}:`, error);
+      console.error(`Failed to migrate storage from ${oldStorageMode} to ${newStorageMode}:`, error);
       throw error;
     } finally {
       setIsMigrating(false);
@@ -294,7 +294,7 @@ export const useBookmarkManager = () => {
     moveBookmark,
     exportBookmarksToJSON,
     importBookmarksFromJSON,
-    changeStorageType,
+    changeStorageMode,
     updateAndPersistGroups,
   };
 };

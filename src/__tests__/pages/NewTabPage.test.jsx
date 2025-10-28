@@ -11,7 +11,7 @@ import * as useBookmarkManager from '@/hooks/useBookmarkManager';
 import useImportBookmarks from '@/hooks/useImportBookmarks';
 import * as Utilities from '@/scripts/Utilities';
 import { fetchUserAttributes, fetchAuthSession } from 'aws-amplify/auth';
-import { EMPTY_GROUP_IDENTIFIER, StorageType } from '@/scripts/Constants'; 
+import { EMPTY_GROUP_IDENTIFIER, StorageMode } from '@/scripts/Constants'; 
 
 // Mock child components for isolation
 jest.mock('@/components/TopBanner', () => (props) => (
@@ -87,9 +87,9 @@ const mockBookmarkGroupsWithEmpty = [
 
 // Wrap the entire suite in describe.each
 describe.each([
-  { storageType: StorageType.LOCAL, description: 'local' },
-  { storageType: StorageType.REMOTE, description: 'remote' },
-])('NewTabPage Component with $description storage', ({ storageType }) => {
+  { storageMode: StorageMode.LOCAL, description: 'local' },
+  { storageMode: StorageMode.REMOTE, description: 'remote' },
+])('NewTabPage Component with $description storage', ({ storageMode }) => {
   let mockSignOut;
   let consoleErrorSpy;
   let mockAddEmptyBookmarkGroup;
@@ -127,10 +127,10 @@ describe.each([
     Utilities.getUserStorageKey.mockReturnValue(`bookmarks_${mockUserId}`);
     fetchAuthSession.mockResolvedValue({ identityId: mockUserId });
 
-    // Configure mocks based on the current storageType for the test run
+    // Configure mocks based on the current storageMode for the test run
     fetchUserAttributes.mockResolvedValue({
       ...mockUserAttributes,
-      'custom:storage_type': storageType,
+      'custom:storage_type': storageMode,
     });
 
     consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
@@ -207,7 +207,7 @@ describe.each([
   });
 
   // Conditionally run tests that are only relevant for LOCAL storage
-  if (storageType === StorageType.LOCAL) {
+  if (storageMode === StorageMode.LOCAL) {
     it('should listen for storage changes and reload data accordingly', async () => {
       render(
         <AppContextProvider user={mockUser}>

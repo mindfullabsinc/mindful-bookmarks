@@ -7,7 +7,7 @@ Amplify.configure({ ...config, ssr: false });
 import { ThemeProvider, Authenticator } from "@aws-amplify/ui-react";
 
 import { AppContextProvider } from "@/scripts/AppContextProvider";
-import { AuthMode, StorageType } from "@/scripts/Constants";
+import { AuthMode, StorageMode } from "@/scripts/Constants";
 import { NewTabPage } from "@/pages/NewTabPage";
 
 import "@/styles/Index.css";
@@ -59,7 +59,7 @@ export default function NewTabGate() {
             // —— ANON MODE: never mount <Authenticator>, force local ——
             (stripAuthHash(), // nuke stale #auth=...
             (
-              <AppContextProvider user={null} preferredStorageType={StorageType.LOCAL}>
+              <AppContextProvider user={null} preferredStorageMode={StorageMode.LOCAL}>
                 <NewTabPage />
               </AppContextProvider>
             ))

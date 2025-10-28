@@ -15,7 +15,7 @@ import 'react-phone-number-input/style.css';
 /* Scripts */
 import { AppContext } from "@/scripts/AppContextProvider";
 import { toE164 } from "@/scripts/Utilities"
-import { StorageType, StorageLabel } from "@/scripts/Constants";
+import { StorageMode, StorageLabel } from "@/scripts/Constants";
 
 /* Components */
 import { Avatar } from "@/components/ui/Avatar"; 
@@ -25,8 +25,8 @@ export default function ManageAccountComponent({ user, signIn, signOut }) {
   const {
     userAttributes,
     setUserAttributes,
-    storageType,
-    setStorageType,
+    storageMode,
+    setStorageMode,
   } = useContext(AppContext);
 
    // Consider ourselves "hydrating" when the user is known but attributes are not yet loaded.
@@ -38,7 +38,7 @@ export default function ManageAccountComponent({ user, signIn, signOut }) {
     family_name: "",
     email: "",
     phone: "",
-    storage_type: storageType ?? StorageType.LOCAL,
+    storage_type: storageMode ?? StorageMode.LOCAL,
   });
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -55,10 +55,10 @@ export default function ManageAccountComponent({ user, signIn, signOut }) {
         family_name: userAttributes.family_name ?? "",
         email: userAttributes.email ?? "",
         phone: userAttributes.phone_number ?? "",
-        storage_type: storageType ?? StorageType.LOCAL,
+        storage_type: storageMode ?? StorageMode.LOCAL,
       }));
     }
-  }, [userAttributes, storageType, dirty]);
+  }, [userAttributes, storageMode, dirty]);
 
   const handle = (key) => (valueOrEvent) => {
     const newValue = valueOrEvent?.target ? valueOrEvent.target.value : valueOrEvent;
@@ -107,7 +107,7 @@ export default function ManageAccountComponent({ user, signIn, signOut }) {
         // Refresh local copy (and push into your AppContext)
         const updated = await fetchUserAttributes();
         setUserAttributes(updated); 
-        setStorageType(form.storage_type); 
+        setStorageMode(form.storage_type); 
       }
     } finally {
       setSaving(false);
@@ -266,27 +266,27 @@ function FieldRow({ label, children }) {
   );
 }
 
-function CompactStorageToggle({ value = StorageType.LOCAL, onChange, disabled }) {
-  const isRemote = value === StorageType.REMOTE;
+function CompactStorageToggle({ value = StorageMode.LOCAL, onChange, disabled }) {
+  const isRemote = value === StorageMode.REMOTE;
 
   return (
     <div className="flex items-center gap-3 text-sm">
       <button
         type="button"
         disabled={disabled}
-        onClick={() => onChange?.(StorageType.LOCAL)}
+        onClick={() => onChange?.(StorageMode.LOCAL)}
         className={`transition ${
           !isRemote ? "font-bold text-neutral-500 dark:text-neutral-400" : "text-neutral-500 dark:text-neutral-400"
         } hover:text-neutral-900 disabled:opacity-50`}
       >
-        {StorageLabel[StorageType.LOCAL]}
+        {StorageLabel[StorageMode.LOCAL]}
       </button>
 
       {/* compact switch */}
       <button
         type="button"
         disabled={disabled}
-        onClick={() => onChange?.(isRemote ? StorageType.LOCAL : StorageType.REMOTE)}
+        onClick={() => onChange?.(isRemote ? StorageMode.LOCAL : StorageMode.REMOTE)}
         aria-pressed={isRemote}
         className={`cursor-pointer relative inline-flex h-5 w-9 items-center rounded-full border transition
           ${isRemote
@@ -301,12 +301,12 @@ function CompactStorageToggle({ value = StorageType.LOCAL, onChange, disabled })
       <button
         type="button"
         disabled={disabled}
-        onClick={() => onChange?.(StorageType.REMOTE)}
+        onClick={() => onChange?.(StorageMode.REMOTE)}
         className={`transition ${
           isRemote ? "font-bold text-neutral-500 dark:text-neutral-400" : "text-neutral-500 dark:text-neutral-400"
         } hover:text-neutral-900 disabled:opacity-50`}
       >
-        {StorageLabel[StorageType.REMOTE]}
+        {StorageLabel[StorageMode.REMOTE]}
       </button>
     </div>
   );

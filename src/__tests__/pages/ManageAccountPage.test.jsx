@@ -52,7 +52,7 @@ describe("ManageAccountPage", () => {
     mockHookReturn = {
       importBookmarksFromJSON: jest.fn(),
       exportBookmarksToJSON: jest.fn(),
-      changeStorageType: jest.fn(),
+      changeStorageMode: jest.fn(),
     };
   });
 
@@ -73,7 +73,7 @@ describe("ManageAccountPage", () => {
 
     const topArgs = mockTopBannerSpy.mock.calls.at(-1)[0];
     expect(typeof topArgs.onExportBookmarks).toBe("function");
-    expect(typeof topArgs.onStorageTypeChange).toBe("function");
+    expect(typeof topArgs.onStorageModeChange).toBe("function");
     expect(topArgs.userAttributes).toEqual(ctxValue.userAttributes);
     expect(topArgs.isSignedIn).toBe(true);
 

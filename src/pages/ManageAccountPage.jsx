@@ -16,7 +16,7 @@ export default function ManageAccountPage({ user, signIn, signOut }) {
   const { userAttributes } = useContext(AppContext);
   const {
     exportBookmarksToJSON,
-    changeStorageType,
+    changeStorageMode,
   } = useBookmarkManager();
 
   return (
@@ -28,7 +28,7 @@ export default function ManageAccountPage({ user, signIn, signOut }) {
           onSignIn={signIn}
           onSignOut={signOut}
           isSignedIn={!!user}
-          onStorageTypeChange={changeStorageType}
+          onStorageModeChange={changeStorageMode}
         />
         <ManageAccountComponent 
           key={user?.userId || user?.username || "anon"}

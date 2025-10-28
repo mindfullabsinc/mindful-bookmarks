@@ -9,19 +9,19 @@ import { useBookmarkManager } from '@/hooks/useBookmarkManager';
 import { URL_PATTERN, EMPTY_GROUP_IDENTIFIER } from '@/scripts/Constants.js';
 
 /** Build a per-user/per-storage key so anon/local doesn't collide with auth/remote. */
-const lastGroupKey = (userId, storageType) =>
-  `mindful:lastSelectedGroup:${userId || 'local'}:${storageType || 'local'}`;
+const lastGroupKey = (userId, storageMode) =>
+  `mindful:lastSelectedGroup:${userId || 'local'}:${storageMode || 'local'}`;
 
-const readStoredGroup = (userId, storageType) => {
-  try { return localStorage.getItem(lastGroupKey(userId, storageType)) || ''; } catch { return ''; }
+const readStoredGroup = (userId, storageMode) => {
+  try { return localStorage.getItem(lastGroupKey(userId, storageMode)) || ''; } catch { return ''; }
 };
-const writeStoredGroup = (userId, storageType, v) => {
-  try { localStorage.setItem(lastGroupKey(userId, storageType), v || ''); } catch {}
+const writeStoredGroup = (userId, storageMode, v) => {
+  try { localStorage.setItem(lastGroupKey(userId, storageMode), v || ''); } catch {}
 };
 
 export default function PopUpComponent() {
   // Pull both the fast index and the hydrated groups (arrives later) from context
-  const { groupsIndex, bookmarkGroups, userId, storageType } = useContext(AppContext);
+  const { groupsIndex, bookmarkGroups, userId, storageMode } = useContext(AppContext);
 
   // Actions
   const { addNamedBookmark } = useBookmarkManager();
@@ -32,9 +32,9 @@ export default function PopUpComponent() {
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
 
-  // Only choose a default once per scope (userId+storageType)
+  // Only choose a default once per scope (userId+storageMode)
   const choseInitialRef = useRef(false);
-  const scopeKey = `${userId || 'local'}::${storageType || 'local'}`;
+  const scopeKey = `${userId || 'local'}::${storageMode || 'local'}`;
 
   // Resolve available groups quickly (use the small index immediately; hydrate later)
   const availableGroups = useMemo(() => {
@@ -52,9 +52,9 @@ export default function PopUpComponent() {
 
   useEffect(() => {
     if (choseInitialRef.current) return;
-    if (!storageType) return; // wait until scope is known
+    if (!storageMode) return; // wait until scope is known
 
-    const stored = readStoredGroup(userId, storageType);
+    const stored = readStoredGroup(userId, storageMode);
     const hasStored = stored && availableGroups.some((g) => g.groupName === stored);
 
     const next = hasStored
@@ -62,15 +62,15 @@ export default function PopUpComponent() {
       : (availableGroups[0]?.groupName || 'New Group');
 
     setSelectedGroup(next);
-    writeStoredGroup(userId, storageType, next);
+    writeStoredGroup(userId, storageMode, next);
     choseInitialRef.current = true;
-  }, [availableGroups, userId, storageType]);
+  }, [availableGroups, userId, storageMode]);
 
   // Keep the selection stable and persisted on user changes
   const onGroupChange = (e) => {
     const val = e.target.value;
     setSelectedGroup(val);
-    writeStoredGroup(userId, storageType, val);
+    writeStoredGroup(userId, storageMode, val);
     choseInitialRef.current = true;
   };
 
@@ -100,7 +100,7 @@ export default function PopUpComponent() {
     const urlWithProtocol = constructValidURL(url);
 
     // Persist the user's last choice so next popup opens with it selected
-    writeStoredGroup(userId, storageType, groupName);
+    writeStoredGroup(userId, storageMode, groupName);
 
     await addNamedBookmark(name.trim(), urlWithProtocol, groupName);
 

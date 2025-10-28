@@ -9,18 +9,18 @@ export const ONBOARDING_BOOKMARK_URL_PREFILL = "https://www.google.com" as const
 /* ---------------------------------------------------------- */
 
 /* -------------------- Storage Type -------------------- */
-export const StorageType = {
+export const StorageMode = {
   LOCAL: 'local',
   REMOTE: 'remote',
 } as const;
-export type StorageType = typeof StorageType[keyof typeof StorageType];
+export type StorageModeType = typeof StorageMode[keyof typeof StorageMode];
 
-export const DEFAULT_STORAGE_TYPE = StorageType.LOCAL;
+export const DEFAULT_STORAGE_MODE = StorageMode.LOCAL;
 
 /** Mapping from storage type → human label, type-checked to cover all cases */
-export const StorageLabel: Record<StorageType, string> = {
-  [StorageType.LOCAL]: 'Local-Only',
-  [StorageType.REMOTE]: 'Encrypted Sync',
+export const StorageLabel: Record<StorageModeType, string> = {
+  [StorageMode.LOCAL]: 'Local-Only',
+  [StorageMode.REMOTE]: 'Encrypted Sync',
 };
 /* ---------------------------------------------------------- */
 

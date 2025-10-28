@@ -2,7 +2,7 @@ import React from 'react';
 import { renderHook, act } from '@testing-library/react';
 import { useBookmarkManager } from '@/hooks/useBookmarkManager';
 import { AppContext } from '@/scripts/AppContextProvider';
-import { EMPTY_GROUP_IDENTIFIER, StorageType } from '@/scripts/Constants';
+import { EMPTY_GROUP_IDENTIFIER, StorageMode } from '@/scripts/Constants';
 
 // --- Mocks ---
 
@@ -64,9 +64,9 @@ const { refreshOtherMindfulTabs } = require('@/scripts/Utilities');
 // --- Test Suite ---
 
 describe.each([
-  { storageType: StorageType.LOCAL, description: 'local' },
-  { storageType: StorageType.REMOTE, description: 'remote' },
-])('useBookmarkManager with $description storage', ({ storageType }) => {
+  { storageMode: StorageMode.LOCAL, description: 'local' },
+  { storageMode: StorageMode.REMOTE, description: 'remote' },
+])('useBookmarkManager with $description storage', ({ storageMode }) => {
 
   const createWrapper = (mockContextValue) => {
     return ({ children }) => (
@@ -107,8 +107,8 @@ describe.each([
         bookmarkGroups: initialGroups,
         setBookmarkGroups,
         userId: 'user-1',
-        storageType: storageType,
-        setStorageType: jest.fn(),
+        storageMode: StorageMode,
+        setStorageMode: jest.fn(),
         user: { identityId: 'user-1' },
       }),
     });
@@ -146,8 +146,8 @@ describe.each([
         bookmarkGroups: initialGroups,
         setBookmarkGroups,
         userId: 'user-2',
-        storageType: storageType,
-        setStorageType: jest.fn(),
+        storageMode: StorageMode,
+        setStorageMode: jest.fn(),
         user: { identityId: 'user-2' },
       }),
     });

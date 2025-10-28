@@ -8,7 +8,7 @@ import { AnalyticsContext, type AnalyticsCtx } from "./AnalyticsContext";
 const HEARTBEAT_MS = 60_000;
 const OPT_OUT_KEY = "mindful_ph_opt_out";
 const SURFACE = (globalThis as any).__surface || "popup";
-const STORAGE_TYPE = (globalThis as any).__storageType || undefined;
+const STORAGE_MODE = (globalThis as any).__storageMode || undefined;
 
 // Optional passthroughs if the PostHog core SDK is present.
 // Safe no-ops with your phLite.
@@ -56,7 +56,7 @@ export default function AnalyticsProvider({ children }: { children: React.ReactN
         if (!sub) return;
 
         if (!optOut) {
-          phIdentify(sub, { surface: SURFACE, ...(STORAGE_TYPE ? { storageType: STORAGE_TYPE } : {}) });
+          phIdentify(sub, { surface: SURFACE, ...(STORAGE_MODE ? { storageMode: STORAGE_MODE } : {}) });
           phCapture("login", { surface: SURFACE });
         }
         if (mounted) setUserId(sub);
@@ -71,7 +71,7 @@ export default function AnalyticsProvider({ children }: { children: React.ReactN
   const hbRef = useRef<number | null>(null);
   const sendHeartbeat = useCallback(() => {
     if (optOut || !userId) return;
-    phCapture("active_ping", { surface: SURFACE, ...(STORAGE_TYPE ? { storageType: STORAGE_TYPE } : {}) });
+    phCapture("active_ping", { surface: SURFACE, ...(STORAGE_MODE ? { storageMode: STORAGE_MODE } : {}) });
   }, [optOut, userId]);
 
   useEffect(() => {
