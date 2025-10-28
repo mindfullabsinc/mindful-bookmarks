@@ -35,6 +35,7 @@ export function AppContextProvider({
   const [bookmarkGroups, setBookmarkGroups] = useState(seed.data || []);
   const [groupsIndex, setGroupsIndex] = useState([]); // [{ id, groupName }]
   const [hasHydrated, setHasHydrated] = useState(!!(seed.data?.length));
+  const [isHydratingRemote, setIsHydratingRemote] = useState(false); 
 
   const [userId, setUserId] = useState(null);
   const [storageType, setStorageType] = useState(null);
@@ -51,7 +52,7 @@ export function AppContextProvider({
   };
 
   // ----- helpers: tiny / fast index -----
-  async function readGroupsIndexFast() {
+  async function readGroupsIndexFast(currentStorageType) {
     // 1) try memory cache (persists while SW alive)
     try {
       const { groupsIndex } = await chrome?.storage?.session?.get?.(['groupsIndex']) ?? {};
@@ -67,15 +68,17 @@ export function AppContextProvider({
       }
     } catch {}
 
-    // 3) last-ditch: derive a tiny index from the full blob if it exists
-    try {
-      const { bookmarkGroups: full } = await chrome?.storage?.local?.get?.(['bookmarkGroups']) ?? {};
-      if (Array.isArray(full) && full.length) {
-        const idx = full.map(g => ({ id: g.id, groupName: g.groupName }));
-        try { await chrome?.storage?.session?.set?.({ groupsIndex: idx }); } catch {}
-        return idx;
-      }
-    } catch {}
+    // 3) last-ditch: derive a tiny index from the full LOCAL blob (LOCAL ONLY)
+    if (currentStorageType === StorageType.LOCAL) {
+      try {
+        const { bookmarkGroups: full } = await chrome?.storage?.local?.get?.(['bookmarkGroups']) ?? {};
+        if (Array.isArray(full) && full.length) {
+          const idx = full.map(g => ({ id: g.id, groupName: g.groupName }));
+          try { await chrome?.storage?.session?.set?.({ groupsIndex: idx }); } catch {}
+          return idx;
+        }
+      } catch {}
+    }
 
     return [];
   }
@@ -121,6 +124,12 @@ export function AppContextProvider({
               const storedType = attributes?.['custom:storage_type'];
               const effectiveType = preferredStorageType || storedType || DEFAULT_STORAGE_TYPE;
               setStorageType(effectiveType);
+              // If we’re going REMOTE, do NOT show any seed/local cache while we fetch remote
+              if (effectiveType === StorageType.REMOTE) { 
+                setIsHydratingRemote(true);
+                setBookmarkGroups([]);       // clear pre-seed that might be from LOCAL/anon
+                setHasHydrated(false);       // wait for remote to finish
+              }
               console.log('[AppContext] ready (SILENT AUTH):', { userId: derivedUserId, storageType: effectiveType });
               if (!storedType && effectiveType) {
                 updateUserAttribute({
@@ -167,6 +176,11 @@ export function AppContextProvider({
         console.log("effectiveType: ", effectiveType);
 
         if (!cancelled) setStorageType(effectiveType);
+        if (!cancelled && effectiveType === StorageType.REMOTE) { 
+          setIsHydratingRemote(true);
+          setBookmarkGroups([]); // guard against any leftover seed
+          setHasHydrated(false);
+        }
 
         // If the custom attribute wasn’t set, set a sane default asynchronously
         if (!storedType) {
@@ -189,6 +203,8 @@ export function AppContextProvider({
   // ----- phase 1a: refine first paint from *sync* cache when user/mode become known -----
   useEffect(() => {
     if (!storageType) return;
+    if (storageType === StorageType.REMOTE && isHydratingRemote) return;  // don't seed while remote gating
+
     // Always have a concrete userId: LOCAL_USER_ID when anonymous.
     const id = isSignedIn ? resolvedUserId : LOCAL_USER_ID;
     console.log("user id: ", id);
@@ -209,6 +225,12 @@ export function AppContextProvider({
     (async () => {
       setIsLoading(true);
 
+      if (storageType === StorageType.REMOTE && isHydratingRemote) { 
+        // Don't paint from caches while we’re gating for remote
+        setIsLoading(false);
+        return;
+      }
+
       try {
         const id = isSignedIn ? resolvedUserId: LOCAL_USER_ID;
         const cached = await readBookmarkCacheSession(id, storageType);
@@ -218,7 +240,7 @@ export function AppContextProvider({
         }
       } catch {}
 
-      const idx = await readGroupsIndexFast();
+      const idx = await readGroupsIndexFast(storageType);
       if (!cancelled) {
         setGroupsIndex(idx);
         setIsLoading(false); // UI can render now
@@ -240,21 +262,29 @@ export function AppContextProvider({
     let cancelled = false;
 
     const kickoff = () =>
-      loadInitialBookmarks(id, storageType)
+      loadInitialBookmarks(userId, storageType, {
+        noLocalFallback: storageType !== StorageType.LOCAL, 
+      })
         .then(full => {
           if (cancelled) return;
           setBookmarkGroups(prev => (deepEqual(prev, full) ? prev : full));
 
           // Persist/refresh the tiny index for quick future loads
-          const idx = (full || []).map(g => ({ id: g.id, groupName: g.groupName }));
-          try { chrome?.storage?.local?.set?.({ groupsIndex: idx }); } catch {}
-          try { chrome?.storage?.session?.set?.({ groupsIndex: idx }); } catch {}
-
-          // Warm both caches for instant next paint
-          writeBookmarkCacheSync(id, storageType, full);
-          writeBookmarkCacheSession(id, storageType, full).catch(() => {});
+          // But only persist to caches when we have a non-empty array
+          if (Array.isArray(full) && full.length) {
+            const idx = full.map(g => ({ id: g.id, groupName: g.groupName }));
+            try { chrome?.storage?.local?.set?.({ groupsIndex: idx }); } catch {}
+            try { chrome?.storage?.session?.set?.({ groupsIndex: idx }); } catch {}
+            // Warm both caches for instant next paint
+            writeBookmarkCacheSync(id, storageType, full);
+            writeBookmarkCacheSession(id, storageType, full).catch(() => {});
+          } 
         })
-        .finally(() => { if (!cancelled) setHasHydrated(true); });
+        .finally(() => {
+          if (cancelled) return;
+          setHasHydrated(true);
+          if (storageType === StorageType.REMOTE) setIsHydratingRemote(false); 
+        });
 
     try {
       if ('requestIdleCallback' in window) {
@@ -266,11 +296,11 @@ export function AppContextProvider({
       }
     } catch (e) {
       console.error('Error hydrating bookmarks:', e);
-      if (!cancelled) setBookmarkGroups([]);
+      if (!cancelled && storageType === StorageType.REMOTE) setIsHydratingRemote(false); 
     }
 
     return () => { cancelled = true; };
-  }, [authKey, storageType, isMigrating, user]);
+  }, [authKey, storageType, isMigrating, user, isHydratingRemote]); 
 
   // ----- background reloads (don’t flip isLoading) -----
   useEffect(() => {
@@ -279,16 +309,20 @@ export function AppContextProvider({
     const reload = async () => {
       try {
         const id = isSignedIn ? resolvedUserId: LOCAL_USER_ID;
-        const fresh = await loadInitialBookmarks(id, storageType);
+        const fresh = await loadInitialBookmarks(id, storageType, { 
+          noLocalFallback: storageType !== StorageType.LOCAL
+        });
         setBookmarkGroups(prev => (deepEqual(prev, fresh) ? prev : fresh));
 
-        const idx = (fresh || []).map(g => ({ id: g.id, groupName: g.groupName }));
-        try { chrome?.storage?.local?.set?.({ groupsIndex: idx }); } catch {}
-        try { chrome?.storage?.session?.set?.({ groupsIndex: idx }); } catch {}
-
-        // Keep caches hot
-        writeBookmarkCacheSync(id, storageType, fresh);
-        writeBookmarkCacheSession(id, storageType, fresh).catch(() => {});
+        // Only persist to caches when we have a non-empty array
+        if (Array.isArray(fresh) && fresh.length) {
+          const idx = fresh.map(g => ({ id: g.id, groupName: g.groupName }));
+          try { chrome?.storage?.local?.set?.({ groupsIndex: idx }); } catch {}
+          try { chrome?.storage?.session?.set?.({ groupsIndex: idx }); } catch {}
+          // Keep caches hot
+          writeBookmarkCacheSync(id, storageType, fresh);
+          writeBookmarkCacheSession(id, storageType, fresh).catch(() => {});
+        }
       } catch (e) {
         console.error('Reload after update failed:', e);
       }
@@ -358,6 +392,7 @@ export function AppContextProvider({
     isMigrating, setIsMigrating,
     userAttributes, setUserAttributes,
     hasHydrated,
+    isHydratingRemote, 
   };
 
   return (
