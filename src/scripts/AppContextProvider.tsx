@@ -179,6 +179,43 @@ export function AppContextProvider({
     return [];
   }
 
+  /**
+   * Persist small index + warm caches only when data is non-empty.
+   * Keeps the last good cache from being overwritten by [] on transient errors.
+   */
+  function persistCachesIfNonEmpty(
+    id: string,
+    storageMode: StorageModeType | undefined,
+    groups: BookmarkGroup[] | undefined | null
+  ) { // NEW
+    if (!Array.isArray(groups) || groups.length === 0) return;
+    const idx = groups.map((g) => ({ id: String(g.id), groupName: String(g.groupName) }));
+    try { chrome?.storage?.local?.set?.({ groupsIndex: idx }); } catch {}
+    try { chrome?.storage?.session?.set?.({ groupsIndex: idx }); } catch {}
+    try { writeBookmarkCacheSync(id, storageMode, groups); } catch {}
+    try { void writeBookmarkCacheSession(id, storageMode, groups); } catch {}
+  }
+
+  /**
+   * Load bookmarks for a given userId/mode, never falling back to LOCAL when remote,
+   * then apply state and caches. Returns the loaded array (possibly []).
+   */
+  async function loadAndCache(
+    userIdArg: string | null,
+    idForCache: string,
+    storageMode: StorageModeType | undefined,
+    setBookmarkGroups: Dispatch<SetStateAction<BookmarkGroup[]>>,
+    deepEqualFn: (a: unknown, b: unknown) => boolean
+  ): Promise<BookmarkGroup[]> { // NEW
+    const fullRaw = await loadInitialBookmarks(userIdArg, storageMode, {
+      noLocalFallback: storageMode !== StorageMode.LOCAL,
+    });
+    const full = Array.isArray(fullRaw) ? (fullRaw as BookmarkGroup[]) : [];
+    setBookmarkGroups((prev) => (deepEqualFn(prev, full) ? prev : full));
+    persistCachesIfNonEmpty(idForCache, storageMode, full);
+    return full;
+  }
+
   useEffect(() => {
     if (storageMode) {
       console.debug('[AppContext] ready:', { userId, storageMode });
@@ -401,35 +438,18 @@ export function AppContextProvider({
 
     let cancelled = false;
 
-    const kickoff = () =>
-      loadInitialBookmarks(userId, storageMode, {
-        noLocalFallback: storageMode !== StorageMode.LOCAL,
-      })
-        .then((fullRaw) => {
-          const full = Array.isArray(fullRaw) ? (fullRaw as BookmarkGroup[]) : [];
+    const kickoff = () => 
+      loadAndCache(userId, id, storageMode, setBookmarkGroups, deepEqual)
+        .then(() => {
           if (cancelled) return;
-          setBookmarkGroups((prev) => (deepEqual(prev, full) ? prev : full));
-
           // Persist/refresh the tiny index for quick future loads
-          // But only persist to caches when we have a non-empty array
-          if (Array.isArray(full) && full.length) {
-            const idx = full.map((g) => ({ id: g.id, groupName: g.groupName })) as GroupsIndexEntry[];
-            try {
-              chrome?.storage?.local?.set?.({ groupsIndex: idx });
-            } catch {}
-            try {
-              chrome?.storage?.session?.set?.({ groupsIndex: idx });
-            } catch {}
-            // Warm both caches for instant next paint
-            writeBookmarkCacheSync(id, storageMode, full);
-            writeBookmarkCacheSession(id, storageMode, full).catch(() => {});
-          }
+          // (handled inside loadAndCache via persistCachesIfNonEmpty)
         })
         .finally(() => {
           if (cancelled) return;
           setHasHydrated(true);
           if (storageMode === StorageMode.REMOTE) setIsHydratingRemote(false);
-        });
+        }); 
 
     try {
       if ('requestIdleCallback' in window) {
@@ -456,25 +476,7 @@ export function AppContextProvider({
     const reload = async () => {
       try {
         const id = isSignedIn ? resolvedUserId : LOCAL_USER_ID;
-        const freshRaw = await loadInitialBookmarks(id, storageMode, {
-          noLocalFallback: storageMode !== StorageMode.LOCAL,
-        });
-        const fresh = Array.isArray(freshRaw) ? (freshRaw as BookmarkGroup[]) : [];
-        setBookmarkGroups((prev) => (deepEqual(prev, fresh) ? prev : fresh));
-
-        // Only persist to caches when we have a non-empty array
-        if (Array.isArray(fresh) && fresh.length) {
-          const idx = fresh.map((g) => ({ id: g.id, groupName: g.groupName })) as GroupsIndexEntry[];
-          try {
-            chrome?.storage?.local?.set?.({ groupsIndex: idx });
-          } catch {}
-          try {
-            chrome?.storage?.session?.set?.({ groupsIndex: idx });
-          } catch {}
-          // Keep caches hot
-          writeBookmarkCacheSync(id, storageMode, fresh);
-          writeBookmarkCacheSession(id, storageMode, fresh).catch(() => {});
-        }
+        await loadAndCache(userId, id, storageMode, setBookmarkGroups, deepEqual); 
       } catch (e) {
         console.error('Reload after update failed:', e);
       }
