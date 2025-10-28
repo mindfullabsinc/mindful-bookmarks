@@ -87,7 +87,7 @@ export function AppContextProvider({
   preferredStorageMode,
   children,
 }: AppContextProviderProps): ReactElement {
-  // ----- state -----
+  /* -------------------- Context / state --------------------*/
   const [userAttributes, setUserAttributes] = useState<UserAttributes | null>(null);
 
   // Seed immediately from a synchronous snapshot (pre-user, pre-mode) to avoid flicker.
@@ -108,7 +108,9 @@ export function AppContextProvider({
   const isSignedIn =
     !!userId && userId !== LOCAL_USER_ID && storageMode === StorageMode.REMOTE;
   const authKey = isSignedIn ? resolvedUserId : 'anon-key';
+  /* ---------------------------------------------------------- */
 
+  /* -------------------- Helper functions -------------------- */
   /**
    * Compare two values using JSON serialization, falling back to false if either value cannot be
    * stringified (e.g., due to circular references).
@@ -125,7 +127,6 @@ export function AppContextProvider({
     }
   };
 
-  // ----- helpers: tiny / fast index -----
   /**
    * Resolve a lightweight groups index by probing session and local caches before falling back to
    * deriving it from the full LOCAL storage payload.
@@ -216,13 +217,54 @@ export function AppContextProvider({
     return full;
   }
 
+   // ----- storage type changes -----
+  /**
+   * Update storage mode, coercing anonymous users to LOCAL and persisting preferences back to Cognito
+   * when the user is authenticated.
+   *
+   * @param newStorageMode Target storage mode selected by the user.
+   * @returns Promise that resolves once the preference has been processed.
+   */
+  const handleStorageModeChange = useCallback(
+    async (newStorageMode: StorageModeType): Promise<void> => {
+      // If not signed in, silently coerce to LOCAL
+      if (!user && newStorageMode === StorageMode.REMOTE) {
+        setStorageMode(StorageMode.LOCAL as StorageModeType);
+        return;
+      }
+
+      setStorageMode(newStorageMode);
+
+      // Persist preference to Cognito when signed in
+      if (user) {
+        updateUserAttribute({
+          userAttribute: {
+            attributeKey: 'custom:storage_type',
+            value: newStorageMode,
+          },
+        }).catch((err) =>
+          console.error('Error updating storage type preference:', err),
+        );
+      }
+    },
+    [user],
+  );
+  /* ---------------------------------------------------------- */
+
+  /* -------------------- Effects -------------------- */
+  /**
+   * Log when the storage mode stabilises so we can correlate downstream effects in devtools.
+   */
   useEffect(() => {
     if (storageMode) {
       console.debug('[AppContext] ready:', { userId, storageMode });
     }
   }, [userId, storageMode]);
 
-  // ----- phase 0: decide mode quickly (no blocking on Amplify for LOCAL) -----
+  /**
+   * Phase 0 bootstrap: resolve the initial storage mode as fast as possible by checking
+   * for explicit anon overrides, silent Amplify sessions, or falling back to LOCAL.
+   */
   useEffect(() => {
     let cancelled = false;
     console.log('[AppContext] phase0 start: user?', !!user);
@@ -366,7 +408,10 @@ export function AppContextProvider({
     };
   }, [user, preferredStorageMode]);
 
-  // ----- phase 1a: refine first paint from *sync* cache when user/mode become known -----
+  /**
+   * Phase 1a: once storage mode is known (and we're not gating on remote), synchronously
+   * hydrate bookmarks from localStorage to avoid first-paint flicker.
+   */
   useEffect(() => {
     if (!storageMode) return;
     if (storageMode === StorageMode.REMOTE && isHydratingRemote) return; // don't seed while remote gating
@@ -388,7 +433,10 @@ export function AppContextProvider({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authKey, storageMode]); // treat anon as stable key
 
-  // ----- phase 1b: render ASAP with groups index (async but cheap) -----
+  /**
+   * Phase 1b: asynchronously read the session cache plus groups index so UI elements can render
+   * meaningful data while the full remote hydration runs in the background.
+   */
   useEffect(() => {
     let cancelled = false;
 
@@ -427,7 +475,10 @@ export function AppContextProvider({
     };
   }, [authKey, storageMode, user]);
 
-  // ----- phase 2: hydrate full groups in background once mode is known -----
+  /**
+   * Phase 2: load the authoritative bookmark list (remote or local) during idle time, update caches,
+   * and clear the remote hydration gate when complete.
+   */
   useEffect(() => {
     if (isMigrating) return;
     if (!storageMode) return;
@@ -469,7 +520,10 @@ export function AppContextProvider({
     };
   }, [authKey, storageMode, isMigrating, user, isHydratingRemote]);
 
-  // ----- background reloads (don’t flip isLoading) -----
+  /**
+   * Listen for cross-view "bookmarks updated" signals and visibility changes so the context
+   * can refresh data without blocking the primary loading indicator.
+   */
   useEffect(() => {
     if (isMigrating) return;
 
@@ -515,39 +569,7 @@ export function AppContextProvider({
       document.removeEventListener('visibilitychange', onVis);
     };
   }, [authKey, storageMode, isMigrating, user]);
-
-  // ----- storage type changes -----
-  /**
-   * Update storage mode, coercing anonymous users to LOCAL and persisting preferences back to Cognito
-   * when the user is authenticated.
-   *
-   * @param newStorageMode Target storage mode selected by the user.
-   * @returns Promise that resolves once the preference has been processed.
-   */
-  const handleStorageModeChange = useCallback(
-    async (newStorageMode: StorageModeType): Promise<void> => {
-      // If not signed in, silently coerce to LOCAL
-      if (!user && newStorageMode === StorageMode.REMOTE) {
-        setStorageMode(StorageMode.LOCAL as StorageModeType);
-        return;
-      }
-
-      setStorageMode(newStorageMode);
-
-      // Persist preference to Cognito when signed in
-      if (user) {
-        updateUserAttribute({
-          userAttribute: {
-            attributeKey: 'custom:storage_type',
-            value: newStorageMode,
-          },
-        }).catch((err) =>
-          console.error('Error updating storage type preference:', err),
-        );
-      }
-    },
-    [user],
-  );
+  /* ---------------------------------------------------------- */
 
   // ----- render gate: only block first paint if we truly have nothing -----
   if (isLoading && !groupsIndex.length && !hasHydrated) {

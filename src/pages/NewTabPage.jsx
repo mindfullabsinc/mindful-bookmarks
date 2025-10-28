@@ -1,3 +1,4 @@
+/* -------------------- Imports -------------------- */
 import React, { useContext, useEffect, useRef } from "react";
 
 // Import Amplify and the Authenticator UI component
@@ -13,11 +14,11 @@ import { signOut as amplifySignOut } from 'aws-amplify/auth';
 import "@/styles/Login.css";
 
 /* Constants */
-import { 
-  EMPTY_GROUP_IDENTIFIER, 
-  ONBOARDING_NEW_GROUP_PREFILL, 
-  StorageMode 
-} from "@/scripts/Constants"; 
+import {
+  EMPTY_GROUP_IDENTIFIER,
+  ONBOARDING_NEW_GROUP_PREFILL,
+  StorageMode
+} from "@/scripts/Constants";
 
 /* Hooks and Utilities */
 import { getUserStorageKey } from '@/scripts/Utilities';
@@ -32,8 +33,18 @@ import EmptyBookmarksState from '@/components/EmptyBookmarksState';
 
 /* Analytics */
 import AnalyticsProvider from "@/analytics/AnalyticsProvider";
+/* ---------------------------------------------------------- */
 
 
+/**
+ * Render the Mindful new-tab surface, wiring bookmark context, storage switching,
+ * and auth hand-offs for both signed-in and anonymous flows.
+ *
+ * @param {{ sub?: string }} [user] Authenticated Cognito user object, when available.
+ * @param {() => Promise<void> | void} [signIn] Optional callback invoked when the user clicks sign-in.
+ * @param {() => Promise<void> | void} [signOut] Optional callback invoked when the user clicks sign-out.
+ * @returns {JSX.Element} New tab React tree.
+ */
 export function NewTabPage({ user, signIn, signOut }) {
   /* -------------------- Context / state --------------------*/
   const {
@@ -66,6 +77,9 @@ export function NewTabPage({ user, signIn, signOut }) {
   /* ---------------------------------------------------------- */
 
   /* -------------------- Helper functions -------------------- */
+  /**
+   * Remove any `auth=` hash fragment so we do not show the inline authenticator unintentionally.
+   */
   const clearAuthHash = () => {
     try {
       const h = window.location.hash || '';
@@ -76,16 +90,23 @@ export function NewTabPage({ user, signIn, signOut }) {
     } catch {}
   };
 
+  /**
+   * Handle cross-view auth signals by forcing a reload when a newer timestamp arrives.
+   *
+   * @param {number} [at=Date.now()] Millisecond timestamp associated with the auth event.
+   */
   const handleAuthSignal = (at = Date.now()) => {
     if (at <= lastAuthSignalAtRef.current) return; // ignore duplicates
     lastAuthSignalAtRef.current = at;
     // Easiest & safest: full reload so all providers/hooks re-init with the new session
     window.location.reload();
-    // If you prefer a soft refresh, swap the line above for:
-    // - re-check auth + re-run your initial data loads
-    // - e.g., await getCurrentUser(); reloadBookmarks(); etc.
   };
 
+  /**
+   * Respond to a broadcast that storage should flip to anonymous/local mode.
+   *
+   * @param {number} [at=Date.now()] Millisecond timestamp tagging the mode switch event.
+   */
   const handleModeAnonSignal = (at = Date.now()) => {
     if (at <= lastModeSignalAtRef.current) return;
     lastModeSignalAtRef.current = at;
@@ -93,17 +114,20 @@ export function NewTabPage({ user, signIn, signOut }) {
     clearBookmarkCaches();
     clearAuthHash();
     window.location.reload();
-    // (If you prefer a soft flip, you could call setStorageMode(StorageMode.LOCAL)
-    //  and reload bookmarks; reload is cleaner across providers/hooks.)
   };
 
-  // Create a new handler function that calls the importBookmarksFromJSON with no arguments
+  /**
+   * Trigger the import flow via the bookmarks manager without surfacing errors here.
+   */
   const handleLoadBookmarks = () => {
     importBookmarksFromJSON();
   };
 
-  // Helper to clear indices and obvious blobs from the local cache
-  // It will be called during sign-out and anon-mode switch.
+  /**
+   * Remove cached bookmark blobs and indices so anon/local views do not show stale remote data.
+   *
+   * @returns {Promise<void>} Resolves after attempting to clear storage namespaces.
+   */
   async function clearBookmarkCaches() {
     try { await chrome?.storage?.session?.remove?.(['groupsIndex', 'bookmarkGroups']); } catch {}
     try { await chrome?.storage?.local?.remove?.(['groupsIndex', 'bookmarkGroups']); } catch {}
@@ -118,8 +142,11 @@ export function NewTabPage({ user, signIn, signOut }) {
     } catch {}
   }
 
-  // If caller doesn’t provide a signIn handler, use a safe default that
-  // navigates to the in-app auth view on New Tab (hash route).
+  /**
+   * Default sign-in handler for new-tab: pushes a hash to open the inline authenticator.
+   *
+   * @returns {void}
+   */
   const defaultSignIn = () => {
     try {
       // Convention: NewTab auth route reader can pick this up.
@@ -139,19 +166,30 @@ export function NewTabPage({ user, signIn, signOut }) {
     }
   };
 
-  // --- Broadcast utilities (mirror Popup) ---
+  /**
+   * Broadcast auth lifecycle changes to other extension contexts.
+   *
+   * @param {'USER_SIGNED_OUT' | string} type Message type being sent through chrome runtime.
+   */
   function broadcastAuthEdge(type /* 'USER_SIGNED_OUT' */) {
     const at = Date.now();
     try { chrome.storage?.local?.set({ authSignalAt: at, authSignal: 'signedOut' }); } catch {}
     try { chrome.runtime?.sendMessage?.({ type, at }, () => { chrome.runtime?.lastError; }); } catch {}
   }
+  /**
+   * Notify other contexts that storage preferences switched to anonymous/local mode.
+   */
   function broadcastLocalModeEdge() {
     const at = Date.now();
     try { chrome.storage?.local?.set({ mindful_auth_mode: 'anon', modeSignalAt: at }); } catch {}
     try { chrome.runtime?.sendMessage?.({ type: 'MODE_SWITCHED_TO_ANON', at }, () => { chrome.runtime?.lastError; }); } catch {}
   }
   
-  // Real default sign-out for the silent-auth New Tab path.
+  /**
+   * Default sign-out handler: logs out via Amplify, clears caches, broadcasts signals, and reloads.
+   *
+   * @returns {Promise<void>} Resolves after the UI reload is requested.
+   */
   const defaultSignOut = async () => {
     try { await amplifySignOut({ global: true }); } catch {}
     // flip UI to anon for any open New Tab pages
@@ -165,7 +203,10 @@ export function NewTabPage({ user, signIn, signOut }) {
   /* ---------------------------------------------------------- */
 
   /* -------------------- Effects -------------------- */
-  // After initial mount, if saved mode is 'anon', strip any auth hash right away.
+  /**
+   * On mount, check stored auth mode and strip any hash-based authenticator prompts if the user
+   * explicitly chose anonymous mode in a prior session.
+   */
   useEffect(() => {
     (async () => {
       try {
@@ -180,7 +221,10 @@ export function NewTabPage({ user, signIn, signOut }) {
     })();
   }, []);
 
-  // Effect to ensure an empty group for adding new bookmarks always exists.
+  /**
+   * Ensure an empty placeholder group exists once data is hydrated so users can immediately add
+   * bookmarks without manually creating a group first.
+   */
   useEffect(() => {
     // Avoid adding an empty group before we know if cache / real data exist
     if (!ready) return; 
@@ -194,7 +238,10 @@ export function NewTabPage({ user, signIn, signOut }) {
     if (!hasEmpty) addEmptyBookmarkGroup();
   }, [hasHydrated, bookmarkGroups, addEmptyBookmarkGroup]);
 
-  // Listen for LOCAL storage changes to sync bookmarks across tabs (existing logic)
+  /**
+   * When operating in LOCAL storage mode, listen for chrome.storage updates from other tabs so
+   * this view stays in sync with cross-window edits.
+   */
   useEffect(() => {
     // Only attach this listener if we are in LOCAL storage mode.
     // It's irrelevant for remote storage.
@@ -227,7 +274,10 @@ export function NewTabPage({ user, signIn, signOut }) {
     };
   }, [userId, storageMode, setBookmarkGroups, isMigrating]); // Re-runs if user or storageMode changes
 
-  // --- Listen for popup auth broadcasts (runtime messages) ---
+  /**
+   * Subscribe to runtime messages signaling auth changes or storage mode flips so this page can
+   * react to popup-driven events without polling.
+   */
   useEffect(() => {
     const onMsg = (msg) => {
       if (msg?.type === 'USER_SIGNED_IN' || msg?.type === 'USER_SIGNED_OUT') {
@@ -244,7 +294,10 @@ export function NewTabPage({ user, signIn, signOut }) {
     return () => { try { chrome?.runtime?.onMessage?.removeListener?.(onMsg); } catch {} };
   }, []); 
 
-  // --- Also watch storage for 'authSignalAt' and 'modeSignalAt' --- 
+  /**
+   * Mirror the runtime listener with a chrome.storage observer so persisted timestamps from other
+   * contexts trigger the same auth or mode reactions here.
+   */
   useEffect(() => {
     const storageEvents = chrome?.storage?.onChanged;
     if (!storageEvents?.addListener) return () => {};
