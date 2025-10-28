@@ -1,7 +1,9 @@
 import React, { useEffect } from 'react';
-import { Amplify } from 'aws-amplify';
-import config from '/amplify_outputs.json';
-Amplify.configure({ ...config, ssr: false });
+import type { ReactElement } from 'react';
+
+import { Amplify, type ResourcesConfig } from 'aws-amplify';
+import config from '../../amplify_outputs.json';
+Amplify.configure(config as ResourcesConfig);
 
 // Import Hub from the correct package for Amplify v6+
 import { Hub } from 'aws-amplify/utils';
@@ -26,7 +28,9 @@ import formFields from "@/config/formFields"
 /* Analytics */
 import AnalyticsProvider from "@/analytics/AnalyticsProvider";
 
-async function openAuthTab(route = 'signUp', extras = {}) {
+type AuthModeValue = (typeof AuthMode)[keyof typeof AuthMode];
+
+async function openAuthTab(route: 'signUp' | 'signIn' | 'confirmSignUp' = 'signUp', extras: Record<string, unknown> = {}) {
   const url = chrome.runtime.getURL(`newtab.html#auth=${route}`);
   chrome.tabs.create({ url }, () => {
     const err = chrome.runtime.lastError;
@@ -36,7 +40,7 @@ async function openAuthTab(route = 'signUp', extras = {}) {
 }
 
 // Helper that nudges the Authenticator to the Sign In view
-function KickToSignIn() {
+function KickToSignIn(): null {
   const { route, toSignIn } = useAuthenticator((ctx) => [ctx.route]);
   React.useEffect(() => {
     // If it isn't already on signIn, push it there on mount
@@ -49,12 +53,12 @@ function reloadActiveTabIfNewTab() {
   try {
     const extNtp = chrome.runtime.getURL('newtab.html');
     if (chrome.tabs?.query && chrome.tabs?.reload) {
-      chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs = []) => {
+      chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs: chrome.tabs.Tab[] = []) => {
         const tab = tabs?.[0];
         if (!tab?.id) return;
 
-        const url = tab.url || '';
-        const pending = tab.pendingUrl || '';
+        const url = (tab.url || '');
+        const pending = (tab as any).pendingUrl || '';
 
         // Chrome overrides show up as chrome://newtab/ (omnibox blank)
         // Also allow direct loads of the extension page
@@ -84,7 +88,7 @@ function refreshNewTabPagesBestEffort() {
 }
 
 // --- Broadcast utility (used only on real sign-in/out edges) ---
-function broadcastAuthEdge(type /* 'USER_SIGNED_IN' | 'USER_SIGNED_OUT' */) {
+function broadcastAuthEdge(type: 'USER_SIGNED_IN' | 'USER_SIGNED_OUT' /* 'USER_SIGNED_IN' | 'USER_SIGNED_OUT' */) {
   const at = Date.now();
   try { chrome.storage?.local?.set({ authSignalAt: at, authSignal: type === 'USER_SIGNED_IN' ? 'signedIn' : 'signedOut' }); } catch {}
   try { chrome.runtime.sendMessage({ type, at }, () => { chrome.runtime.lastError; }); } catch {}
@@ -99,15 +103,15 @@ function broadcastLocalModeEdge() {
 }
 
 /* ---------- Persist the popup auth mode ---------- */
-function usePopupMode() {
-  const [mode, setMode] = React.useState(AuthMode.ANON);
+function usePopupMode(): { mode: AuthModeValue; setMode: (next: AuthModeValue) => Promise<void> | void; ready: boolean } {
+  const [mode, setMode] = React.useState<AuthModeValue>(AuthMode.ANON);
   const [ready, setReady] = React.useState(false);
 
   React.useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const { mindful_auth_mode } = await chrome.storage?.local?.get?.('mindful_auth_mode') ?? {};
+        const { mindful_auth_mode } = await (chrome.storage?.local?.get?.('mindful_auth_mode') ?? Promise.resolve({})) as { mindful_auth_mode?: AuthModeValue };
         if (!cancelled && (mindful_auth_mode === AuthMode.ANON || mindful_auth_mode === AuthMode.AUTH)) {
           setMode(mindful_auth_mode);
         }
@@ -117,7 +121,7 @@ function usePopupMode() {
     return () => { cancelled = true; }
   }, []);
 
-  const save = React.useCallback(async (next) => {
+  const save = React.useCallback(async (next: AuthModeValue) => {
     setMode(next);
     try { await chrome.storage?.local?.set?.({ mindful_auth_mode: next }); } catch {}
   }, []);
@@ -126,7 +130,7 @@ function usePopupMode() {
 }
 
 /* ---------- UI: small toggle header ---------- */
-function ModeSwitcher({ mode, onSwitch }) {
+function ModeSwitcher({ mode, onSwitch }: { mode: AuthModeValue; onSwitch: (next: AuthModeValue) => void | Promise<void> }) {
   console.log("In ModeSwitcher. mode: ", mode, " onSwitch: ", onSwitch);
   return (
     <div className="flex items-center justify-between mb-3">
@@ -159,7 +163,7 @@ function ModeSwitcher({ mode, onSwitch }) {
 }
 
 /* ---------- Watch Amplify route to auto-handoff verify in new tab ---------- */
-function PopupRouteWatcher() {
+function PopupRouteWatcher(): null {
   const { route } = useAuthenticator((ctx) => [ctx.route]);
   React.useEffect(() => {
     const isVerify =
@@ -170,7 +174,7 @@ function PopupRouteWatcher() {
 }
 
 /* ---------- Gate: anon vs auth ---------- */
-function AuthGate({ mode, onWantAuth }) {
+function AuthGate({ mode, onWantAuth }: { mode: AuthModeValue; onWantAuth: () => void }): ReactElement {
   // ANON: No Authenticator at all. App runs local-only with user=null.
   if (mode === AuthMode.ANON) {
     console.log("Authentication mode is ANON, setting preferredStorageMode to local");
@@ -189,7 +193,8 @@ function AuthGate({ mode, onWantAuth }) {
     <Authenticator
       className="!p-0"
       hideSignUp={true}
-      formFields={formFields}
+      // formFields type is not exported; keep as-is to match runtime shape
+      formFields={formFields as any}
       components={{
         SignIn: {
           Footer: () => (
@@ -207,7 +212,7 @@ function AuthGate({ mode, onWantAuth }) {
           {/* Ensure we’re on the sign-in panel the moment this mounts */}
           <KickToSignIn />
 
-          <AppContextProvider user={user}>
+          <AppContextProvider user={user as any}>
             {!user && (
               <div className="mt-3">
                 <button
@@ -228,14 +233,14 @@ function AuthGate({ mode, onWantAuth }) {
   ); 
 }
 
-export default function PopupPage() {
+export default function PopupPage(): ReactElement | null {
   const { mode, setMode, ready } = usePopupMode();
   const suppressNextSignedOut = React.useRef(false);
 
   // Listen for real sign-in/out edges to refresh new-tab & broadcast
   useEffect(() => {
     // Amplify v6 Hub uses the literal 'auth' channel, so need to use the string literal
-    const unsub = Hub.listen(AMPLIFY_HUB_AUTH_CHANNEL, ({ payload }) => {
+    const unsub = Hub.listen(AMPLIFY_HUB_AUTH_CHANNEL, ({ payload }: { payload?: { event?: string } }) => {
       // Common events: 'signedIn', 'signedOut', 'tokenRefresh', etc.
       if (payload?.event === 'signedIn') {
         broadcastAuthEdge('USER_SIGNED_IN');
@@ -274,9 +279,9 @@ export default function PopupPage() {
                 // Ignore the *next* 'signedOut' Hub event generated by this.
                 suppressNextSignedOut.current = true;
                 try {
-                  const s = await fetchAuthSession().catch(() => null);
+                  const s = await fetchAuthSession().catch(() => null as any);
                   // If a session exists, sign out so Authenticator will render the sign-in screen
-                  if (s && (s.tokens || s.userSub || s.identityId)) {
+                  if (s && ((s as any).tokens || (s as any).userSub || (s as any).identityId)) {
                     await signOut({ global: true }).catch(() => {});
                   }
                 } catch {}
