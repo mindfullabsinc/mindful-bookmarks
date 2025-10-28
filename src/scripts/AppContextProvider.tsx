@@ -1,5 +1,6 @@
 /* -------------------- Imports -------------------- */
 /* Libraries */
+import React from 'react';
 import { createContext, useState, useEffect, useCallback } from 'react';
 import type { ReactNode, ReactElement, Dispatch, SetStateAction } from 'react';
 import {

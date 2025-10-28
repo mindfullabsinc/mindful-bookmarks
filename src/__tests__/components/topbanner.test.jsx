@@ -12,7 +12,7 @@ describe('TopBanner Component', () => {
   const mockOnExportBookmarks = jest.fn();
   const mockOnSignIn = jest.fn();
   const mockOnSignOut = jest.fn();
-  const mockChangestorageMode = jest.fn();
+  const mockChangeStorageMode = jest.fn();
 
   const mockUserAttributes = {
     given_name: 'Jane',
@@ -36,7 +36,7 @@ describe('TopBanner Component', () => {
             onSignIn={mockOnSignIn}
             onSignOut={mockOnSignOut}
             isSignedIn={false}
-            onstorageModeChange={mockChangestorageMode}
+            onStorageModeChange={mockChangeStorageMode}
           />
         </AppContext.Provider>
       );
@@ -95,7 +95,7 @@ describe('TopBanner Component', () => {
             onSignIn={mockOnSignIn}
             onSignOut={mockOnSignOut}
             isSignedIn={true}
-            onstorageModeChange={mockChangestorageMode}
+            onStorageModeChange={mockChangeStorageMode}
           />
         </AppContext.Provider>
       );
@@ -160,14 +160,14 @@ describe('TopBanner Component', () => {
       expect(storageToggle).toBeChecked();
     });
 
-    it('calls onstorageModeChange when the toggle is clicked', async () => {
+    it('calls onStorageModeChange when the toggle is clicked', async () => {
       const user = userEvent.setup();
       await user.click(getAvatarButton());
 
       const storageToggle = await screen.findByRole('checkbox');
       await user.click(storageToggle);
 
-      expect(mockChangestorageMode).toHaveBeenCalledTimes(1);
+      expect(mockChangeStorageMode).toHaveBeenCalledTimes(1);
     });
   });
 });
