@@ -19,7 +19,8 @@ import {
   DEFAULT_STORAGE_MODE,
   LOCAL_USER_ID,
 } from '@/scripts/Constants';
-import { loadInitialBookmarks } from '@/scripts/bookmarksData.js';
+import { loadInitialBookmarks } from '@/scripts/bookmarksData';
+import { migrateLegacyLocalCachesIntoWorkspace } from '@/scripts/Utilities'
 
 /* Caching: synchronous snapshot for first-paint + session cache for reopens */
 import {
@@ -29,6 +30,26 @@ import {
   writeBookmarkCacheSession,
 } from '@/scripts/BookmarkCache';
 import type { BookmarkSnapshot } from '@/scripts/BookmarkCache';
+
+import {
+  Workspace, WorkspaceId,
+  DEFAULT_LOCAL_WORKSPACE_ID,
+  WORKSPACES_KEY, ACTIVE_WORKSPACE_KEY,
+  makeDefaultLocalWorkspace,
+} from '@/scripts/workspaces';
+/* ---------------------------------------------------------- */
+
+/* -------------------- Constants -------------------- */
+// Legacy (pre-workspace) keys we used before introducing workspaces
+const LEGACY_SESSION_GROUPS_INDEX_KEY = 'groupsIndex';
+const LEGACY_LOCAL_GROUPS_INDEX_KEY   = 'groupsIndex';
+const LEGACY_LOCAL_BOOKMARK_GROUPS_KEY = 'bookmarkGroups';
+/* ---------------------------------------------------------- */
+
+/* -------------------- Class-level helpers -------------------- */
+// Workspace-scoped small index keys (with migration from legacy unscoped keys)
+const sessionGroupsIndexKey = (wid: WorkspaceId) => `groupsIndex:${wid}`;
+const localGroupsIndexKey   = (wid: WorkspaceId) => `groupsIndex:${wid}`;
 /* ---------------------------------------------------------- */
 
 /* -------------------- Local types and interfaces -------------------- */
@@ -44,6 +65,11 @@ type AppContextProviderUser = {
 } | null | undefined;
 
 export interface AppContextValue {
+  /* Workspaces */
+  workspaces: Record<WorkspaceId, Workspace>;
+  activeWorkspaceId: WorkspaceId;
+  setActiveWorkspaceId: (id: WorkspaceId) => void; // no-op in LOCAL for now
+
   groupsIndex: GroupsIndexEntry[];
   bookmarkGroups: BookmarkGroupType[];
   setBookmarkGroups: Dispatch<SetStateAction<BookmarkGroupType[]>>;
@@ -87,8 +113,12 @@ export function AppContextProvider({
   /* -------------------- Context / state --------------------*/
   const [userAttributes, setUserAttributes] = useState<UserAttributes | null>(null);
 
+  // Workspaces
+  const [workspaces, setWorkspaces] = useState<Record<WorkspaceId, Workspace>>({});
+  const [activeWorkspaceId, _setActiveWorkspaceId] = useState<WorkspaceId>(DEFAULT_LOCAL_WORKSPACE_ID);
+
   // Seed immediately from a synchronous snapshot (pre-user, pre-mode) to avoid flicker.
-  const seed = readBookmarkCacheSync(undefined, undefined) as BookmarkSnapshot | null;
+  const seed = readBookmarkCacheSync(DEFAULT_LOCAL_WORKSPACE_ID) as BookmarkSnapshot | null;
   const initialGroups = Array.isArray(seed?.data) ? (seed?.data as BookmarkGroupType[]) : [];
   const [bookmarkGroups, setBookmarkGroups] = useState<BookmarkGroupType[]>(initialGroups);
   const [groupsIndex, setGroupsIndex] = useState<GroupsIndexEntry[]>([]); // [{ id, groupName }]
@@ -124,42 +154,75 @@ export function AppContextProvider({
     }
   };
 
+  const setActiveWorkspaceId = (id: WorkspaceId) => {
+    // PR-1: in local mode there is only one; silently enforce it.
+    if (id !== DEFAULT_LOCAL_WORKSPACE_ID) return;
+    _setActiveWorkspaceId(id);
+    try { (globalThis as any).chrome?.storage?.local?.set?.({ [ACTIVE_WORKSPACE_KEY]: id }); } catch {}
+  };
+
   /**
    * Resolve a lightweight groups index by probing session and local caches before falling back to
    * deriving it from the full LOCAL storage payload.
    *
    * @param currentStorageMode Storage mode currently active for the user.
+   * @param workspaceId Active workspace for namespacing cache keys.
    * @returns Promise resolving to the smallest cached representation of the groups index.
    */
-  async function readGroupsIndexFast(currentStorageMode?: StorageModeType): Promise<GroupsIndexEntry[]> {
-    // 1) try memory cache (persists while SW alive)
+  async function readGroupsIndexFast(
+    currentStorageMode?: StorageModeType,
+    workspaceId: WorkspaceId = DEFAULT_LOCAL_WORKSPACE_ID
+  ): Promise<GroupsIndexEntry[]> {
+    // 1) try memory cache (persists while SW alive) – namespaced, with legacy fallback
     try {
+      const sessionKey = sessionGroupsIndexKey(workspaceId);
       const sessionPayload =
-        (await chrome?.storage?.session?.get?.(['groupsIndex'])) ?? {};
-      const groupsIndex = (sessionPayload as { groupsIndex?: unknown }).groupsIndex;
+        (await chrome?.storage?.session?.get?.([sessionKey])) ?? {};
+      const groupsIndex = (sessionPayload as Record<string, unknown>)[sessionKey];
+
       if (Array.isArray(groupsIndex) && groupsIndex.length) {
         return groupsIndex as GroupsIndexEntry[];
       }
-    } catch {}
 
-    // 2) try a small persistent key
-    try {
-      const persistedPayload =
-        (await chrome?.storage?.local?.get?.(['groupsIndex'])) ?? {};
-      const persisted = (persistedPayload as { groupsIndex?: unknown }).groupsIndex;
-      if (Array.isArray(persisted)) {
-        try {
-          await chrome?.storage?.session?.set?.({ groupsIndex: persisted });
-        } catch {}
-        return persisted as GroupsIndexEntry[];
+      // Legacy fallback → migrate to namespaced
+      const legacyPayload =
+        (await chrome?.storage?.session?.get?.([LEGACY_SESSION_GROUPS_INDEX_KEY])) ?? {};
+      const legacy = (legacyPayload as { groupsIndex?: unknown }).groupsIndex;
+      if (Array.isArray(legacy) && legacy.length) {
+        try { await chrome?.storage?.session?.set?.({ [sessionKey]: legacy }); } catch {}
+        return legacy as GroupsIndexEntry[];
       }
     } catch {}
 
-    // 3) last-ditch: derive a tiny index from the full LOCAL blob (LOCAL ONLY)
+    // 2) try a small persistent key – namespaced, with legacy fallback
+    try {
+      const localKey = localGroupsIndexKey(workspaceId);
+      const persistedPayload =
+        (await chrome?.storage?.local?.get?.([localKey])) ?? {};
+      const persisted = (persistedPayload as Record<string, unknown>)[localKey];
+      if (Array.isArray(persisted)) {
+        try { await chrome?.storage?.session?.set?.({ [sessionGroupsIndexKey(workspaceId)]: persisted }); } catch {}
+        return persisted as GroupsIndexEntry[];
+      }
+
+      // Legacy fallback → migrate to namespaced
+      const legacyPayload =
+        (await chrome?.storage?.local?.get?.([LEGACY_LOCAL_GROUPS_INDEX_KEY])) ?? {};
+      const legacy = (legacyPayload as { groupsIndex?: unknown }).groupsIndex;
+      if (Array.isArray(legacy)) {
+        try {
+          await chrome?.storage?.local?.set?.({ [localKey]: legacy });
+          await chrome?.storage?.session?.set?.({ [sessionGroupsIndexKey(workspaceId)]: legacy });
+        } catch {}
+        return legacy as GroupsIndexEntry[];
+      }
+    } catch {}
+
+    // 3) last-ditch: derive a tiny index from the full LOCAL blob (LOCAL ONLY) – legacy key, then migrate
     if (currentStorageMode === StorageMode.LOCAL) {
       try {
         const localPayload =
-          (await chrome?.storage?.local?.get?.(['bookmarkGroups'])) ?? {};
+          (await chrome?.storage?.local?.get?.([LEGACY_LOCAL_BOOKMARK_GROUPS_KEY])) ?? {};
         const full = (localPayload as { bookmarkGroups?: unknown }).bookmarkGroups;
         if (Array.isArray(full) && full.length) {
           const idx = (full as BookmarkGroupType[]).map((g) => ({
@@ -167,7 +230,8 @@ export function AppContextProvider({
             groupName: g.groupName as string,
           })) as GroupsIndexEntry[];
           try {
-            await chrome?.storage?.session?.set?.({ groupsIndex: idx });
+            await chrome?.storage?.session?.set?.({ [sessionGroupsIndexKey(workspaceId)]: idx });
+            await chrome?.storage?.local?.set?.({ [localGroupsIndexKey(workspaceId)]: idx });
           } catch {}
           return idx;
         }
@@ -175,23 +239,29 @@ export function AppContextProvider({
     }
 
     return [];
-  }
+  } 
 
   /**
    * Persist small index + warm caches only when data is non-empty.
    * Keeps the last good cache from being overwritten by [] on transient errors.
    */
   function persistCachesIfNonEmpty(
-    id: string,
-    storageMode: StorageModeType | undefined,
+    workspaceId: WorkspaceId,
     groups: BookmarkGroupType[] | undefined | null
   ) { // NEW
     if (!Array.isArray(groups) || groups.length === 0) return;
+
     const idx = groups.map((g) => ({ id: String(g.id), groupName: String(g.groupName) }));
-    try { chrome?.storage?.local?.set?.({ groupsIndex: idx }); } catch {}
-    try { chrome?.storage?.session?.set?.({ groupsIndex: idx }); } catch {}
-    try { writeBookmarkCacheSync(id, storageMode, groups); } catch {}
-    try { void writeBookmarkCacheSession(id, storageMode, groups); } catch {}
+
+    // workspace-scoped small index
+    try { chrome?.storage?.local?.set?.({ [localGroupsIndexKey(workspaceId)]: idx }); } catch {}
+    try { chrome?.storage?.session?.set?.({ [sessionGroupsIndexKey(workspaceId)]: idx }); } catch {}
+
+    // workspace-scoped snapshot ({ idx, snap })
+    const snap: BookmarkSnapshot = { data: groups, at: Date.now() };
+    const payload = { idx, snap };
+    try { writeBookmarkCacheSync(payload, workspaceId); } catch {}
+    try { void writeBookmarkCacheSession(payload, workspaceId); } catch {}
   }
 
   /**
@@ -202,15 +272,16 @@ export function AppContextProvider({
     userIdArg: string | null,
     idForCache: string,
     storageMode: StorageModeType | undefined,
+    workspaceId: WorkspaceId, // NEW
     setBookmarkGroups: Dispatch<SetStateAction<BookmarkGroupType[]>>,
     deepEqualFn: (a: unknown, b: unknown) => boolean
-  ): Promise<BookmarkGroupType[]> { // NEW
+  ): Promise<BookmarkGroupType[]> {
     const fullRaw = await loadInitialBookmarks(userIdArg, storageMode, {
       noLocalFallback: storageMode !== StorageMode.LOCAL,
     });
     const full = Array.isArray(fullRaw) ? (fullRaw as BookmarkGroupType[]) : [];
     setBookmarkGroups((prev) => (deepEqualFn(prev, full) ? prev : full));
-    persistCachesIfNonEmpty(idForCache, storageMode, full);
+    persistCachesIfNonEmpty(workspaceId, full); // NEW
     return full;
   }
 
@@ -249,6 +320,42 @@ export function AppContextProvider({
   /* ---------------------------------------------------------- */
 
   /* -------------------- Effects -------------------- */
+  // PR-1: local-only → always one workspace. We still persist to allow future upgrades.
+  useEffect(() => {
+    (async () => {
+      try {
+        const ls = (globalThis as any).chrome?.storage?.local;
+        // 1) load existing workspaces
+        const wsData = (await ls?.get?.(WORKSPACES_KEY))?.[WORKSPACES_KEY];
+        let wsMap: Record<WorkspaceId, Workspace>;
+
+        if (!wsData || typeof wsData !== 'object') {
+          const def = makeDefaultLocalWorkspace();
+          wsMap = { [def.id]: def };
+          await ls?.set?.({ [WORKSPACES_KEY]: wsMap });
+        } else {
+          wsMap = wsData;
+        }
+
+        setWorkspaces(wsMap);
+
+        // 2) active workspace
+        const active = (await ls?.get?.(ACTIVE_WORKSPACE_KEY))?.[ACTIVE_WORKSPACE_KEY] as WorkspaceId | undefined;
+        const id = (active && wsMap[active]) ? active : DEFAULT_LOCAL_WORKSPACE_ID;
+
+        if (!active || active !== id) {
+          await ls?.set?.({ [ACTIVE_WORKSPACE_KEY]: id });
+        }
+        _setActiveWorkspaceId(id);
+
+        // 3) one-time migration of legacy non-workspace caches into the default workspace
+        try {
+          await migrateLegacyLocalCachesIntoWorkspace(id); // defined below
+        } catch {}
+      } catch {}
+    })();
+  }, []);
+
   /**
    * Log when the storage mode stabilises so we can correlate downstream effects in devtools.
    */
@@ -417,7 +524,7 @@ export function AppContextProvider({
     const id = isSignedIn ? resolvedUserId : LOCAL_USER_ID;
     console.log('user id: ', id);
 
-    const cached = readBookmarkCacheSync(id, storageMode) as BookmarkSnapshot | null;
+    const cached = readBookmarkCacheSync(activeWorkspaceId) as BookmarkSnapshot | null;
     console.log('cached bookmarks in phase 1a: ', cached);
     if (
       cached?.data &&
@@ -449,9 +556,11 @@ export function AppContextProvider({
       try {
         const id = isSignedIn ? resolvedUserId : LOCAL_USER_ID;
         const cached = (await readBookmarkCacheSession(
-          id,
-          storageMode,
+          activeWorkspaceId
         )) as BookmarkSnapshot | null;
+
+        const idx = await readGroupsIndexFast(storageMode, activeWorkspaceId);
+
         if (!cancelled && cached?.data && Array.isArray(cached.data) && cached.data.length) {
           setBookmarkGroups((prev) =>
             deepEqual(prev, cached.data) ? prev : (cached.data as BookmarkGroupType[]),
@@ -486,8 +595,8 @@ export function AppContextProvider({
 
     let cancelled = false;
 
-    const kickoff = () => 
-      loadAndCache(userId, id, storageMode, setBookmarkGroups, deepEqual)
+    const kickoff = () =>
+      loadAndCache(userId, id, storageMode, activeWorkspaceId, setBookmarkGroups, deepEqual)
         .then(() => {
           if (cancelled) return;
           // Persist/refresh the tiny index for quick future loads
@@ -527,7 +636,7 @@ export function AppContextProvider({
     const reload = async () => {
       try {
         const id = isSignedIn ? resolvedUserId : LOCAL_USER_ID;
-        await loadAndCache(userId, id, storageMode, setBookmarkGroups, deepEqual); 
+        await loadAndCache(userId, id, storageMode, activeWorkspaceId, setBookmarkGroups, deepEqual);
       } catch (e) {
         console.error('Reload after update failed:', e);
       }
@@ -574,7 +683,10 @@ export function AppContextProvider({
   }
 
   const contextValue: AppContextValue = {
-    // for popup & new tab
+    workspaces,
+    activeWorkspaceId,
+    setActiveWorkspaceId,
+
     groupsIndex,
     bookmarkGroups,
     setBookmarkGroups,
