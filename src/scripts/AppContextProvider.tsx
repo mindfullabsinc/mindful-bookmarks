@@ -154,7 +154,14 @@ export function AppContextProvider({
     }
   };
 
-  const setActiveWorkspaceId = (id: WorkspaceId) => {
+  /**
+   * Update the currently active workspace. Local mode only supports the default workspace,
+   * so any other id is ignored.
+   *
+   * @param id Workspace identifier requested by the caller.
+   * @returns void
+   */
+  const setActiveWorkspaceId = (id: WorkspaceId): void => {
     // PR-1: in local mode there is only one; silently enforce it.
     if (id !== DEFAULT_LOCAL_WORKSPACE_ID) return;
     _setActiveWorkspaceId(id);
@@ -244,6 +251,10 @@ export function AppContextProvider({
   /**
    * Persist small index + warm caches only when data is non-empty.
    * Keeps the last good cache from being overwritten by [] on transient errors.
+   *
+   * @param workspaceId Workspace whose caches should be refreshed.
+   * @param groups Bookmark collection to persist when available.
+   * @returns void
    */
   function persistCachesIfNonEmpty(
     workspaceId: WorkspaceId,
@@ -267,6 +278,14 @@ export function AppContextProvider({
   /**
    * Load bookmarks for a given userId/mode, never falling back to LOCAL when remote,
    * then apply state and caches. Returns the loaded array (possibly []).
+   *
+   * @param userIdArg Raw user identifier used when requesting bookmarks.
+   * @param idForCache Resolved user identifier used for cache keying.
+   * @param storageMode Storage mode that should be queried.
+   * @param workspaceId Workspace namespace applied to caches.
+   * @param setBookmarkGroups React state setter for bookmark groups.
+   * @param deepEqualFn Equality comparator to avoid unnecessary state churn.
+   * @returns Promise resolving to the freshly loaded bookmark list.
    */
   async function loadAndCache(
     userIdArg: string | null,

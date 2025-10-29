@@ -1,21 +1,48 @@
 import React from "react";
 
-export function Card({ children, className = "" }) {
+type DivProps = React.HTMLAttributes<HTMLDivElement>;
+type H3Props = React.HTMLAttributes<HTMLHeadingElement>;
+
+interface BaseProps {
+  children: React.ReactNode;
+  className?: string;
+}
+
+/** Card */
+export function Card({ children, className = "", ...props }: BaseProps & DivProps) {
   return (
-    <div className={`rounded-xl border border-neutral-800 bg-neutral-900 p-4 ${className}`}>
+    <div
+      className={`rounded-xl border border-neutral-800 bg-neutral-900 p-4 ${className}`}
+      {...props}
+    >
       {children}
     </div>
   );
 }
 
-export function CardHeader({ children, className = "" }) {
-  return <div className={`mb-2 ${className}`}>{children}</div>;
+/** CardHeader */
+export function CardHeader({ children, className = "", ...props }: BaseProps & DivProps) {
+  return (
+    <div className={`mb-2 ${className}`} {...props}>
+      {children}
+    </div>
+  );
 }
 
-export function CardTitle({ children, className = "" }) {
-  return <h3 className={`font-semibold ${className}`}>{children}</h3>;
+/** CardTitle */
+export function CardTitle({ children, className = "", ...props }: BaseProps & H3Props) {
+  return (
+    <h3 className={`font-semibold ${className}`} {...props}>
+      {children}
+    </h3>
+  );
 }
 
-export function CardContent({ children, className = "" }) {
-  return <div className={className}>{children}</div>;
+/** CardContent */
+export function CardContent({ children, className = "", ...props }: BaseProps & DivProps) {
+  return (
+    <div className={className} {...props}>
+      {children}
+    </div>
+  );
 }

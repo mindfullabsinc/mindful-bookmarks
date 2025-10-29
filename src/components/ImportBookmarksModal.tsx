@@ -1,5 +1,31 @@
+/* -------------------- Imports -------------------- */
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+/* ---------------------------------------------------------- */
+
+/* -------------------- Local types and interfaces -------------------- */
+type ChromeImportMode = "flat" | "smart";
+type SmartStrategy = "folders" | "domain" | "topic";
+type ChromeImportOptions = {
+  mode: ChromeImportMode;
+  smartStrategy?: SmartStrategy;
+};
+
+type OpenTabsScope = "current" | "all";
+type OpenTabsOptions = {
+  scope?: OpenTabsScope;
+  includePinned?: boolean;
+  includeDiscarded?: boolean;
+};
+
+interface ImportBookmarksModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onUploadJson: (file: File) => Promise<void> | void;
+  onImportChrome: (options: ChromeImportOptions) => Promise<void> | void;
+  onImportOpenTabs?: (options: OpenTabsOptions) => Promise<void> | void;
+}
+/* ---------------------------------------------------------- */
 
 /**
  * ImportBookmarksModal
@@ -17,7 +43,7 @@ export default function ImportBookmarksModal({
   onUploadJson,
   onImportChrome,
   onImportOpenTabs,
-}) {
+}: ImportBookmarksModalProps): React.ReactElement | null {
   const dialogRef = useRef<HTMLDivElement | null>(null);
 
   // Tabs: 'chrome' first as requested

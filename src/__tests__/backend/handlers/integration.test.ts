@@ -1,81 +1,167 @@
 // test/handlers.integration.test.ts
-import { randomBytes, createCipheriv } from 'crypto';
+export {}; // ensure module scope (prevents accidental global augmentation)
+
+/* -------------------- Imports -------------------- */
+import { randomBytes, createCipheriv } from "crypto";
 import { mockClient } from "aws-sdk-client-mock";
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
-import { KMSClient, GenerateDataKeyCommand, DecryptCommand } from "@aws-sdk/client-kms";
-import * as stream from "node:stream";
-import { handler as save } from "../../../../amplify/functions/saveBookmarks/handler";  
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+  type PutObjectCommandInput,
+  type GetObjectCommandInput,
+  type DeleteObjectCommandInput,
+} from "@aws-sdk/client-s3";
+import {
+  KMSClient,
+  GenerateDataKeyCommand,
+  DecryptCommand,
+} from "@aws-sdk/client-kms";
+import type { StreamingBlobPayloadOutputTypes } from "@smithy/types";
+import { handler as save } from "../../../../amplify/functions/saveBookmarks/handler";
 import { handler as load } from "../../../../amplify/functions/loadBookmarks/handler";
-import { handler as del }  from "../../../../amplify/functions/deleteBookmarks/handler";
+import { handler as del } from "../../../../amplify/functions/deleteBookmarks/handler";
+/* ---------------------------------------------------------- */
+
+// Ensure ReadableStream exists (Node 18+ has it; for older, use the web shim)
+const RS: typeof ReadableStream =
+  (globalThis as any).ReadableStream ?? require("stream/web").ReadableStream;
+
+const encoder = new TextEncoder();
 
 const s3Mock = mockClient(S3Client);
 const kmsMock = mockClient(KMSClient);
 
-// Helper to fake S3 GetObject Body
-const bodyFromString = (s: string) => ({
-  transformToString: async () => s,
-  transformToByteArray: async () => new TextEncoder().encode(s),
-});
-const bodyFromBytes = (b: Uint8Array) => ({
-  transformToString: async () => Buffer.from(b).toString("utf8"),
-  transformToByteArray: async () => b,
-});
+/** Shape compatible with the runtime stream returned by AWS SDK v3 in Node. */
+type MockBody = {
+  transformToString(): Promise<string>;
+  transformToByteArray(): Promise<Uint8Array>;
+};
 
-const authEvent = (method: "GET"|"POST"|"DELETE", body?: any) => ({
+function bodyFromString(s: string): StreamingBlobPayloadOutputTypes {
+  const rs = new RS<Uint8Array>({
+    start(controller) {
+      controller.enqueue(encoder.encode(s));
+      controller.close();
+    },
+  });
+  // Smithy mixin methods used by AWS SDK helpers
+  (rs as any).transformToString = async () => s;
+  (rs as any).transformToByteArray = async () => encoder.encode(s);
+  return rs as unknown as StreamingBlobPayloadOutputTypes;
+}
+
+function bodyFromBytes(b: Uint8Array): StreamingBlobPayloadOutputTypes {
+  const rs = new RS<Uint8Array>({
+    start(controller) {
+      controller.enqueue(b);
+      controller.close();
+    },
+  });
+  (rs as any).transformToString = async () => Buffer.from(b).toString("utf8");
+  (rs as any).transformToByteArray = async () => b;
+  return rs as unknown as StreamingBlobPayloadOutputTypes;
+}
+
+/** Helper: coerce aws-sdk-client-mock call objects to typed inputs */
+function getPutCalls() {
+  // aws-sdk-client-mock doesn't type `.commandCalls` strongly; cast to any then to the shape we need
+  return s3Mock.commandCalls(PutObjectCommand) as unknown as Array<{
+    args: [{ input: PutObjectCommandInput }];
+  }>;
+}
+function getDeleteCalls() {
+  return s3Mock.commandCalls(DeleteObjectCommand) as unknown as Array<{
+    args: [{ input: DeleteObjectCommandInput }];
+  }>;
+}
+
+const authEvent = (
+  method: "GET" | "POST" | "DELETE",
+  body?: unknown
+): any => ({
   httpMethod: method,
   body: body ? JSON.stringify(body) : null,
   headers: { origin: "http://localhost:5173" },
   requestContext: { authorizer: { jwt: { claims: { sub: "user-123" } } } },
-} as any);
+});
 
 describe("Bookmarks handlers", () => {
+  const FIXED_NOW = 1_700_000_000_000; // deterministic Date.now()
+  const FIXED_RAND = 0.123456; // deterministic Math.random()
+
+  let insertGroups: jest.Mock;
+  let errorSpy: jest.SpyInstance;
+
+  beforeAll(() => {
+    jest.useFakeTimers();
+  });
+
   beforeEach(() => {
-    s3Mock.reset();
-    kmsMock.reset();
-    jest.spyOn(console, 'error').mockImplementation(() => {});
+    // Deterministic IDs and timestamps inside the importers
+    jest.setSystemTime(new Date(FIXED_NOW));
+    jest.spyOn(Date, "now").mockReturnValue(FIXED_NOW);
+    jest.spyOn(Math, "random").mockReturnValue(FIXED_RAND);
+
+    insertGroups = jest.fn().mockResolvedValue(undefined);
+
+    // Keep a spy reference we can restore with correct typing
+    errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+
+    // Fresh chrome mock each test; cast to any so we don't need the full Chrome surface
+    (globalThis as any).chrome = {
+      bookmarks: { getTree: jest.fn() },
+      permissions: { contains: jest.fn(), request: jest.fn() },
+      tabs: { query: jest.fn() },
+    };
   });
 
   afterEach(() => {
-    (console.error as jest.Mock).mockRestore();
+    jest.restoreAllMocks();
+    errorSpy.mockRestore();
+    delete (globalThis as any).chrome;
+    s3Mock.reset();
+    kmsMock.reset();
   });
 
   test("saveBookmarks writes V2 payload with encKey + legacy key", async () => {
     // Arrange: mock KMS + let S3 PutObject succeed
     const dataKey = randomBytes(32);
     const wrapped = randomBytes(96); // mock KMS CiphertextBlob bytes
-  
+
     kmsMock.on(GenerateDataKeyCommand).resolves({
       Plaintext: dataKey,
       CiphertextBlob: wrapped,
     });
-  
+
     // Let all PutObject calls resolve; we'll inspect them afterward
     s3Mock.on(PutObjectCommand).resolves({ $metadata: {} as any });
-  
+
     // Act
     const res = await save(authEvent("POST", [{ id: 1, name: "Foo" }]));
-  
+
     // Assert status
     expect(res.statusCode).toBe(200);
-  
+
     // Inspect what was written to S3
-    const puts = s3Mock.commandCalls(PutObjectCommand);
-  
+    const puts = getPutCalls();
+
     // Build a quick lookup: key -> body
     const byKey: Record<string, any> = Object.fromEntries(
-      puts.map(call => {
+      puts.map((call) => {
         const input = call.args[0].input;
         return [String(input.Key), input.Body as any];
       })
     );
-  
+
     // 1) V2 payload written to BOOKMARKS_FILE_NAME
-    const payloadKey = `private/user-123/${process.env.BOOKMARKS_FILE_NAME}`;
+    const payloadKey = `private/user-123/${process.env.BOOKMARKS_FILE_NAME!}`;
     expect(byKey[payloadKey]).toBeDefined();
-  
+
     const payloadStr = String(byKey[payloadKey]);
     const payload = JSON.parse(payloadStr);
-  
+
     expect(payload.version).toBe(2);
     expect(payload.algo).toBe("AES-256-GCM");
     expect(typeof payload.iv).toBe("string");
@@ -84,13 +170,13 @@ describe("Bookmarks handlers", () => {
     expect(typeof payload.encKey).toBe("string"); // embedded wrapped key present
     // aad is optional; if you're saving it, you can assert it's present:
     // expect(typeof payload.aad).toBe("string");
-  
+
     // 2) Legacy key file also written (for backward compatibility)
-    const legacyKey = `private/user-123/${process.env.KEY_FILE_NAME}`;
+    const legacyKey = `private/user-123/${process.env.KEY_FILE_NAME!}`;
     expect(byKey[legacyKey]).toBeDefined();
     expect(Buffer.isBuffer(byKey[legacyKey])).toBe(true);
   });
-  
+
   test("loadBookmarks decrypts V2 and returns bookmarks", async () => {
     // Prepare a real V2 payload using the same flow as save
     const dataKey = randomBytes(32);
@@ -99,7 +185,7 @@ describe("Bookmarks handlers", () => {
 
     const iv = randomBytes(12);
     const cipher = createCipheriv("aes-256-gcm", dataKey, iv);
-    const aad = Buffer.from("user-123","utf8");
+    const aad = Buffer.from("user-123", "utf8");
     cipher.setAAD(aad);
     const pt = Buffer.from(JSON.stringify([{ id: 1, name: "Foo" }]), "utf8");
     const ct = Buffer.concat([cipher.update(pt), cipher.final()]);
@@ -128,7 +214,8 @@ describe("Bookmarks handlers", () => {
     // Wrong tag on purpose
     kmsMock.on(DecryptCommand).resolves({ Plaintext: randomBytes(32) });
     const badPayload = JSON.stringify({
-      version: 2, algo: "AES-256-GCM",
+      version: 2,
+      algo: "AES-256-GCM",
       iv: randomBytes(12).toString("base64"),
       tag: randomBytes(16).toString("base64"),
       data: randomBytes(32).toString("base64"),
@@ -153,12 +240,12 @@ describe("Bookmarks handlers", () => {
     expect([204, 200]).toContain(res.statusCode);
 
     // Inspect what was deleted
-    const calls = s3Mock.commandCalls(DeleteObjectCommand);
+    const calls = getDeleteCalls();
     const deletedKeys = calls.map((c) => String(c.args[0].input.Key));
 
     // Main payload must be deleted
     expect(deletedKeys).toContain(
-      `private/user-123/${process.env.BOOKMARKS_FILE_NAME}`
+      `private/user-123/${process.env.BOOKMARKS_FILE_NAME!}`
     );
 
     // Legacy key file is optional (only if KEY_FILE_NAME is set)

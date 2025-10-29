@@ -1,15 +1,9 @@
-/**
- * @file src/__tests__/scripts/Importers.test.ts
- */
-import { importChromeBookmarksAsSingleGroup, importOpenTabsAsSingleGroup } from '@/scripts/Importers';
 
-//
-// Minimal chrome API surface for these tests
-//
-declare global {
-  // eslint-disable-next-line no-var
-  var chrome: any;
-}
+/* -------------------- Imports -------------------- */
+import { importChromeBookmarksAsSingleGroup, importOpenTabsAsSingleGroup } from '@/scripts/Importers';
+/* ---------------------------------------------------------- */
+
+export {}; // ensure this file is a module so our globals don't merge with lib.d.ts
 
 describe('scripts/importers', () => {
   const FIXED_NOW = 1_700_000_000_000; // deterministic Date.now()
@@ -21,18 +15,18 @@ describe('scripts/importers', () => {
     jest.useFakeTimers();
   });
 
-  beforeEach(() => {
+   beforeEach(() => {
     // Deterministic IDs and timestamps inside the importers
     jest.setSystemTime(new Date(FIXED_NOW));
-    jest.spyOn(Date, 'now').mockReturnValue(FIXED_NOW);
-    jest.spyOn(Math, 'random').mockReturnValue(FIXED_RAND);
+    jest.spyOn(Date, "now").mockReturnValue(FIXED_NOW);
+    jest.spyOn(Math, "random").mockReturnValue(FIXED_RAND);
 
-    insertGroups = jest.fn().mockResolvedValue(undefined);
+    insertGroups = jest.fn().mockResolvedValue(undefined); 
 
-    // Fresh chrome mock each test; only stub surfaces we actually use
-    global.chrome = {
+    // Fresh chrome mock each test; cast via globalThis as any to bypass full Chrome typing
+    (globalThis as any).chrome = {
       bookmarks: {
-        getTree: jest.fn(),
+        getTree: jest.fn(), 
       },
       permissions: {
         contains: jest.fn(),
@@ -46,6 +40,8 @@ describe('scripts/importers', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+    // Clean up to avoid leaking across tests
+    delete (globalThis as any).chrome;
   });
 
   afterAll(() => {
