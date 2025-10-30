@@ -1,7 +1,7 @@
-import { CHROME_NEW_TAB } from './Constants.js';
+import { CHROME_NEW_TAB } from '@/core/constants/Constants';
 
 
-export function getUserStorageKey(userId) {
+export function getUserStorageKey(userId: string): string {
   return `bookmarks_${userId}`;
 }
 
@@ -9,7 +9,7 @@ export function createUniqueID() {
   return Date.now() + Math.random();
 }
 
-export function constructValidURL(url) {
+export function constructValidURL(url: string): string {
   // Check if the URL is missing the protocol
   if (!url.startsWith('http://') && !url.startsWith('https://')) {
     // Prepend the protocol to the URL
@@ -98,7 +98,7 @@ export async function refreshActiveMindfulTab() {
   }
 }
 
-export function toE164(p) {
+export function toE164(p: string): string {
   if (!p) return "";
   if (p.startsWith("+")) return p;
   const digits = p.replace(/\D/g, "");

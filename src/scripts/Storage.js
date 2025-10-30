@@ -1,5 +1,5 @@
-import { getUserStorageKey } from './Utilities';
-import { StorageType } from './Constants';
+import { getUserStorageKey } from '@/core/utils/Utilities';
+import { StorageMode } from '@/core/constants/storageMode';
 import { fetchAuthSession } from 'aws-amplify/auth'; 
 import amplify_outputs from '/amplify_outputs.json';
 
@@ -123,8 +123,8 @@ const remoteStorageStrategy = {
 // --- Main Storage Class ---
 
 export class Storage {
-  constructor(type = StorageType.LOCAL) {
-      if (type === StorageType.REMOTE) {
+  constructor(type = StorageMode.LOCAL) {
+      if (type === StorageMode.REMOTE) {
         this.strategy = remoteStorageStrategy;
       } else {
         this.strategy = chromeStorageStrategy;

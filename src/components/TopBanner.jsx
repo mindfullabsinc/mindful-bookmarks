@@ -3,7 +3,7 @@ import React, { useContext, useState, useEffect, useRef } from 'react';
 /* Scripts */
 import { AppContext } from "@/scripts/AppContextProvider";
 import { importChromeBookmarksAsSingleGroup, importOpenTabsAsSingleGroup } from '@/scripts/Importers'; 
-import { DEFAULT_STORAGE_TYPE, StorageType, StorageLabel } from "@/scripts/Constants";
+import { StorageMode, StorageLabel, DEFAULT_STORAGE_MODE } from "@/core/constants/storageMode";
 
 /* Hooks */
 import useImportBookmarks from '@/hooks/useImportBookmarks';
@@ -20,9 +20,9 @@ const TopBanner = ({
   onSignIn,
   onSignOut,
   isSignedIn,
-  onStorageTypeChange
+  onStorageModeChange
 }) => {
-  const storageType = useContext(AppContext)?.storageType ?? DEFAULT_STORAGE_TYPE;
+  const storageMode = useContext(AppContext)?.storageMode ?? DEFAULT_STORAGE_MODE;
   const [isDropdownOpen, setDropdownOpen] = useState(false);
   const containerRef = useRef(null);
 
@@ -112,16 +112,16 @@ const TopBanner = ({
                       Storage type
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className={`text-sm text-neutral-500 dark:text-neutral-400 ${storageType === StorageType.LOCAL ? "font-semibold" : "font-normal"}`}>
-                        {StorageLabel[StorageType.LOCAL]}
+                      <span className={`text-sm text-neutral-500 dark:text-neutral-400 ${storageMode === StorageMode.LOCAL ? "font-semibold" : "font-normal"}`}>
+                        {StorageLabel[StorageMode.LOCAL]}
                       </span>
                         <div className="relative inline-flex h-5 w-9 items-center">
                           {/* the peer comes first */}
                           <input
                             id="storageToggle"
                             type="checkbox"
-                            checked={storageType === StorageType.REMOTE}
-                            onChange={(e) => onStorageTypeChange(e.target.checked ? StorageType.REMOTE : StorageType.LOCAL)}
+                            checked={storageMode === StorageMode.REMOTE}
+                            onChange={(e) => onStorageModeChange(e.target.checked ? StorageMode.REMOTE : StorageMode.LOCAL)}
                             className="peer sr-only"
                           />
 
@@ -140,8 +140,8 @@ const TopBanner = ({
                           />
                         </div>
 
-                      <span className={`text-sm text-neutral-500 dark:text-neutral-400 ${storageType === StorageType.REMOTE ? "font-semibold" : "font-normal"}`}>
-                        {StorageLabel[StorageType.REMOTE]}
+                      <span className={`text-sm text-neutral-500 dark:text-neutral-400 ${storageMode === StorageMode.REMOTE ? "font-semibold" : "font-normal"}`}>
+                        {StorageLabel[StorageMode.REMOTE]}
                       </span>
                     </div>
                   </div>

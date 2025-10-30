@@ -5,19 +5,21 @@ import '@testing-library/jest-dom';
 import { AddBookmarkInline } from '@/components/AddBookmarkInline';
 import { AppContext } from '@/scripts/AppContextProvider';
 import { useBookmarkManager } from '@/hooks/useBookmarkManager';
-import { constructValidURL } from '@/scripts/Utilities';
+import { constructValidURL } from '@/core/utils/Utilities';
 
 // Mock the custom hook and utilities
 jest.mock('@/hooks/useBookmarkManager');
-jest.mock('@/scripts/Utilities');
+jest.mock('@/core/utils/Utilities');
 
-jest.mock('@/analytics/AnalyticsProvider', () => {
+jest.mock('@/analytics/AnalyticsContext', () => {
   const React = require('react');
   const stub = { capture: jest.fn(), optOut: false, setOptOut: jest.fn(), userId: 'test' };
   return {
-    // component is a no-op wrapper so anything that imports it won’t blow up
+    // If anything renders the provider, make it a no-op wrapper
     AnalyticsProvider: ({ children }) => <>{children}</>,
-    // hook returns a stable stub
+    // Context export (in case some code accesses it directly)
+    AnalyticsContext: React.createContext(stub),
+    // The hook used by AddBookmarkInline → return a stable stub
     useAnalytics: () => stub,
   };
 });

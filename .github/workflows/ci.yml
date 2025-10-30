@@ -58,6 +58,9 @@ jobs:
           }
           EOF
 
+      - name: TypeScript type check (no emit) 
+        run: npx tsc -p tsconfig.json --noEmit --pretty false
+          
       # Run these first as they're faster (unless using an e2e test)
       - name: Run tests
         run: npm test

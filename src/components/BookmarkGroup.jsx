@@ -8,7 +8,7 @@ import {
   EMPTY_GROUP_IDENTIFIER,
   ONBOARDING_BOOKMARK_NAME_PREFILL, 
   ONBOARDING_BOOKMARK_URL_PREFILL
-} from '@/scripts/Constants';
+} from '@/core/constants/Constants';
 
 export const BookmarkGroup = ({
   bookmarkGroup,

@@ -37,7 +37,7 @@ jest.mock("@/scripts/AppContextProvider", () => {
 
 // 5) Stabilize toE164 so it’s identity for already-E.164,
 //    and normalizes US-ish inputs otherwise.
-jest.mock("@/scripts/Utilities", () => ({
+jest.mock("@/core/utils/Utilities", () => ({
   toE164: jest.fn((v) => {
     if (v == null) return "";
     const s = String(v).trim();
@@ -49,8 +49,8 @@ jest.mock("@/scripts/Utilities", () => ({
 }));
 
 // 6) Constants
-jest.mock("@/scripts/Constants", () => ({
-  StorageType: { LOCAL: "local", REMOTE: "remote" },
+jest.mock("@/core/constants/Constants", () => ({
+  StorageMode: { LOCAL: "local", REMOTE: "remote" },
   StorageLabel: { local: "Local-Only", remote: "Encrypted Sync" },
 }));
 
@@ -84,8 +84,8 @@ function renderWithContext(ui, { ctx } = {}) {
       "custom:storage_type": "local",
     },
     setUserAttributes: jest.fn(),
-    storageType: "local",
-    setStorageType: jest.fn(),
+    storageMode: "local",
+    setStorageMode: jest.fn(),
   };
 
   return render(
@@ -101,7 +101,7 @@ describe("ManageAccountComponent", () => {
     jest.clearAllMocks();
 
     // Re-apply toE164 implementation to be safe
-    const { toE164 } = jest.requireMock("@/scripts/Utilities");
+    const { toE164 } = jest.requireMock("@/core/utils/Utilities");
     toE164.mockImplementation((v) => {
       if (v == null) return "";
       const s = String(v).trim();
@@ -156,8 +156,8 @@ describe("ManageAccountComponent", () => {
 
   test("Save with name change updates attributes and refreshes context (no verification step)", async () => {
     const setUserAttributes = jest.fn();
-    const setStorageType = jest.fn();
-    renderWithContext(<ManageAccountComponent />, { ctx: { setUserAttributes, setStorageType } });
+    const setStorageMode = jest.fn();
+    renderWithContext(<ManageAccountComponent />, { ctx: { setUserAttributes, setStorageMode } });
 
     await userEvent.clear(screen.getByPlaceholderText("Your given name"));
     await userEvent.type(screen.getByPlaceholderText("Your given name"), "Yasmine");
@@ -169,7 +169,7 @@ describe("ManageAccountComponent", () => {
       });
       expect(mockFetchUserAttributes).toHaveBeenCalledTimes(2); // diff + refresh
       expect(setUserAttributes).toHaveBeenCalled();
-      expect(setStorageType).toHaveBeenCalledWith("local");
+      expect(setStorageMode).toHaveBeenCalledWith("local");
       expect(screen.queryByText(/Enter the code sent to your/i)).not.toBeInTheDocument();
     });
   });
@@ -229,8 +229,8 @@ describe("ManageAccountComponent", () => {
   });
 
   test("Storage toggle updates only storage type when saved", async () => {
-    const setStorageType = jest.fn();
-    renderWithContext(<ManageAccountComponent />, { ctx: { setStorageType } });
+    const setStorageMode = jest.fn();
+    renderWithContext(<ManageAccountComponent />, { ctx: { setStorageMode } });
 
     await userEvent.click(screen.getByRole("button", { name: /Encrypted Sync/i }));
     await userEvent.click(screen.getByRole("button", { name: /save changes/i }));
@@ -239,13 +239,13 @@ describe("ManageAccountComponent", () => {
       expect(mockUpdateUserAttributes).toHaveBeenCalledWith({
         userAttributes: { "custom:storage_type": "remote" },
       });
-      expect(setStorageType).toHaveBeenCalledWith("remote");
+      expect(setStorageMode).toHaveBeenCalledWith("remote");
       expect(screen.queryByText(/Enter the code sent to your/i)).not.toBeInTheDocument();
     });
   });
 
   test("Phone is normalized via toE164 before update", async () => {
-    const { toE164 } = jest.requireMock("@/scripts/Utilities");
+    const { toE164 } = jest.requireMock("@/core/utils/Utilities");
     renderWithContext(<ManageAccountComponent />);
 
     await userEvent.clear(screen.getByLabelText("Phone input"));

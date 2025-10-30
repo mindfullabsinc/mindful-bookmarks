@@ -8,16 +8,17 @@ import { importChromeBookmarksAsSingleGroup, importOpenTabsAsSingleGroup } from 
 import useImportBookmarks from '@/hooks/useImportBookmarks';
 
 /* Constants */
-import { EMPTY_GROUP_IDENTIFIER, StorageType, StorageLabel } from "@/scripts/Constants";
+import { EMPTY_GROUP_IDENTIFIER } from "@/core/constants/Constants";
+import { StorageMode, StorageLabel } from "@/core/constants/storageMode";
 
 const DISMISS_KEY = "mindful.emptyStateDismissed";
 
 export default function EmptyBookmarksState({
   onCreateGroup,
   onImport, // optional
-  onClose, // optional: parent can listen if desired
+  onClose = () => {},
 }) {
-  const { bookmarkGroups, storageType } = useContext(AppContext);
+  const { bookmarkGroups, storageMode } = useContext(AppContext);
 
   const { openImport, renderModal } = useImportBookmarks({
     importChromeBookmarksAsSingleGroup,       // bookmarks → flat
@@ -182,10 +183,10 @@ export default function EmptyBookmarksState({
         Organize your links into groups. Create your first group to get
         started. Add unlimited bookmarks and switch between{" "}
         <span className="font-medium text-neutral-800 dark:text-neutral-200">
-          {StorageLabel[storageType]}
+          {StorageLabel[storageMode]}
         </span>
         {" "}and{" "} 
-        {storageType === StorageType.LOCAL ? StorageLabel[StorageType.REMOTE] : StorageLabel[StorageType.LOCAL]}
+        {storageMode === StorageMode.LOCAL ? StorageLabel[StorageMode.REMOTE] : StorageLabel[StorageMode.LOCAL]}
         {" "}storage modes.
       </p>
 
@@ -202,6 +203,7 @@ export default function EmptyBookmarksState({
 
         <button
           onClick={openImport}
+          aria-label="Import bookmarks"
           className="cursor-pointer inline-flex items-center justify-center rounded-xl border px-5 py-2.5 transition
                     border-neutral-300 bg-white text-neutral-800 shadow-sm hover:bg-neutral-50
                     focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70

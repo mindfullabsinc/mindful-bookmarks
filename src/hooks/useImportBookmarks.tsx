@@ -5,8 +5,8 @@ import ImportBookmarksModal from '@/components/ImportBookmarksModal';
 import { useBookmarkManager } from '@/hooks/useBookmarkManager';
 
 /* Scripts */
-import { createUniqueID } from '@/scripts/Utilities';
-import { EMPTY_GROUP_IDENTIFIER } from "@/scripts/Constants";
+import { createUniqueID } from '@/core/utils/Utilities';
+import { EMPTY_GROUP_IDENTIFIER } from "@/core/constants/Constants";
 
 export type SmartStrategy = 'folders' | 'domain' | 'topic';
 export type ImportChromeOpts = { mode: 'flat' | 'smart'; smartStrategy?: SmartStrategy };

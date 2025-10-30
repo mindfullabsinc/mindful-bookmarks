@@ -2,7 +2,8 @@ import React from 'react';
 import { renderHook, act } from '@testing-library/react';
 import { useBookmarkManager } from '@/hooks/useBookmarkManager';
 import { AppContext } from '@/scripts/AppContextProvider';
-import { EMPTY_GROUP_IDENTIFIER, StorageType } from '@/scripts/Constants';
+import { EMPTY_GROUP_IDENTIFIER } from '@/core/constants/Constants';
+import { StorageMode } from '@/core/constants/storageMode';
 
 // --- Mocks ---
 
@@ -28,7 +29,7 @@ jest.mock('uuid', () => ({
 }));
 
 // Mock the utilities module
-jest.mock('@/scripts/Utilities', () => ({
+jest.mock('@/core/utils/Utilities', () => ({
   getUserStorageKey: (userId) => `bookmarks-${userId}`,
   refreshOtherMindfulTabs: jest.fn(),
 }));
@@ -58,15 +59,15 @@ jest.mock('@/scripts/Storage', () => ({
 
 // Import after mocks are defined to get a reference to the mock functions
 const { v4: mockV4 } = require('uuid');
-const { refreshOtherMindfulTabs } = require('@/scripts/Utilities');
+const { refreshOtherMindfulTabs } = require('@/core/utils/Utilities');
 
 
 // --- Test Suite ---
 
 describe.each([
-  { storageType: StorageType.LOCAL, description: 'local' },
-  { storageType: StorageType.REMOTE, description: 'remote' },
-])('useBookmarkManager with $description storage', ({ storageType }) => {
+  { storageMode: StorageMode.LOCAL, description: 'local' },
+  { storageMode: StorageMode.REMOTE, description: 'remote' },
+])('useBookmarkManager with $description storage', ({ storageMode }) => {
 
   const createWrapper = (mockContextValue) => {
     return ({ children }) => (
@@ -107,8 +108,8 @@ describe.each([
         bookmarkGroups: initialGroups,
         setBookmarkGroups,
         userId: 'user-1',
-        storageType: storageType,
-        setStorageType: jest.fn(),
+        storageMode: StorageMode,
+        setStorageMode: jest.fn(),
         user: { identityId: 'user-1' },
       }),
     });
@@ -146,8 +147,8 @@ describe.each([
         bookmarkGroups: initialGroups,
         setBookmarkGroups,
         userId: 'user-2',
-        storageType: storageType,
-        setStorageType: jest.fn(),
+        storageMode: StorageMode,
+        setStorageMode: jest.fn(),
         user: { identityId: 'user-2' },
       }),
     });
