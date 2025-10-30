@@ -130,8 +130,6 @@ export const useBookmarkManager = () => {
 
   const addNamedBookmarkGroup = async (groupName) => {
     await updateAndPersistGroups(prevGroups => {
-      console.log("Calling addNamedBookmarkGroup");
-      
       const newGroup = {
           groupName: groupName,
           bookmarks: [],
