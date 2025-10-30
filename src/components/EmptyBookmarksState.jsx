@@ -203,6 +203,7 @@ export default function EmptyBookmarksState({
 
         <button
           onClick={openImport}
+          aria-label="Import bookmarks"
           className="cursor-pointer inline-flex items-center justify-center rounded-xl border px-5 py-2.5 transition
                     border-neutral-300 bg-white text-neutral-800 shadow-sm hover:bg-neutral-50
                     focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70
