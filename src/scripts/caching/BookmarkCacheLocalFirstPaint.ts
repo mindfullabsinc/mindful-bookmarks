@@ -1,4 +1,4 @@
-import { fpGroupsIndexKey, fpGroupsBlobKey } from "@/scripts/CacheKeys";
+import { fpGroupsIndexKey, fpGroupsBlobKey } from "@/scripts/caching/CacheKeys";
 import type { BookmarkGroupType } from "@/core/types/bookmarks"; 
 
 /**

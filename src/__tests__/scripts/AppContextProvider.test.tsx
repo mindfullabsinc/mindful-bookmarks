@@ -1,41 +1,19 @@
 import React from "react";
 import { render, waitFor } from "@testing-library/react";
 
-/* SUT */
-import { AppContextProvider } from "@/scripts/AppContextProvider";
 
-/* Types & constants */
-import { StorageMode } from "@/core/constants/storageMode";
-import type { BookmarkGroupType } from "@/core/types/bookmarks";
+type GroupsIndex = Array<{ id: string; groupName: string }>;
 
-/* ---- Test doubles for browser/Amplify env ---- */
+// Minimal chrome.* surface so effects don't explode
 beforeAll(() => {
-  // Minimal chrome.* surface so effects don't explode
   (globalThis as any).chrome = {
     storage: {
-      local: {
-        get: jest.fn(async () => ({})),
-        set: jest.fn(async () => void 0),
-        remove: jest.fn(async () => void 0),
-      },
-      session: {
-        get: jest.fn(async () => ({})),
-        set: jest.fn(async () => void 0),
-        remove: jest.fn(async () => void 0),
-      },
+      local: { get: jest.fn(async () => ({})), set: jest.fn(async () => void 0), remove: jest.fn(async () => void 0) },
+      session: { get: jest.fn(async () => ({})), set: jest.fn(async () => void 0), remove: jest.fn(async () => void 0) },
     },
-    runtime: {
-      onMessage: { addListener: jest.fn(), removeListener: jest.fn() },
-    },
+    runtime: { onMessage: { addListener: jest.fn(), removeListener: jest.fn() } },
   };
-
-  // BroadcastChannel shim
-  (globalThis as any).BroadcastChannel = class {
-    constructor(_name: string) {}
-    onmessage: any = null;
-    close() {}
-    postMessage() {}
-  };
+  (globalThis as any).BroadcastChannel = class { constructor(_: string) {} onmessage: any = null; close() {} postMessage() {} };
 });
 
 // Avoid real Amplify calls; keep us in LOCAL path
@@ -45,49 +23,55 @@ jest.mock("aws-amplify/auth", () => ({
   updateUserAttribute: jest.fn(async () => ({})),
 }));
 
-/* ---- Mocks for cache layers ---- */
-const mock_readFpIndexLocalSync = jest.fn<ReturnType<any>, any>(() => []);
-const mock_writeFpIndexLocalSync = jest.fn();
-const mock_readFpGroupsLocalSync = jest.fn<ReturnType<any>, any>(() => []);
-const mock_writeFpGroupsLocalSync = jest.fn();
-
-jest.mock("@/scripts/BookmarkCacheLocalFirstPaint", () => ({
-  readFpIndexLocalSync: (...args: any[]) => mock_readFpIndexLocalSync(...args),
-  writeFpIndexLocalSync: (...args: any[]) => mock_writeFpIndexLocalSync(...args),
-  readFpGroupsLocalSync: (...args: any[]) => mock_readFpGroupsLocalSync(...args),
-  writeFpGroupsLocalSync: (...args: any[]) => mock_writeFpGroupsLocalSync(...args),
-}));
-
+// ---- Mocks for the generic (non-LOCAL) cache layer (to assert "not called" in LOCAL) ----
 const mock_readBookmarkCacheSync = jest.fn();
 const mock_writeBookmarkCacheSync = jest.fn();
 const mock_readBookmarkCacheSession = jest.fn();
 const mock_writeBookmarkCacheSession = jest.fn();
 
-jest.mock("@/scripts/BookmarkCache", () => ({
+jest.mock("@/scripts/caching/BookmarkCache", () => ({
   readBookmarkCacheSync: (...args: any[]) => mock_readBookmarkCacheSync(...args),
   writeBookmarkCacheSync: (...args: any[]) => mock_writeBookmarkCacheSync(...args),
   readBookmarkCacheSession: (...args: any[]) => mock_readBookmarkCacheSession(...args),
   writeBookmarkCacheSession: (...args: any[]) => mock_writeBookmarkCacheSession(...args),
 }));
 
-/* During Phase 2 the provider calls loadInitialBookmarks → return groups */
+// ---- Adapter mock (this is what the provider now talks to for LOCAL) ----
+const mock_adapter_readPhase1aSnapshot = jest.fn<any, any>(() => null);
+const mock_adapter_readPhase1bSessionSnapshot = jest.fn<any, any>(async () => null);
+const mock_adapter_readGroupsIndexFast = jest.fn<any, any>(async () => []);
+const mock_adapter_persistCachesIfNonEmpty = jest.fn<any, any>(async () => {});
+
+jest.mock('@/scripts/storageAdapters', () => ({
+  getAdapter: jest.fn(() => ({
+    readPhase1aSnapshot: (...args: any[]) => mock_adapter_readPhase1aSnapshot(...args),
+    readPhase1bSessionSnapshot: (...args: any[]) => mock_adapter_readPhase1bSessionSnapshot(...args),
+    readGroupsIndexFast: (...args: any[]) => mock_adapter_readGroupsIndexFast(...args),
+    persistCachesIfNonEmpty: (...args: any[]) => mock_adapter_persistCachesIfNonEmpty(...args),
+  })),
+}));
+
+// ---- Mock data & loadInitialBookmarks ----
+import { StorageMode } from "@/core/constants/storageMode";
+import type { BookmarkGroupType } from "@/core/types/bookmarks";
+
 const demoGroups: BookmarkGroupType[] = [
   { id: "g1", groupName: "One", bookmarks: [] as any[] },
   { id: "g2", groupName: "Two", bookmarks: [] as any[] },
 ];
 
 jest.mock("@/scripts/bookmarksData", () => {
-  // Pull StorageMode inside the factory so it’s not out-of-scope
   const { StorageMode } = require("@/core/constants/storageMode");
-
   return {
     loadInitialBookmarks: jest.fn(async (_uid: any, storageMode: any) => {
       if (storageMode !== StorageMode.LOCAL) throw new Error("Expected LOCAL mode");
-      // Only reference mock* vars from outside scope
       return demoGroups;
     }),
   };
 });
+
+// ---- Now import the SUT (after mocks) ----
+import { AppContextProvider } from "@/scripts/AppContextProvider";
 
 /* Utility: render with LOCAL mode preference to force the LOCAL path */
 function renderLocalProvider() {
@@ -102,50 +86,50 @@ beforeEach(() => {
   jest.clearAllMocks();
 });
 
-test("LOCAL mode seeds & writes using WS-local first-paint caches only", async () => {
-  // Make the LOCAL first-paint read return something for the seed path
-  mock_readFpGroupsLocalSync.mockReturnValueOnce([{ id: "seed", groupName: "Seed", bookmarks: [] }]);
+test("LOCAL mode seeds & writes using the adapter (no generic caches touched)", async () => {
+  // Phase 1a seed via adapter
+  mock_adapter_readPhase1aSnapshot.mockReturnValueOnce([{ id: "seed", groupName: "Seed", bookmarks: [] }]);
 
   renderLocalProvider();
 
-  // Phase 1a/1b: ensure we never touch the generic cache readers in LOCAL mode
+  // Phase 1a/1b: adapter is used
   await waitFor(() => {
-    expect(mock_readFpGroupsLocalSync).toHaveBeenCalled();
+    expect(mock_adapter_readPhase1aSnapshot).toHaveBeenCalled();
   });
+  expect(mock_adapter_readPhase1bSessionSnapshot).toHaveBeenCalled(); // provider warms in phase 1b
 
+  // Ensure generic (REMOTE) cache readers were NOT used in LOCAL path
   expect(mock_readBookmarkCacheSync).not.toHaveBeenCalled();
   expect(mock_readBookmarkCacheSession).not.toHaveBeenCalled();
 
-  // Phase 2: after loadInitialBookmarks resolves, provider should persist via LOCAL fp writers,
-  // and NEVER call the generic writeBookmarkCache* in LOCAL mode.
+  // Phase 2: after loadInitialBookmarks resolves, provider should persist via adapter
   await waitFor(() => {
-    expect(mock_writeFpIndexLocalSync).toHaveBeenCalledTimes(1);
-    expect(mock_writeFpGroupsLocalSync).toHaveBeenCalledTimes(1);
+    expect(mock_adapter_persistCachesIfNonEmpty).toHaveBeenCalledTimes(1);
   });
 
+  // Verify adapter received the groups returned by loadInitialBookmarks
+  const [, groupsArg] = mock_adapter_persistCachesIfNonEmpty.mock.calls[0] as [string, BookmarkGroupType[]];
+  expect(groupsArg).toEqual(demoGroups);
+
+  // And the generic writers were not called
   expect(mock_writeBookmarkCacheSync).not.toHaveBeenCalled();
   expect(mock_writeBookmarkCacheSession).not.toHaveBeenCalled();
-
-  // Sanity-check: the write used the same data we returned from loadInitialBookmarks
-  const [, groupsToPersist] = mock_writeFpGroupsLocalSync.mock.calls[0] as [string, BookmarkGroupType[]];
-  expect(groupsToPersist).toEqual(demoGroups);
 });
 
-test("LOCAL mode derives groups index from WS-local fp index helper and not the generic fast path", async () => {
-  // Return an index via Local-first-paint reader
-  mock_readFpIndexLocalSync.mockReturnValueOnce([
+test("LOCAL mode derives groups index via adapter and not generic fast path", async () => {
+  const idx: GroupsIndex = [
     { id: "g1", groupName: "One" },
     { id: "g2", groupName: "Two" },
-  ]);
+  ];
+  mock_adapter_readGroupsIndexFast.mockResolvedValueOnce(idx);
 
   renderLocalProvider();
 
   await waitFor(() => {
-    // We used WS-local index to hydrate index UI; no generic index helpers were invoked
-    expect(mock_readFpIndexLocalSync).toHaveBeenCalled();
+    expect(mock_adapter_readGroupsIndexFast).toHaveBeenCalled();
   });
 
-  // readGroupsIndexFast() may exist for generic path; ensure we didn't hit generic cache readers
+  // No generic cache readers in LOCAL
   expect(mock_readBookmarkCacheSync).not.toHaveBeenCalled();
   expect(mock_readBookmarkCacheSession).not.toHaveBeenCalled();
 });

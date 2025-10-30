@@ -22,6 +22,7 @@ import {
   DEFAULT_STORAGE_MODE,
 } from "@/core/constants/storageMode";
 import { loadInitialBookmarks } from '@/scripts/bookmarksData';
+import { getAdapter } from "@/scripts/storageAdapters";
 
 /* Caching: synchronous snapshot for first-paint + session cache for reopens */
 import {
@@ -29,14 +30,11 @@ import {
   writeBookmarkCacheSync,
   readBookmarkCacheSession,
   writeBookmarkCacheSession,
-} from '@/scripts/BookmarkCache';
-import type { BookmarkSnapshot } from '@/scripts/BookmarkCache';
+} from '@/scripts/caching/BookmarkCache';
+import type { BookmarkSnapshot } from '@/scripts/caching/BookmarkCache';
 import {
-  readFpIndexLocalSync,
-  writeFpIndexLocalSync,
   readFpGroupsLocalSync,
-  writeFpGroupsLocalSync,
-} from '@/scripts/BookmarkCacheLocalFirstPaint';
+} from '@/scripts/caching/BookmarkCacheLocalFirstPaint';
 
 import {
   Workspace, WorkspaceId,
@@ -46,15 +44,8 @@ import {
 } from '@/core/constants/workspaces';
 /* ---------------------------------------------------------- */
 
-/* -------------------- Constants -------------------- */
-// Legacy (pre-workspace) keys we used before introducing workspaces
-const LEGACY_SESSION_GROUPS_INDEX_KEY = 'groupsIndex';
-const LEGACY_LOCAL_GROUPS_INDEX_KEY   = 'groupsIndex';
-const LEGACY_LOCAL_BOOKMARK_GROUPS_KEY = 'bookmarkGroups';
-/* ---------------------------------------------------------- */
-
 /* -------------------- Class-level helpers -------------------- */
-// Workspace-scoped small index keys (with migration from legacy unscoped keys)
+// Workspace-scoped small index keys 
 const sessionGroupsIndexKey = (wid: WorkspaceId) => `groupsIndex:${wid}`;
 const localGroupsIndexKey   = (wid: WorkspaceId) => `groupsIndex:${wid}`;
 /* ---------------------------------------------------------- */
@@ -189,7 +180,7 @@ export function AppContextProvider({
     currentStorageMode?: StorageModeType,
     workspaceId: WorkspaceId = DEFAULT_LOCAL_WORKSPACE_ID
   ): Promise<GroupsIndexEntry[]> {
-    // 1) try memory cache (persists while SW alive) – namespaced, with legacy fallback
+    // 1) try memory cache (persists while SW alive) – namespaced only
     try {
       const sessionKey = sessionGroupsIndexKey(workspaceId);
       const sessionPayload =
@@ -199,18 +190,9 @@ export function AppContextProvider({
       if (Array.isArray(groupsIndex) && groupsIndex.length) {
         return groupsIndex as GroupsIndexEntry[];
       }
-
-      // Legacy fallback → migrate to namespaced
-      const legacyPayload =
-        (await chrome?.storage?.session?.get?.([LEGACY_SESSION_GROUPS_INDEX_KEY])) ?? {};
-      const legacy = (legacyPayload as { groupsIndex?: unknown }).groupsIndex;
-      if (Array.isArray(legacy) && legacy.length) {
-        try { await chrome?.storage?.session?.set?.({ [sessionKey]: legacy }); } catch {}
-        return legacy as GroupsIndexEntry[];
-      }
     } catch {}
 
-    // 2) try a small persistent key – namespaced, with legacy fallback
+    // 2) try a small persistent key – namespaced only 
     try {
       const localKey = localGroupsIndexKey(workspaceId);
       const persistedPayload =
@@ -220,39 +202,7 @@ export function AppContextProvider({
         try { await chrome?.storage?.session?.set?.({ [sessionGroupsIndexKey(workspaceId)]: persisted }); } catch {}
         return persisted as GroupsIndexEntry[];
       }
-
-      // Legacy fallback → migrate to namespaced
-      const legacyPayload =
-        (await chrome?.storage?.local?.get?.([LEGACY_LOCAL_GROUPS_INDEX_KEY])) ?? {};
-      const legacy = (legacyPayload as { groupsIndex?: unknown }).groupsIndex;
-      if (Array.isArray(legacy)) {
-        try {
-          await chrome?.storage?.local?.set?.({ [localKey]: legacy });
-          await chrome?.storage?.session?.set?.({ [sessionGroupsIndexKey(workspaceId)]: legacy });
-        } catch {}
-        return legacy as GroupsIndexEntry[];
-      }
     } catch {}
-
-    // 3) last-ditch: derive a tiny index from the full LOCAL blob (LOCAL ONLY) – legacy key, then migrate
-    if (currentStorageMode === StorageMode.LOCAL) {
-      try {
-        const localPayload =
-          (await chrome?.storage?.local?.get?.([LEGACY_LOCAL_BOOKMARK_GROUPS_KEY])) ?? {};
-        const full = (localPayload as { bookmarkGroups?: unknown }).bookmarkGroups;
-        if (Array.isArray(full) && full.length) {
-          const idx = (full as BookmarkGroupType[]).map((g) => ({
-            id: g.id as string,
-            groupName: g.groupName as string,
-          })) as GroupsIndexEntry[];
-          try {
-            await chrome?.storage?.session?.set?.({ [sessionGroupsIndexKey(workspaceId)]: idx });
-            await chrome?.storage?.local?.set?.({ [localGroupsIndexKey(workspaceId)]: idx });
-          } catch {}
-          return idx;
-        }
-      } catch {}
-    }
 
     return [];
   } 
@@ -265,7 +215,7 @@ export function AppContextProvider({
    * @param groups Bookmark collection to persist when available.
    * @returns void
    */
-  function persistCachesIfNonEmpty(
+  async function persistCachesIfNonEmpty(
     workspaceId: WorkspaceId,
     groups: BookmarkGroupType[] | undefined | null,
     currentStorageMode?: StorageModeType
@@ -274,12 +224,11 @@ export function AppContextProvider({
 
     const idx = groups.map((g) => ({ id: String(g.id), groupName: String(g.groupName) }));
 
-    if (currentStorageMode === StorageMode.LOCAL) {
-      // PR-1 Local-only: write ONLY WS_<id> first-paint caches; never touch shared/remote caches.
-      try { writeFpIndexLocalSync(String(workspaceId), groups); } catch {}
-      try { writeFpGroupsLocalSync(String(workspaceId), groups); } catch {}
+    const adapter = getAdapter(currentStorageMode);
+    if (adapter) {
+      try { await adapter.persistCachesIfNonEmpty(workspaceId, groups); } catch {}
       return;
-    }
+    } 
     
     // Remote/other future modes can keep using the generic path.
     try { chrome?.storage?.local?.set?.({ [localGroupsIndexKey(workspaceId)]: idx }); } catch {}
@@ -549,15 +498,15 @@ export function AppContextProvider({
     if (!storageMode) return;
     if (storageMode === StorageMode.REMOTE && isHydratingRemote) return; // don't seed while remote gating
 
-    if (storageMode === StorageMode.LOCAL) {
-      // PR-1 Local-only: hydrate only from WS-scoped LOCAL first-paint snapshot.
-      const fp = readFpGroupsLocalSync(activeWorkspaceId);
-      console.log('cached (LOCAL fp) in phase 1a: ', fp);
-      if (Array.isArray(fp) && fp.length && !deepEqual(bookmarkGroups, fp)) {
-        setBookmarkGroups(fp);
-        setHasHydrated(true); // we’ve shown meaningful content
+    const storageAdapter = getAdapter(storageMode);
+    if (storageAdapter) {
+      const seed = storageAdapter.readPhase1aSnapshot(activeWorkspaceId);
+      console.log('cached (LOCAL fp via storageAdapter) in phase 1a: ', seed);
+      if (Array.isArray(seed) && seed.length && !deepEqual(bookmarkGroups, seed)) {
+        setBookmarkGroups(seed);
+        setHasHydrated(true);
       }
-    } else {
+    } else { 
       // Future/REMOTE path (kept for completeness)
       const cached = readBookmarkCacheSync(activeWorkspaceId) as BookmarkSnapshot | null;
       console.log('cached (REMOTE) bookmarks in phase 1a: ', cached);
@@ -593,11 +542,11 @@ export function AppContextProvider({
       try {
         const id = isSignedIn ? resolvedUserId : LOCAL_USER_ID;
         console.log("storageMode: ", storageMode);
-        if (storageMode === StorageMode.LOCAL) {
-          // PR-1 Local-only: warm from WS-scoped first-paint caches only.
-          const fp = readFpGroupsLocalSync(activeWorkspaceId);
-          if (!cancelled && Array.isArray(fp) && fp.length) {
-            setBookmarkGroups((prev) => (deepEqual(prev, fp) ? prev : fp));
+        const storageAdapter = getAdapter(storageMode);
+        if (storageAdapter) {
+          const cached = await storageAdapter.readPhase1bSessionSnapshot(activeWorkspaceId);
+          if (!cancelled && cached?.data && Array.isArray(cached.data) && cached.data.length) {
+            setBookmarkGroups((prev) => (deepEqual(prev, cached.data) ? prev : (cached.data as BookmarkGroupType[])));
             setHasHydrated(true);
           }
         } else {
@@ -614,10 +563,10 @@ export function AppContextProvider({
       } catch {}
 
       // Index: WS-local first-paint for LOCAL; existing fast path otherwise
-      const idx =
-        storageMode === StorageMode.LOCAL
-          ? readFpIndexLocalSync(activeWorkspaceId)
-          : await readGroupsIndexFast(storageMode, activeWorkspaceId);
+      const adapterForIndex = getAdapter(storageMode);
+      const idx = adapterForIndex
+        ? await adapterForIndex.readGroupsIndexFast(activeWorkspaceId)
+        : await readGroupsIndexFast(storageMode, activeWorkspaceId); 
 
       if (!cancelled) {
         setGroupsIndex(idx);
