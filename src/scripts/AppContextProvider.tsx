@@ -14,6 +14,8 @@ import type { BookmarkGroupType } from "@/core/types/bookmarks";
 
 /* Scripts */
 import {
+  AuthMode,
+  type AuthModeType,
   LOCAL_USER_ID,
 } from '@/core/constants/authMode';
 import { 
@@ -75,6 +77,7 @@ export interface AppContextValue {
   storageMode: StorageModeType | undefined;
   setStorageMode: (newStorageMode: StorageModeType) => Promise<void>;
   isSignedIn: boolean;
+  authMode: AuthModeType;
   isLoading: boolean;
   isMigrating: boolean;
   setIsMigrating: Dispatch<SetStateAction<boolean>>;
@@ -131,10 +134,16 @@ export function AppContextProvider({
   const [isLoading, setIsLoading] = useState<boolean>(true); // only for the very first paint
   const [isMigrating, setIsMigrating] = useState<boolean>(false);
 
+  // Authentication
   const resolvedUserId = userId ?? LOCAL_USER_ID;
-  const isSignedIn =
-    !!userId && userId !== LOCAL_USER_ID && storageMode === StorageMode.REMOTE;
-  const authKey = isSignedIn ? resolvedUserId : 'anon-key';
+  const hasSession = !!userId && userId !== LOCAL_USER_ID; // no storage coupling
+  const authMode: AuthModeType = hasSession ? AuthMode.AUTH : AuthMode.ANON;
+  /** @deprecated Prefer `authMode === AuthMode.AUTH`. `isSignedIn` remains for backward compatibility. */
+  const isSignedIn = authMode === AuthMode.AUTH;
+  const authKey = authMode === AuthMode.AUTH ? resolvedUserId : 'anon-key';
+
+  // Storage
+  const shouldHydrateRemote = authMode === AuthMode.AUTH && storageMode === StorageMode.REMOTE;
   /* ---------------------------------------------------------- */
 
   /* -------------------- Helper functions -------------------- */
@@ -540,7 +549,7 @@ export function AppContextProvider({
       }
 
       try {
-        const id = isSignedIn ? resolvedUserId : LOCAL_USER_ID;
+        const id = authMode === AuthMode.AUTH ? resolvedUserId : LOCAL_USER_ID;
         console.log("storageMode: ", storageMode);
         const storageAdapter = getAdapter(storageMode);
         if (storageAdapter) {
@@ -588,7 +597,7 @@ export function AppContextProvider({
     if (!storageMode) return;
 
     // Always resolve a concrete id (LOCAL_USER_ID for anon)
-    const id = isSignedIn ? resolvedUserId : LOCAL_USER_ID;
+    const id = authMode === AuthMode.AUTH ? resolvedUserId : LOCAL_USER_ID;
     if (!id) return;
 
     let cancelled = false;
@@ -633,7 +642,7 @@ export function AppContextProvider({
 
     const reload = async () => {
       try {
-        const id = isSignedIn ? resolvedUserId : LOCAL_USER_ID;
+        const id = authMode === AuthMode.AUTH ? resolvedUserId : LOCAL_USER_ID;
         await loadAndCache(userId, id, storageMode, activeWorkspaceId, setBookmarkGroups, deepEqual);
       } catch (e) {
         console.error('Reload after update failed:', e);
@@ -692,6 +701,7 @@ export function AppContextProvider({
     storageMode,
     setStorageMode: handleStorageModeChange,
     isSignedIn,
+    authMode,
     isLoading,
     isMigrating,
     setIsMigrating,
