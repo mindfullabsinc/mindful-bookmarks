@@ -8,7 +8,7 @@ import PopUpComponent from '@/components/PopUpComponent';
 import { AppContext } from '@/scripts/AppContextProvider';
 
 /* Constants */
-import { EMPTY_GROUP_IDENTIFIER } from '@/scripts/Constants';
+import { EMPTY_GROUP_IDENTIFIER } from '@/core/constants/Constants';
 
 // --- Mock chrome.tabs.query ---
 beforeAll(() => {

@@ -5,8 +5,8 @@ import { render, waitFor } from "@testing-library/react";
 import { AppContextProvider } from "@/scripts/AppContextProvider";
 
 /* Types & constants */
-import { StorageMode } from "@/scripts/Constants";
-import type { BookmarkGroupType } from "@/types/bookmarks";
+import { StorageMode } from "@/core/constants/storageMode";
+import type { BookmarkGroupType } from "@/core/types/bookmarks";
 
 /* ---- Test doubles for browser/Amplify env ---- */
 beforeAll(() => {
@@ -78,7 +78,7 @@ const demoGroups: BookmarkGroupType[] = [
 
 jest.mock("@/scripts/bookmarksData", () => {
   // Pull StorageMode inside the factory so it’s not out-of-scope
-  const { StorageMode } = require("@/scripts/Constants");
+  const { StorageMode } = require("@/core/constants/storageMode");
 
   return {
     loadInitialBookmarks: jest.fn(async (_uid: any, storageMode: any) => {

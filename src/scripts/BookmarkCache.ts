@@ -1,5 +1,5 @@
 /* -------------------- Imports -------------------- */
-import { WorkspaceId, DEFAULT_LOCAL_WORKSPACE_ID } from '@/scripts/workspaces';
+import { WorkspaceId, DEFAULT_LOCAL_WORKSPACE_ID } from '@/core/constants/workspaces';
 /* ---------------------------------------------------------- */
 
 

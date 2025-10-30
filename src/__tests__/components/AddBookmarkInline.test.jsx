@@ -5,11 +5,11 @@ import '@testing-library/jest-dom';
 import { AddBookmarkInline } from '@/components/AddBookmarkInline';
 import { AppContext } from '@/scripts/AppContextProvider';
 import { useBookmarkManager } from '@/hooks/useBookmarkManager';
-import { constructValidURL } from '@/scripts/Utilities';
+import { constructValidURL } from '@/core/utils/Utilities';
 
 // Mock the custom hook and utilities
 jest.mock('@/hooks/useBookmarkManager');
-jest.mock('@/scripts/Utilities');
+jest.mock('@/core/utils/Utilities');
 
 jest.mock('@/analytics/AnalyticsContext', () => {
   const React = require('react');

@@ -1,6 +1,6 @@
 // src/scripts/BookmarkCacheLocalFirstPaint.ts
 import { fpGroupsIndexKey, fpGroupsBlobKey } from "@/scripts/CacheKeys";
-import type { BookmarkGroupType } from "@/types/bookmarks"; 
+import type { BookmarkGroupType } from "@/core/types/bookmarks"; 
 
 /**
  * Read the minimal bookmark index used for first paint in LOCAL mode.

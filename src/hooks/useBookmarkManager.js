@@ -2,8 +2,9 @@ import { useContext } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { arrayMove } from '@dnd-kit/sortable';
 import { AppContext } from '@/scripts/AppContextProvider';
-import { EMPTY_GROUP_IDENTIFIER, StorageMode } from '@/scripts/Constants';
-import { refreshOtherMindfulTabs } from '@/scripts/Utilities';
+import { EMPTY_GROUP_IDENTIFIER } from '@/core/constants/Constants';
+import { StorageMode } from '@/core/constants/storageMode';
+import { refreshOtherMindfulTabs } from '@/core/utils/Utilities';
 import { Storage } from '@/scripts/Storage';
 import amplify_outputs from '/amplify_outputs.json';
 

@@ -8,7 +8,8 @@ import { importChromeBookmarksAsSingleGroup, importOpenTabsAsSingleGroup } from 
 import useImportBookmarks from '@/hooks/useImportBookmarks';
 
 /* Constants */
-import { EMPTY_GROUP_IDENTIFIER, StorageMode, StorageLabel } from "@/scripts/Constants";
+import { EMPTY_GROUP_IDENTIFIER } from "@/core/constants/Constants";
+import { StorageMode, StorageLabel } from "@/core/constants/storageMode";
 
 const DISMISS_KEY = "mindful.emptyStateDismissed";
 

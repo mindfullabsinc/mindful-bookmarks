@@ -10,15 +10,17 @@ import {
 } from 'aws-amplify/auth';
 
 /* Types */
-import type { BookmarkGroupType, BookmarkType } from "@/types/bookmarks";
+import type { BookmarkGroupType, BookmarkType } from "@/core/types/bookmarks";
 
 /* Scripts */
 import {
+  LOCAL_USER_ID,
+} from '@/core/constants/authMode';
+import { 
   StorageMode,
   type StorageModeType,
   DEFAULT_STORAGE_MODE,
-  LOCAL_USER_ID,
-} from '@/scripts/Constants';
+} from "@/core/constants/storageMode";
 import { loadInitialBookmarks } from '@/scripts/bookmarksData';
 
 /* Caching: synchronous snapshot for first-paint + session cache for reopens */
@@ -41,7 +43,7 @@ import {
   DEFAULT_LOCAL_WORKSPACE_ID,
   WORKSPACES_KEY, ACTIVE_WORKSPACE_KEY,
   makeDefaultLocalWorkspace,
-} from '@/scripts/workspaces';
+} from '@/core/constants/workspaces';
 /* ---------------------------------------------------------- */
 
 /* -------------------- Constants -------------------- */

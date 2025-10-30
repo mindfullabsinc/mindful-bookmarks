@@ -1,5 +1,5 @@
-import { getUserStorageKey } from './Utilities';
-import { StorageMode } from './Constants';
+import { getUserStorageKey } from '@/core/utils/Utilities';
+import { StorageMode } from '@/core/constants/storageMode';
 import { fetchAuthSession } from 'aws-amplify/auth'; 
 import amplify_outputs from '/amplify_outputs.json';
 

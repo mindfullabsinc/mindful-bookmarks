@@ -9,9 +9,10 @@ import { NewTabPage } from '@/pages/NewTabPage';
 import { AppContextProvider, AppContext } from '@/scripts/AppContextProvider';
 import * as useBookmarkManager from '@/hooks/useBookmarkManager';
 import useImportBookmarks from '@/hooks/useImportBookmarks';
-import * as Utilities from '@/scripts/Utilities';
+import * as Utilities from '@/core/utils/Utilities';
 import { fetchUserAttributes, fetchAuthSession } from 'aws-amplify/auth';
-import { EMPTY_GROUP_IDENTIFIER, StorageMode } from '@/scripts/Constants'; 
+import { EMPTY_GROUP_IDENTIFIER } from '@/core/constants/Constants'; 
+import { StorageMode } from '@/core/constants/storageMode'; 
 
 // Mock child components for isolation
 jest.mock('@/components/TopBanner', () => (props) => (
@@ -40,7 +41,7 @@ jest.mock('@/hooks/useImportBookmarks', () => ({
   default: jest.fn(),            // mock default export
   useImportBookmarks: jest.fn(), // (optional) also mock the named export to the same fn if you need it elsewhere
 }));
-jest.mock('@/scripts/Utilities', () => ({
+jest.mock('@/core/utils/Utilities', () => ({
   getUserStorageKey: jest.fn(),
 }));
 jest.mock('@/analytics/AnalyticsProvider', () => ({

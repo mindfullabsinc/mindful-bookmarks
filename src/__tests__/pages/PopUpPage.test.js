@@ -48,7 +48,7 @@ jest.mock('@/hooks/useBookmarkManager', () => ({
 }));
 
 // Utilities
-jest.mock('@/scripts/Utilities', () => ({
+jest.mock('@/core/utils/Utilities', () => ({
   constructValidURL: jest.fn((url) => 'https://' + url.replace(/^https?:\/\//, '')),
 })); 
 

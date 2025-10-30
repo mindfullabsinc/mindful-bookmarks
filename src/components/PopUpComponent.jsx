@@ -2,11 +2,11 @@ import React, { useContext, useState, useEffect, useMemo, useRef } from 'react';
 
 /* Hooks and Utilities */
 import { AppContext } from "@/scripts/AppContextProvider";
-import { constructValidURL } from '@/scripts/Utilities';
+import { constructValidURL } from '@/core/utils/Utilities';
 import { useBookmarkManager } from '@/hooks/useBookmarkManager';
 
 /* Constants */
-import { URL_PATTERN, EMPTY_GROUP_IDENTIFIER } from '@/scripts/Constants';
+import { URL_PATTERN, EMPTY_GROUP_IDENTIFIER } from '@/core/constants/Constants';
 
 /** Build a per-user/per-storage key so anon/local doesn't collide with auth/remote. */
 const lastGroupKey = (userId, storageMode) =>

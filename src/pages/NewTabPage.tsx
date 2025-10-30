@@ -2,15 +2,6 @@
 import React, { useContext, useEffect, useRef } from "react";
 import type { ReactElement } from 'react';
 
-// Import Amplify and the Authenticator UI component
-import { Amplify } from 'aws-amplify';
-import '@aws-amplify/ui-react/styles.css';
-
-// Import Amplify configuration and configure Amplify
-import config from '../../amplify_outputs.json';
-Amplify.configure(config);
-import { signOut as amplifySignOut } from 'aws-amplify/auth';
-
 /* CSS styles */
 import "@/styles/Login.css";
 
@@ -18,26 +9,25 @@ import "@/styles/Login.css";
 import {
   EMPTY_GROUP_IDENTIFIER,
   ONBOARDING_NEW_GROUP_PREFILL,
+} from "@/core/constants/Constants";
+import { 
   StorageMode,
-  StorageModeType
-} from "@/scripts/Constants";
+  type StorageModeType
+} from "@/core/constants/storageMode";
 
 /* Hooks and Utilities */
-import { getUserStorageKey } from '@/scripts/Utilities';
+import { getUserStorageKey } from '@/core/utils/Utilities';
 import { useBookmarkManager } from '@/hooks/useBookmarkManager';
 import { loadInitialBookmarks } from '@/scripts/bookmarksData';
 import { AppContext } from "@/scripts/AppContextProvider";
 
 /* Types */
-import type { BookmarkGroupType, BookmarkType } from "@/types/bookmarks";
+import type { BookmarkGroupType, BookmarkType } from "@/core/types/bookmarks";
 
 /* Components */
 import TopBanner from "@/components/TopBanner";
 import DraggableGrid, { GridHandle } from '@/components/DraggableGrid';
 import EmptyBookmarksState from '@/components/EmptyBookmarksState';
-
-/* Analytics */
-import AnalyticsProvider from "@/analytics/AnalyticsProvider";
 /* ---------------------------------------------------------- */
 
 /* -------------------- Local types and interfaces -------------------- */
@@ -63,6 +53,19 @@ type NewTabPageProps = {
   /** Optional callback invoked when the user clicks sign-out. */
   signOut?: () => Promise<void> | void;
 };
+/* ---------------------------------------------------------- */
+
+/* -------------------- Helper functions -------------------- */
+type WithChildren = { children?: React.ReactNode };
+
+// Lazy-load AnalyticsProvider so anon mode never imports it
+const AnalyticsProviderLazy = React.lazy<React.ComponentType<WithChildren>>(async () => {
+  const mod = await import("@/analytics/AnalyticsProvider");
+  const Provider =
+    (mod as any).default ??
+    (({ children }: WithChildren) => <>{children}</>);
+  return { default: Provider as React.ComponentType<WithChildren> };
+});
 /* ---------------------------------------------------------- */
 
 /**
@@ -209,6 +212,8 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
   }
   /**
    * Notify other contexts that storage preferences switched to anonymous/local mode.
+   *
+   * @returns {void}
    */
   function broadcastLocalModeEdge(): void {
     const at = Date.now();
@@ -222,15 +227,16 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
    * @returns {Promise<void>} Resolves after the UI reload is requested.
    */
   const defaultSignOut = async (): Promise<void> => {
-    try { await amplifySignOut({ global: true }); } catch {}
-    // flip UI to anon for any open New Tab pages
-    await clearBookmarkCaches();  // Ensure anon doesn't inherit remote visuals
+    try {
+      const { signOut: amplifySignOut } = await import("aws-amplify/auth");
+      try { await amplifySignOut({ global: true }); } catch {}
+    } catch {}
+    await clearBookmarkCaches();
     broadcastAuthEdge('USER_SIGNED_OUT');
     broadcastLocalModeEdge();
     clearAuthHash();
-    // simplest: full reload so providers/hooks re-init cleanly
     try { window.location.reload(); } catch {}
-  }; 
+  };
   /* ---------------------------------------------------------- */
 
   /* -------------------- Effects -------------------- */
@@ -360,31 +366,39 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
     bookmarks: g?.bookmarks ?? [],
   }));
 
-  return (
-    <AnalyticsProvider>
-      <div className="min-h-screen bg-gray-100 dark:bg-neutral-950">
-        <TopBanner
-          onExportBookmarks={exportBookmarksToJSON}
-          userAttributes={userAttributes}
-          onSignIn={signIn || defaultSignIn}
-          onSignOut={signOut || defaultSignOut}
-          isSignedIn={isSignedIn /* prefer context-derived status over props */}
-          onStorageModeChange={changeStorageMode}
-        />
-        {ready && (
-          <>
-            <DraggableGrid
-              ref={gridRef as any}
-              user={isSignedIn ? { sub: userId as string } : null}
-              bookmarkGroups={normalizedGroups}
-            />
-            <EmptyBookmarksState
-              onCreateGroup={() => gridRef.current?.startCreateGroup?.({ prefill: ONBOARDING_NEW_GROUP_PREFILL, select: 'all' })}
-              onImport={handleLoadBookmarks}
-            />
-          </>
-        )}
-      </div>
-    </AnalyticsProvider>
+  // Only mount Analytics when signed in
+  const content = (
+    <div className="min-h-screen bg-gray-100 dark:bg-neutral-950">
+      <TopBanner
+        onExportBookmarks={exportBookmarksToJSON}
+        userAttributes={userAttributes}
+        onSignIn={signIn || defaultSignIn}
+        onSignOut={signOut || defaultSignOut}
+        isSignedIn={isSignedIn /* prefer context-derived status over props */}
+        onStorageModeChange={changeStorageMode}
+      />
+      {ready && (
+        <>
+          <DraggableGrid
+            ref={gridRef as any}
+            user={isSignedIn ? { sub: userId as string } : null}
+            bookmarkGroups={normalizedGroups}
+          />
+          <EmptyBookmarksState
+            onCreateGroup={() => gridRef.current?.startCreateGroup?.({ prefill: ONBOARDING_NEW_GROUP_PREFILL, select: 'all' })}
+            onImport={handleLoadBookmarks}
+          />
+        </>
+      )}
+    </div>
+  );
+
+  // Render path—signed in → lazy analytics; anon → plain content
+  return isSignedIn ? (
+    <React.Suspense fallback={<div />}>
+      <AnalyticsProviderLazy>{content}</AnalyticsProviderLazy>
+    </React.Suspense>
+  ) : (
+    content
   );
 }

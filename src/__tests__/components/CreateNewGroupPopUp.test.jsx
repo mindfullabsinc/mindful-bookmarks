@@ -16,7 +16,7 @@ jest.mock('@/hooks/useBookmarkManager', () => ({
 }));
 
 // Mocking the utility function
-jest.mock('@/scripts/Utilities', () => ({
+jest.mock('@/core/utils/Utilities', () => ({
   constructValidURL: (url) => `https://www.${url}`,
 }));
 

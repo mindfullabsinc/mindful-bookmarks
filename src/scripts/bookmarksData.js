@@ -1,6 +1,6 @@
 // src/scripts/bookmarksData.js
 import { Storage } from "@/scripts/Storage";
-import { StorageMode } from "@/scripts/Constants";
+import { StorageMode } from "@/core/constants/storageMode";
 
 
 /**

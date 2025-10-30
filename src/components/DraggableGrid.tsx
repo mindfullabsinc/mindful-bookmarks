@@ -15,14 +15,14 @@ import {
 import { SortableContext, rectSortingStrategy } from "@dnd-kit/sortable";
 
 /* Types */
-import type { BookmarkGroupType, BookmarkType } from "@/types/bookmarks";
+import type { BookmarkGroupType, BookmarkType } from "@/core/types/bookmarks";
 
 /* Components */
 import { BookmarkGroup } from "@/components/BookmarkGroup";
 import { BookmarkItem } from "@/components/BookmarkItem";
 import { AppContext } from "@/scripts/AppContextProvider";
 import { useBookmarkManager } from "@/hooks/useBookmarkManager";
-import { EMPTY_GROUP_IDENTIFIER } from "@/scripts/Constants";
+import { EMPTY_GROUP_IDENTIFIER } from "@/core/constants/Constants";
 
 /* -------------------- Local helper types (minimal) -------------------- */
 type GroupId = string | number;

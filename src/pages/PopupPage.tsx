@@ -1,43 +1,25 @@
 import React, { useEffect } from 'react';
 import type { ReactElement } from 'react';
 
-import { Amplify, type ResourcesConfig } from 'aws-amplify';
-import config from '../../amplify_outputs.json';
-Amplify.configure(config as ResourcesConfig);
-
-// Import Hub from the correct package for Amplify v6+
-import { Hub } from 'aws-amplify/utils';
-import { Authenticator, ThemeProvider, useAuthenticator } from '@aws-amplify/ui-react';
-import { fetchAuthSession, signOut } from 'aws-amplify/auth';
-
-/* Scripts */
+// Scripts
 import { AppContextProvider } from '@/scripts/AppContextProvider';
-import { AuthMode, AMPLIFY_HUB_AUTH_CHANNEL } from '@/scripts/Constants';
+import { AuthMode, AuthModeType, AMPLIFY_HUB_AUTH_CHANNEL } from '@/core/constants/authMode';
 
-/* Components */
+// Components
 import PopUpComponent from '@/components/PopUpComponent';
-import LogoComponent from '@/components/LogoComponent';
 import PopupAutosize from "@/components/PopupAutosize";
 
-/* CSS styling */
-import '@aws-amplify/ui-react/styles.css';
+// CSS styling
 import '@/styles/amplify-auth-tailwind.css';
-import { amplifyTheme } from '@/theme/amplifyTheme';
-import formFields from "@/config/formFields"
 
-/* Analytics */
-import AnalyticsProvider from "@/analytics/AnalyticsProvider";
-
-type AuthModeValue = (typeof AuthMode)[keyof typeof AuthMode];
-
+/* ----------------------- Utilities ----------------------- */
 /**
  * Open the full new-tab authentication experience and close the popup window.
- *
- * @param {'signUp' | 'signIn' | 'confirmSignUp'} [route='signUp'] Auth route to show in the new tab.
- * @param {Record<string, unknown>} [extras={}] Reserved metadata for future query parameters.
- * @returns {Promise<void>} Resolves after triggering the tab open request.
  */
-async function openAuthTab(route: 'signUp' | 'signIn' | 'confirmSignUp' = 'signUp', extras: Record<string, unknown> = {}) {
+async function openAuthTab(
+  route: 'signUp' | 'signIn' | 'confirmSignUp' = 'signUp',
+  extras: Record<string, unknown> = {}
+) {
   const url = chrome.runtime.getURL(`newtab.html#auth=${route}`);
   chrome.tabs.create({ url }, () => {
     const err = chrome.runtime.lastError;
@@ -47,23 +29,7 @@ async function openAuthTab(route: 'signUp' | 'signIn' | 'confirmSignUp' = 'signU
 }
 
 /**
- * Ensure the Amplify Authenticator is parked on the sign-in route immediately on mount.
- *
- * @returns {null}
- */
-function KickToSignIn(): null {
-  const { route, toSignIn } = useAuthenticator((ctx) => [ctx.route]);
-  React.useEffect(() => {
-    // If it isn't already on signIn, push it there on mount
-    if (route !== 'signIn') toSignIn();
-  }, [route, toSignIn]);
-  return null;
-}
-
-/**
  * Reload the currently active tab if it is showing the Mindful new-tab experience.
- *
- * @returns {void}
  */
 function reloadActiveTabIfNewTab() {
   try {
@@ -76,8 +42,6 @@ function reloadActiveTabIfNewTab() {
         const url = (tab.url || '');
         const pending = (tab as any).pendingUrl || '';
 
-        // Chrome overrides show up as chrome://newtab/ (omnibox blank)
-        // Also allow direct loads of the extension page
         const isOurNtp =
           url === 'chrome://newtab/' ||
           pending === 'chrome://newtab/' ||
@@ -91,14 +55,9 @@ function reloadActiveTabIfNewTab() {
 
 /**
  * Attempt to refresh all open instances of the Mindful new-tab view to pick up auth changes.
- *
- * @returns {void}
  */
 function refreshNewTabPagesBestEffort() {
-  // 1) Active tab (guarded to only reload if it's the New Tab)
   reloadActiveTabIfNewTab();
-
-  // 2) Any open extension "tab" views that are the new tab page 
   try {
     const newTabUrl = chrome.runtime.getURL('newtab.html');
     const views = (chrome.extension?.getViews?.({ type: 'tab' }) || []);
@@ -110,11 +69,8 @@ function refreshNewTabPagesBestEffort() {
 
 /**
  * Broadcast an authentication edge event to other extension contexts via storage and runtime messaging.
- *
- * @param {'USER_SIGNED_IN' | 'USER_SIGNED_OUT'} type Auth event describing the transition.
- * @returns {void}
  */
-function broadcastAuthEdge(type: 'USER_SIGNED_IN' | 'USER_SIGNED_OUT' /* 'USER_SIGNED_IN' | 'USER_SIGNED_OUT' */) {
+function broadcastAuthEdge(type: 'USER_SIGNED_IN' | 'USER_SIGNED_OUT') {
   const at = Date.now();
   try { chrome.storage?.local?.set({ authSignalAt: at, authSignal: type === 'USER_SIGNED_IN' ? 'signedIn' : 'signedOut' }); } catch {}
   try { chrome.runtime.sendMessage({ type, at }, () => { chrome.runtime.lastError; }); } catch {}
@@ -122,30 +78,25 @@ function broadcastAuthEdge(type: 'USER_SIGNED_IN' | 'USER_SIGNED_OUT' /* 'USER_S
 
 /**
  * Broadcast that the popup switched into anonymous/local mode without performing a sign-out.
- *
- * @returns {void}
  */
 function broadcastLocalModeEdge() {
   const at = Date.now();
-  // persist the mode and a timestamp that New Tab can observe
   try { chrome.storage?.local?.set({ mindful_auth_mode: AuthMode.ANON, modeSignalAt: at }); } catch {}
   try { chrome.runtime.sendMessage({ type: 'MODE_SWITCHED_TO_ANON', at }, () => { chrome.runtime.lastError; }); } catch {}
 }
+/* ---------------------------------------------------------- */
 
-/**
- * Manage the popup's auth mode preference (anon vs auth), persisting it to chrome.storage.
- *
- * @returns {{ mode: AuthModeValue; setMode: (next: AuthModeValue) => Promise<void> | void; ready: boolean }}
- */
-function usePopupMode(): { mode: AuthModeValue; setMode: (next: AuthModeValue) => Promise<void> | void; ready: boolean } {
-  const [mode, setMode] = React.useState<AuthModeValue>(AuthMode.ANON);
+/* ----------------------- Mode state ----------------------- */
+function usePopupMode(): { mode: AuthModeType; setMode: (next: AuthModeType) => Promise<void> | void; ready: boolean } {
+  const [mode, setMode] = React.useState<AuthModeType>(AuthMode.ANON);
   const [ready, setReady] = React.useState(false);
 
   React.useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const { mindful_auth_mode } = await (chrome.storage?.local?.get?.('mindful_auth_mode') ?? Promise.resolve({})) as { mindful_auth_mode?: AuthModeValue };
+        const { mindful_auth_mode } =
+          await (chrome.storage?.local?.get?.('mindful_auth_mode') ?? Promise.resolve({})) as { mindful_auth_mode?: AuthModeType };
         if (!cancelled && (mindful_auth_mode === AuthMode.ANON || mindful_auth_mode === AuthMode.AUTH)) {
           setMode(mindful_auth_mode);
         }
@@ -155,22 +106,17 @@ function usePopupMode(): { mode: AuthModeValue; setMode: (next: AuthModeValue) =
     return () => { cancelled = true; }
   }, []);
 
-  const save = React.useCallback(async (next: AuthModeValue) => {
+  const save = React.useCallback(async (next: AuthModeType) => {
     setMode(next);
     try { await chrome.storage?.local?.set?.({ mindful_auth_mode: next }); } catch {}
   }, []);
 
   return { mode, setMode: save, ready };
 }
+/* ---------------------------------------------------------- */
 
-/**
- * Inline control for switching between anonymous and authenticated popup modes.
- *
- * @param {{ mode: AuthModeValue; onSwitch: (next: AuthModeValue) => void | Promise<void> }} props Mode toggle props.
- * @returns {JSX.Element}
- */
-function ModeSwitcher({ mode, onSwitch }: { mode: AuthModeValue; onSwitch: (next: AuthModeValue) => void | Promise<void> }) {
-  console.log("In ModeSwitcher. mode: ", mode, " onSwitch: ", onSwitch);
+/* ----------------------- Small UI helpers ----------------------- */
+function ModeSwitcher({ mode, onSwitch }: { mode: AuthModeType; onSwitch: (next: AuthModeType) => void | Promise<void> }) {
   return (
     <div className="flex items-center justify-between mb-3">
       <div className="text-sm opacity-80">
@@ -200,156 +146,185 @@ function ModeSwitcher({ mode, onSwitch }: { mode: AuthModeValue; onSwitch: (next
     </div>
   );
 }
+/* ---------------------------------------------------------- */
 
+/* ----------------------- LAZY AUTH CHUNK ----------------------- */
 /**
- * Observe Authenticator routes and kick users to the full confirm-signup flow when required.
- *
- * @returns {null}
+ * We pack *all* Amplify/UI/Theme stuff behind a lazy boundary so ANON path is totally auth-free.
  */
-function PopupRouteWatcher(): null {
-  const { route } = useAuthenticator((ctx) => [ctx.route]);
-  React.useEffect(() => {
-    const isVerify =
-      route === 'confirmSignUp' || route === 'verifyUser' || route === 'confirmVerifyUser';
-    if (isVerify) openAuthTab('confirmSignUp');
-  }, [route]);
-  return null;
-}
+type WithChildren = { children?: React.ReactNode };
 
-/**
- * Decide whether to render the anonymous popup UI or the authenticated Amplify flow.
- *
- * @param {{ mode: AuthModeValue; onWantAuth: () => void }} props Auth gating props.
- * @returns {ReactElement}
- */
-function AuthGate({ mode, onWantAuth }: { mode: AuthModeValue; onWantAuth: () => void }): ReactElement {
-  // ANON: No Authenticator at all. App runs local-only with user=null.
-  if (mode === AuthMode.ANON) {
-    console.log("Authentication mode is ANON, setting preferredStorageMode to local");
-    return (
-      <>
-        <AppContextProvider user={null} preferredStorageMode="local">
-          <PopUpComponent />
-        </AppContextProvider>
-      </>
-    );
-  } 
+const AuthInlinePopup = React.lazy(async () => {
+  const [{ ensureAmplifyConfigured }] = await Promise.all([import("@/amplify/ensureAmplify")]);
+  await ensureAmplifyConfigured();
 
-  // AUTH: Render Authenticator and pass user into AppContextProvider.
-  // AUTH branch
-  return (
-    <Authenticator
-      className="!p-0"
-      hideSignUp={true}
-      // formFields type is not exported; keep as-is to match runtime shape
-      formFields={formFields as any}
-      components={{
-        SignIn: {
-          Footer: () => (
-            <div className="mt-3 text-center">
-              <button type="button" className="amplify-button--link" onClick={() => openAuthTab('signUp')}>
-                Create account
-              </button>
-            </div>
-          )
-        }
-      }}
-    >
-      {({ user }) => (
-        <>
-          {/* Ensure we’re on the sign-in panel the moment this mounts */}
-          <KickToSignIn />
+  // Load Amplify UI + styles + theme + fields + components
+  await import("@aws-amplify/ui-react/styles.css");
+  const ui = await import("@aws-amplify/ui-react");
+  const { ThemeProvider, Authenticator, useAuthenticator } = ui;
 
-          <AppContextProvider user={user as any}>
-            {!user && (
-              <div className="mt-3">
-                <button
-                  className="amplify-button--link"
-                  onClick={() => openAuthTab('signUp')}
-                  type="button"
-                >
-                  Create account (opens full page)
-                </button>
-              </div>
-            )}
-            <PopUpComponent />
-            <PopupRouteWatcher />
-          </AppContextProvider>
-        </>
-      )}
-    </Authenticator>
-  ); 
-}
+  const [
+    themeMod,
+    fieldsMod,
+    logoMod,
+  ] = await Promise.all([
+    import("@/theme/amplifyTheme"),
+    import("@/config/formFields"),
+    import("@/components/LogoComponent"),
+  ]);
 
-/**
- * Mindful popup entry point: wires auth mode persistence, Amplify Hub listeners, and renders the UI.
- *
- * @returns {ReactElement | null}
- */
+  const amplifyTheme = (themeMod as any).default ?? (themeMod as any).amplifyTheme;
+  const formFields    = (fieldsMod as any).default ?? (fieldsMod as any).formFields;
+  const LogoComponent = (logoMod as any).default ?? (logoMod as any).LogoComponent;
+
+  // Kick to sign-in route on mount
+  function KickToSignIn(): null {
+    const { route, toSignIn } = useAuthenticator((ctx) => [ctx.route]);
+    React.useEffect(() => { if (route !== 'signIn') toSignIn(); }, [route, toSignIn]);
+    return null;
+  }
+
+  // Watch routes to push full confirm-signup flow to a tab
+  function PopupRouteWatcher(): null {
+    const { route } = useAuthenticator((ctx) => [ctx.route]);
+    React.useEffect(() => {
+      const isVerify = route === 'confirmSignUp' || route === 'verifyUser' || route === 'confirmVerifyUser';
+      if (isVerify) openAuthTab('confirmSignUp');
+    }, [route]);
+    return null;
+  }
+
+  const Inline: React.FC = () => (
+    <ThemeProvider theme={amplifyTheme} colorMode="system">
+      <div className="popup-root mindful-auth p-4">
+        <Authenticator
+          className="!p-0"
+          hideSignUp={true}
+          formFields={formFields as any}
+          components={{
+            SignIn: {
+              Footer: () => (
+                <div className="mt-3 text-center">
+                  <button type="button" className="amplify-button--link" onClick={() => openAuthTab('signUp')}>
+                    Create account
+                  </button>
+                </div>
+              )
+            }
+          }}
+        >
+          {({ user }) => (
+            <>
+              <KickToSignIn />
+              <React.Suspense fallback={<div />}>
+                <AnalyticsProviderLazy>
+                  <AppContextProvider user={user as any}>
+                    {!user && (
+                      <div className="mt-3">
+                        <button
+                          className="amplify-button--link"
+                          onClick={() => openAuthTab('signUp')}
+                          type="button"
+                        >
+                          Create account (opens full page)
+                        </button>
+                      </div>
+                    )}
+                    <PopUpComponent />
+                    <PopupRouteWatcher />
+                  </AppContextProvider>
+                </AnalyticsProviderLazy>
+              </React.Suspense>
+            </>
+          )}
+        </Authenticator>
+      </div>
+    </ThemeProvider>
+  );
+  
+  return { default: Inline };
+});
+
+// Lazy Analytics (only used in AUTH path)
+const AnalyticsProviderLazy = React.lazy<React.ComponentType<WithChildren>>(async () => {
+  const mod = await import("@/analytics/AnalyticsProvider");
+  const Provider = (mod as any).default ?? (({ children }: WithChildren) => <>{children}</>);
+  return { default: Provider as React.ComponentType<WithChildren> };
+});
+/* ---------------------------------------------------------- */
+
+/* ----------------------- MAIN ----------------------- */
 export default function PopupPage(): ReactElement | null {
   const { mode, setMode, ready } = usePopupMode();
   const suppressNextSignedOut = React.useRef(false);
 
-  // Listen for real sign-in/out edges to refresh new-tab & broadcast
+  // Hub listener is now loaded *only in AUTH mode* and lazily
   useEffect(() => {
-    // Amplify v6 Hub uses the literal 'auth' channel, so need to use the string literal
-    const unsub = Hub.listen(AMPLIFY_HUB_AUTH_CHANNEL, ({ payload }: { payload?: { event?: string } }) => {
-      // Common events: 'signedIn', 'signedOut', 'tokenRefresh', etc.
-      if (payload?.event === 'signedIn') {
-        broadcastAuthEdge('USER_SIGNED_IN');
-        refreshNewTabPagesBestEffort();
-        // stay in AuthMode.AUTH mode
-      } else if (payload?.event === 'signedOut') {
-        // If *we* triggered signOut just to show the sign-in screen, swallow this once
-        if (suppressNextSignedOut.current) {
-          suppressNextSignedOut.current = false; // consume
-          // Do NOT flip to anon or refresh New Tab here.
-          return;
-        }
-        broadcastAuthEdge('USER_SIGNED_OUT');
-        refreshNewTabPagesBestEffort();
-        // optionally fall back to anon on sign out:
-        setMode(AuthMode.ANON);
-      }
-    });
-    return () => unsub();
-  }, [setMode]);
+    if (!ready || mode !== AuthMode.AUTH) return;
 
-  if (!ready) return null; // tiny guard to avoid flicker
+    let unsub: (() => void) | undefined;
+
+    (async () => {
+      const { Hub } = await import('aws-amplify/utils');
+      unsub = Hub.listen(AMPLIFY_HUB_AUTH_CHANNEL, ({ payload }: { payload?: { event?: string } }) => {
+        if (payload?.event === 'signedIn') {
+          broadcastAuthEdge('USER_SIGNED_IN');
+          refreshNewTabPagesBestEffort();
+        } else if (payload?.event === 'signedOut') {
+          if (suppressNextSignedOut.current) {
+            suppressNextSignedOut.current = false;
+            return;
+          }
+          broadcastAuthEdge('USER_SIGNED_OUT');
+          refreshNewTabPagesBestEffort();
+          setMode(AuthMode.ANON);
+        }
+      });
+    })();
+
+    return () => { try { unsub?.(); } catch {} };
+  }, [ready, mode, setMode]);
+
+  if (!ready) return null;
 
   return (
-    <Authenticator.Provider>
-      <AnalyticsProvider>
-        <ThemeProvider theme={amplifyTheme} colorMode="system">
-          <div className="popup-root mindful-auth p-4">
-            <PopupAutosize selector=".popup-root" maxH={600} />
-            <LogoComponent />
-            <ModeSwitcher mode={mode} onSwitch={async (next) => {
-              console.log("next: ", next);
-              if (next === AuthMode.AUTH) {
-                setMode(AuthMode.AUTH);
-                // We’re about to force signOut so the Authenticator shows the sign-in UI.
-                // Ignore the *next* 'signedOut' Hub event generated by this.
-                suppressNextSignedOut.current = true;
-                try {
-                  const s = await fetchAuthSession().catch(() => null as any);
-                  // If a session exists, sign out so Authenticator will render the sign-in screen
-                  if (s && ((s as any).tokens || (s as any).userSub || (s as any).identityId)) {
-                    await signOut({ global: true }).catch(() => {});
-                  }
-                } catch {}
-              } else {
-                // switching to anon: clear to local-only
-                setMode(AuthMode.ANON);
-                // tell any open New Tab pages to flip to LOCAL and refresh
-                broadcastLocalModeEdge();
-                refreshNewTabPagesBestEffort();
+    <div className="popup-root mindful-auth p-4">
+      <PopupAutosize selector=".popup-root" maxH={600} />
+
+      {/* Mode switcher stays in both modes; handlers lazy-load auth only when needed */}
+      <ModeSwitcher
+        mode={mode}
+        onSwitch={async (next) => {
+          if (next === AuthMode.AUTH) {
+            setMode(AuthMode.AUTH);
+            // Force signOut if a session exists so <Authenticator> shows sign-in immediately.
+            suppressNextSignedOut.current = true;
+            try {
+              const { fetchAuthSession, signOut } = await import('aws-amplify/auth');
+              const s = await fetchAuthSession().catch(() => null as any);
+              if (s && ((s as any).tokens || (s as any).userSub || (s as any).identityId)) {
+                await signOut({ global: true }).catch(() => {});
               }
-            }} />
-            <AuthGate mode={mode} onWantAuth={() => setMode(AuthMode.AUTH)} /> 
-          </div>
-        </ThemeProvider>
-      </AnalyticsProvider>
-    </Authenticator.Provider>
+            } catch {}
+          } else {
+            setMode(AuthMode.ANON);
+            broadcastLocalModeEdge();
+            refreshNewTabPagesBestEffort();
+          }
+        }}
+      />
+
+      {mode === AuthMode.ANON ? (
+        // —— ANON: no Amplify/UI; pure local AppContext ——
+        <AppContextProvider user={null} preferredStorageMode="local">
+          <PopUpComponent />
+        </AppContextProvider>
+      ) : (
+        // —— AUTH: lazily load Analytics + Authenticator chunk ——
+        <React.Suspense fallback={<div />}>
+          <AuthInlinePopup />
+        </React.Suspense>
+      )}
+    </div>
   );
 }

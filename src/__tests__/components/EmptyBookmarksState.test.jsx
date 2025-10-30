@@ -8,7 +8,7 @@ import '@testing-library/jest-dom';
 
 import EmptyBookmarksState from '@/components/EmptyBookmarksState';
 import { AppContext } from '@/scripts/AppContextProvider';
-import { EMPTY_GROUP_IDENTIFIER } from '@/scripts/Constants';
+import { EMPTY_GROUP_IDENTIFIER } from '@/core/constants/Constants';
 
 import useImportBookmarks, {
   mockOpenImport,
