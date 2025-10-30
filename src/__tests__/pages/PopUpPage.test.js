@@ -32,12 +32,19 @@ jest.mock('aws-amplify/auth');
 // Provide a tiny AppContext + Provider so the inner component can consume groups
 jest.mock('@/scripts/AppContextProvider', () => {
   const React = require('react');
-  const AppContext = React.createContext({});
-  const AppContextProvider = ({ children }) => (
-    <AppContext.Provider value={{ bookmarkGroups: MOCK_BOOKMARK_GROUPS }}>
-      {children}
-    </AppContext.Provider>
-  );
+    const AppContext = React.createContext({});
+    const AppContextProvider = ({ children, user = null, preferredStorageMode = 'local' }) => (
+      <AppContext.Provider
+        value={{
+          groupsIndex: [],
+          bookmarkGroups: MOCK_BOOKMARK_GROUPS,
+          userId: user?.userId || null,
+          storageMode: preferredStorageMode, // <-- critical for PopUpComponent’s default selection
+        }}
+      >
+        {children}
+      </AppContext.Provider>
+    );
   return { AppContext, AppContextProvider };
 });
 
@@ -106,8 +113,14 @@ global.chrome = {
       cb([{ url: 'https://example.com', title: 'Mock Tab Title' }]);
     }),
   },
+  runtime: { id: 'test-extension-id' }, // <-- allow PopUpComponent to call window.close()
 };
 global.window.close = jest.fn();
+
+// keep tests isolated from persisted group selection across runs
+afterEach(() => {
+  try { localStorage.clear(); } catch {}
+});
 
 // --------------------
 // Tests
@@ -121,11 +134,14 @@ describe('PopupPage Authentication Flow', () => {
     getCurrentUser.mockImplementation(
       () => new Promise((resolve) => setTimeout(() => resolve({ userId: 'u1' }), 0))
     );
-  
+    
     render(<PopupPage />);
-  
-    // Assert the initial loading UI from our Authenticator mock
-    expect(screen.getByText(/Loading\.\.\./i)).toBeInTheDocument();
+    // Switch ANON → AUTH so the lazy <Authenticator> mounts
+    await screen.findByRole('button', { name: /enable sync by signing in/i });
+    fireEvent.click(screen.getByRole('button', { name: /enable sync by signing in/i }));
+    
+    // Assert the initial loading UI from our mocked <Authenticator>
+    expect(await screen.findByText(/Loading\.\.\./i)).toBeInTheDocument();
   
     // Allow it to resolve so the test doesn’t leave open handles
     await waitFor(() => expect(true).toBe(true));
@@ -135,9 +151,12 @@ describe('PopupPage Authentication Flow', () => {
     getCurrentUser.mockRejectedValue(new Error('No user signed in'));
     render(<PopupPage />);
   
-    expect(
-      await screen.findByText(/Please sign in on the new tab page to add bookmarks\./i)
-    ).toBeInTheDocument();
+    // Switch to AUTH to render the mocked <Authenticator> signed-out view
+    await screen.findByRole('button', { name: /enable sync by signing in/i });
+    fireEvent.click(screen.getByRole('button', { name: /enable sync by signing in/i }));
+    
+    expect(await screen.findByText(/Please sign in on the new tab page to add bookmarks\./i))
+      .toBeInTheDocument();
   });
 });
 
@@ -156,8 +175,10 @@ describe('PopUp form via PopupPage (signed-in)', () => {
   test('renders the form with initial values from the current tab', async () => {
     render(<PopupPage />);
 
-    // Wait for app to leave "Loading..." and render the signed-in form
-    expect(await screen.findByText(/mindful/i)).toBeInTheDocument();
+    // Switch to AUTH and allow mocked <Authenticator> to resolve to signed-in
+    await screen.findByRole('button', { name: /enable sync by signing in/i });
+    fireEvent.click(screen.getByRole('button', { name: /enable sync by signing in/i }));
+    // Form should be present with prefilled values from chrome.tabs.query
     expect(await screen.findByLabelText(/^name$/i)).toHaveValue('Mock Tab Title');
     expect(await screen.findByLabelText(/^url$/i)).toHaveValue('https://example.com');
   });
@@ -165,6 +186,9 @@ describe('PopUp form via PopupPage (signed-in)', () => {
   test('populates the group dropdown and selects the first group by default', async () => {
     render(<PopupPage />);
 
+    // Ensure AUTH chunk rendered
+    await screen.findByRole('button', { name: /enable sync by signing in/i });
+    fireEvent.click(screen.getByRole('button', { name: /enable sync by signing in/i }));
     await screen.findByRole('option', { name: 'Tech' });
 
     const groupDropdown = screen.getByLabelText(/^group$/i);
@@ -176,6 +200,8 @@ describe('PopUp form via PopupPage (signed-in)', () => {
     render(<PopupPage />);
 
     // Wait until the signed-in form is rendered
+    await screen.findByRole('button', { name: /enable sync by signing in/i });
+    fireEvent.click(screen.getByRole('button', { name: /enable sync by signing in/i }));
     const groupDropdown = await screen.findByLabelText(/^group$/i);
     
     // Now that the form is present, confirm the conditional input is hidden
@@ -192,6 +218,8 @@ describe('PopUp form via PopupPage (signed-in)', () => {
 
   test('submits with an existing group', async () => {
     render(<PopupPage />);
+    await screen.findByRole('button', { name: /enable sync by signing in/i });
+    fireEvent.click(screen.getByRole('button', { name: /enable sync by signing in/i }));
     const groupDropdown = await screen.findByLabelText(/^group$/i);
     fireEvent.change(groupDropdown, { target: { value: 'Recipes' } });
 
@@ -210,6 +238,8 @@ describe('PopUp form via PopupPage (signed-in)', () => {
   test('submits with a new group', async () => {
     render(<PopupPage />);
 
+    await screen.findByRole('button', { name: /enable sync by signing in/i });
+    fireEvent.click(screen.getByRole('button', { name: /enable sync by signing in/i }));
     const groupDropdown = await screen.findByLabelText(/^group$/i);
     fireEvent.change(groupDropdown, { target: { value: 'New Group' } });
 
