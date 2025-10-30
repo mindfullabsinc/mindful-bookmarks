@@ -20,7 +20,6 @@ import {
   LOCAL_USER_ID,
 } from '@/scripts/Constants';
 import { loadInitialBookmarks } from '@/scripts/bookmarksData';
-import { migrateLegacyLocalCachesIntoWorkspace } from '@/scripts/Utilities'
 
 /* Caching: synchronous snapshot for first-paint + session cache for reopens */
 import {
@@ -30,6 +29,12 @@ import {
   writeBookmarkCacheSession,
 } from '@/scripts/BookmarkCache';
 import type { BookmarkSnapshot } from '@/scripts/BookmarkCache';
+import {
+  readFpIndexLocalSync,
+  writeFpIndexLocalSync,
+  readFpGroupsLocalSync,
+  writeFpGroupsLocalSync,
+} from '@/scripts/BookmarkCacheLocalFirstPaint';
 
 import {
   Workspace, WorkspaceId,
@@ -117,9 +122,11 @@ export function AppContextProvider({
   const [workspaces, setWorkspaces] = useState<Record<WorkspaceId, Workspace>>({});
   const [activeWorkspaceId, _setActiveWorkspaceId] = useState<WorkspaceId>(DEFAULT_LOCAL_WORKSPACE_ID);
 
-  // Seed immediately from a synchronous snapshot (pre-user, pre-mode) to avoid flicker.
-  const seed = readBookmarkCacheSync(DEFAULT_LOCAL_WORKSPACE_ID) as BookmarkSnapshot | null;
-  const initialGroups = Array.isArray(seed?.data) ? (seed?.data as BookmarkGroupType[]) : [];
+  // PR-1 Local-only: use WS-scoped first-paint LOCAL snapshot to avoid touching any remote cache.
+  // Seed immediately from LOCAL WS-scoped first-paint snapshot to avoid touching generic/remote caches.
+  const seedLocal = readFpGroupsLocalSync(DEFAULT_LOCAL_WORKSPACE_ID);
+  const initialGroups = Array.isArray(seedLocal) ? seedLocal : [];
+
   const [bookmarkGroups, setBookmarkGroups] = useState<BookmarkGroupType[]>(initialGroups);
   const [groupsIndex, setGroupsIndex] = useState<GroupsIndexEntry[]>([]); // [{ id, groupName }]
   const [hasHydrated, setHasHydrated] = useState<boolean>(initialGroups.length > 0);
@@ -258,17 +265,23 @@ export function AppContextProvider({
    */
   function persistCachesIfNonEmpty(
     workspaceId: WorkspaceId,
-    groups: BookmarkGroupType[] | undefined | null
-  ) { // NEW
+    groups: BookmarkGroupType[] | undefined | null,
+    currentStorageMode?: StorageModeType
+  ) { 
     if (!Array.isArray(groups) || groups.length === 0) return;
 
     const idx = groups.map((g) => ({ id: String(g.id), groupName: String(g.groupName) }));
 
-    // workspace-scoped small index
+    if (currentStorageMode === StorageMode.LOCAL) {
+      // PR-1 Local-only: write ONLY WS_<id> first-paint caches; never touch shared/remote caches.
+      try { writeFpIndexLocalSync(String(workspaceId), groups); } catch {}
+      try { writeFpGroupsLocalSync(String(workspaceId), groups); } catch {}
+      return;
+    }
+    
+    // Remote/other future modes can keep using the generic path.
     try { chrome?.storage?.local?.set?.({ [localGroupsIndexKey(workspaceId)]: idx }); } catch {}
     try { chrome?.storage?.session?.set?.({ [sessionGroupsIndexKey(workspaceId)]: idx }); } catch {}
-
-    // workspace-scoped snapshot ({ idx, snap })
     const snap: BookmarkSnapshot = { data: groups, at: Date.now() };
     const payload = { idx, snap };
     try { writeBookmarkCacheSync(payload, workspaceId); } catch {}
@@ -300,7 +313,7 @@ export function AppContextProvider({
     });
     const full = Array.isArray(fullRaw) ? (fullRaw as BookmarkGroupType[]) : [];
     setBookmarkGroups((prev) => (deepEqualFn(prev, full) ? prev : full));
-    persistCachesIfNonEmpty(workspaceId, full); // NEW
+    persistCachesIfNonEmpty(workspaceId, full, storageMode);
     return full;
   }
 
@@ -366,11 +379,6 @@ export function AppContextProvider({
           await ls?.set?.({ [ACTIVE_WORKSPACE_KEY]: id });
         }
         _setActiveWorkspaceId(id);
-
-        // 3) one-time migration of legacy non-workspace caches into the default workspace
-        try {
-          await migrateLegacyLocalCachesIntoWorkspace(id); // defined below
-        } catch {}
       } catch {}
     })();
   }, []);
@@ -539,21 +547,23 @@ export function AppContextProvider({
     if (!storageMode) return;
     if (storageMode === StorageMode.REMOTE && isHydratingRemote) return; // don't seed while remote gating
 
-    // Always have a concrete userId: LOCAL_USER_ID when anonymous.
-    const id = isSignedIn ? resolvedUserId : LOCAL_USER_ID;
-    console.log('user id: ', id);
-
-    const cached = readBookmarkCacheSync(activeWorkspaceId) as BookmarkSnapshot | null;
-    console.log('cached bookmarks in phase 1a: ', cached);
-    if (
-      cached?.data &&
-      Array.isArray(cached.data) &&
-      !deepEqual(bookmarkGroups, cached.data)
-    ) {
-      setBookmarkGroups(cached.data as BookmarkGroupType[]);
-      setHasHydrated(true); // we’ve shown meaningful content
+    if (storageMode === StorageMode.LOCAL) {
+      // PR-1 Local-only: hydrate only from WS-scoped LOCAL first-paint snapshot.
+      const fp = readFpGroupsLocalSync(activeWorkspaceId);
+      console.log('cached (LOCAL fp) in phase 1a: ', fp);
+      if (Array.isArray(fp) && fp.length && !deepEqual(bookmarkGroups, fp)) {
+        setBookmarkGroups(fp);
+        setHasHydrated(true); // we’ve shown meaningful content
+      }
+    } else {
+      // Future/REMOTE path (kept for completeness)
+      const cached = readBookmarkCacheSync(activeWorkspaceId) as BookmarkSnapshot | null;
+      console.log('cached (REMOTE) bookmarks in phase 1a: ', cached);
+      if (cached?.data && Array.isArray(cached.data) && !deepEqual(bookmarkGroups, cached.data)) {
+        setBookmarkGroups(cached.data as BookmarkGroupType[]);
+        setHasHydrated(true);
+      }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authKey, storageMode]); // treat anon as stable key
 
   /**
@@ -566,6 +576,12 @@ export function AppContextProvider({
     (async () => {
       setIsLoading(true);
 
+      // PR-1: don’t touch any cache path until storageMode is resolved.
+      if (!storageMode) {
+        setIsLoading(false);
+        return;
+      }
+
       if (storageMode === StorageMode.REMOTE && isHydratingRemote) {
         // Don't paint from caches while we’re gating for remote
         setIsLoading(false);
@@ -574,21 +590,33 @@ export function AppContextProvider({
 
       try {
         const id = isSignedIn ? resolvedUserId : LOCAL_USER_ID;
-        const cached = (await readBookmarkCacheSession(
-          activeWorkspaceId
-        )) as BookmarkSnapshot | null;
-
-        const idx = await readGroupsIndexFast(storageMode, activeWorkspaceId);
-
-        if (!cancelled && cached?.data && Array.isArray(cached.data) && cached.data.length) {
-          setBookmarkGroups((prev) =>
-            deepEqual(prev, cached.data) ? prev : (cached.data as BookmarkGroupType[]),
-          );
-          setHasHydrated(true);
+        console.log("storageMode: ", storageMode);
+        if (storageMode === StorageMode.LOCAL) {
+          // PR-1 Local-only: warm from WS-scoped first-paint caches only.
+          const fp = readFpGroupsLocalSync(activeWorkspaceId);
+          if (!cancelled && Array.isArray(fp) && fp.length) {
+            setBookmarkGroups((prev) => (deepEqual(prev, fp) ? prev : fp));
+            setHasHydrated(true);
+          }
+        } else {
+          // Future/REMOTE path: keep existing session cache read
+          console.log("Calling readBookmarkCacheSession in remote path");
+          const cached = (await readBookmarkCacheSession(activeWorkspaceId)) as BookmarkSnapshot | null;
+          if (!cancelled && cached?.data && Array.isArray(cached.data) && cached.data.length) {
+            setBookmarkGroups((prev) =>
+              deepEqual(prev, cached.data) ? prev : (cached.data as BookmarkGroupType[]),
+            );
+            setHasHydrated(true);
+          }
         }
       } catch {}
 
-      const idx = await readGroupsIndexFast(storageMode);
+      // Index: WS-local first-paint for LOCAL; existing fast path otherwise
+      const idx =
+        storageMode === StorageMode.LOCAL
+          ? readFpIndexLocalSync(activeWorkspaceId)
+          : await readGroupsIndexFast(storageMode, activeWorkspaceId);
+
       if (!cancelled) {
         setGroupsIndex(idx);
         setIsLoading(false); // UI can render now

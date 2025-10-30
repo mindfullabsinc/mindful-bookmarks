@@ -1,6 +1,4 @@
 import { CHROME_NEW_TAB } from './Constants';
-import { DEFAULT_LOCAL_WORKSPACE_ID } from '@/scripts/workspaces';
-import { readBookmarkCacheSync, writeBookmarkCacheSync, readBookmarkCacheSession, writeBookmarkCacheSession } from '@/scripts/BookmarkCache';
 
 
 export function getUserStorageKey(userId: string): string {
@@ -106,20 +104,4 @@ export function toE164(p: string): string {
   const digits = p.replace(/\D/g, "");
   if (digits.length === 10) return `+1${digits}`;
   return `+${digits}`;
-}
-
-export async function migrateLegacyLocalCachesIntoWorkspace(workspaceId = DEFAULT_LOCAL_WORKSPACE_ID) {
-  // If the new keys already have data, skip.
-  const already = readBookmarkCacheSync(workspaceId);
-  if (already) return;
-
-  const legacy = readBookmarkCacheSync(); // fallback paths read legacy keys
-  if (legacy) {
-    writeBookmarkCacheSync(legacy, workspaceId);
-  }
-
-  const legacySession = await readBookmarkCacheSession();
-  if (legacySession) {
-    await writeBookmarkCacheSession(legacySession, workspaceId);
-  }
 }
