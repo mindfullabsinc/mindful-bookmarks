@@ -1,3 +1,21 @@
+// ✅ put mocks FIRST so they're applied before the component is imported
+jest.mock('@/hooks/useBookmarkManager');
+jest.mock('@/core/utils/Utilities');
+
+// Provide a fully stubbed Analytics module:
+// - useAnalytics: stable stub (so calling it never throws)
+// - AnalyticsContext: default value is the stub (so useContext(...) is truthy)
+// - AnalyticsProvider: no-op wrapper (if something tries to render it)
+jest.mock('@/analytics/AnalyticsContext', () => {
+  const React = require('react');
+  const stub = { capture: jest.fn(), optOut: false, setOptOut: jest.fn(), userId: 'test' };
+  return {
+    AnalyticsProvider: ({ children }: any) => <>{children}</>,
+    AnalyticsContext: React.createContext(stub),
+    useAnalytics: () => stub,
+  };
+});
+
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
@@ -7,54 +25,38 @@ import { AppContext } from '@/scripts/AppContextProvider';
 import { useBookmarkManager } from '@/hooks/useBookmarkManager';
 import { constructValidURL } from '@/core/utils/Utilities';
 
-// Mock the custom hook and utilities
-jest.mock('@/hooks/useBookmarkManager');
-jest.mock('@/core/utils/Utilities');
+// --- Test setup ---
 
-jest.mock('@/analytics/AnalyticsContext', () => {
-  const React = require('react');
-  const stub = { capture: jest.fn(), optOut: false, setOptOut: jest.fn(), userId: 'test' };
-  return {
-    // If anything renders the provider, make it a no-op wrapper
-    AnalyticsProvider: ({ children }) => <>{children}</>,
-    // Context export (in case some code accesses it directly)
-    AnalyticsContext: React.createContext(stub),
-    // The hook used by AddBookmarkInline → return a stable stub
-    useAnalytics: () => stub,
-  };
-});
-
-// Mock the AppContext
+// Explicitly include isSignedIn so logic that checks it is deterministic
 const mockContext = {
   bookmarkGroups: [{ groupName: 'Test Group', bookmarks: [] }],
   setBookmarkGroups: jest.fn(),
   userId: 'test-user-123',
+  isSignedIn: false, // anon mode in tests
 };
 
-// Mock the return value of the custom hook
+// Will be set in beforeEach
 const mockAddNamedBookmark = jest.fn();
-useBookmarkManager.mockReturnValue({
-  addNamedBookmark: mockAddNamedBookmark,
+
+beforeEach(() => {
+  jest.clearAllMocks();
+
+  // @ts-ignore jest-extended type
+  (useBookmarkManager as jest.Mock).mockReturnValue({
+    addNamedBookmark: mockAddNamedBookmark,
+  });
+
+  // @ts-ignore
+  (constructValidURL as jest.Mock).mockImplementation((url: string) => `https://www.${url}`);
 });
 
-// Mock the utility function
-constructValidURL.mockImplementation(url => `https://www.${url}`);
-
 describe('AddBookmarkInline Component', () => {
-
-  // Function to render the component with the mock context
-  const renderComponent = () => {
-    return render(
-      <AppContext.Provider value={mockContext}>
+  const renderComponent = () =>
+    render(
+      <AppContext.Provider value={mockContext as any}>
         <AddBookmarkInline groupIndex={0} />
       </AppContext.Provider>
     );
-  };
-
-  // Cleanup mocks after each test
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
 
   test('should initially render the "Add a link" button', () => {
     renderComponent();
@@ -64,8 +66,7 @@ describe('AddBookmarkInline Component', () => {
 
   test('should show the new bookmark form when "Add a link" button is clicked', () => {
     renderComponent();
-    const addButton = screen.getByText('+ Add a link');
-    fireEvent.click(addButton);
+    fireEvent.click(screen.getByText('+ Add a link'));
 
     expect(screen.getByPlaceholderText('Enter a link name')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('Enter a link URL')).toBeInTheDocument();
@@ -76,8 +77,8 @@ describe('AddBookmarkInline Component', () => {
     renderComponent();
     fireEvent.click(screen.getByText('+ Add a link'));
 
-    const nameInput = screen.getByPlaceholderText('Enter a link name');
-    const urlInput = screen.getByPlaceholderText('Enter a link URL');
+    const nameInput = screen.getByPlaceholderText('Enter a link name') as HTMLInputElement;
+    const urlInput = screen.getByPlaceholderText('Enter a link URL') as HTMLInputElement;
 
     fireEvent.change(nameInput, { target: { value: 'Google' } });
     fireEvent.change(urlInput, { target: { value: 'google.com' } });
@@ -90,21 +91,24 @@ describe('AddBookmarkInline Component', () => {
     renderComponent();
     fireEvent.click(screen.getByText('+ Add a link'));
 
-    const nameInput = screen.getByPlaceholderText('Enter a link name');
-    const urlInput = screen.getByPlaceholderText('Enter a link URL');
-    const submitButton = screen.getByText('Add link');
+    fireEvent.change(screen.getByPlaceholderText('Enter a link name'), {
+      target: { value: 'Google' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('Enter a link URL'), {
+      target: { value: 'google.com' },
+    });
 
-    fireEvent.change(nameInput, { target: { value: 'Google' } });
-    fireEvent.change(urlInput, { target: { value: 'google.com' } });
-    fireEvent.click(submitButton);
-    
-    // We need to wait for the async handleSubmit to complete
+    fireEvent.click(screen.getByText('Add link'));
+
+    // Wait for the form to close (component returns to the button state)
     await screen.findByText('+ Add a link');
 
     expect(constructValidURL).toHaveBeenCalledWith('google.com');
-    expect(mockAddNamedBookmark).toHaveBeenCalledWith('Google', 'https://www.google.com', 'Test Group');
-    
-    // The form should be hidden after submission
+    expect(mockAddNamedBookmark).toHaveBeenCalledWith(
+      'Google',
+      'https://www.google.com',
+      'Test Group'
+    );
     expect(screen.queryByPlaceholderText('Enter a link name')).not.toBeInTheDocument();
   });
 
@@ -118,26 +122,25 @@ describe('AddBookmarkInline Component', () => {
     fireEvent.change(nameInput, { target: { value: 'Facebook' } });
     fireEvent.change(urlInput, { target: { value: 'facebook.com' } });
 
-    // Simulate pressing Enter on the URL input
     fireEvent.keyDown(urlInput, { key: 'Enter', code: 'Enter' });
-    
+
     await screen.findByText('+ Add a link');
 
     expect(constructValidURL).toHaveBeenCalledWith('facebook.com');
-    expect(mockAddNamedBookmark).toHaveBeenCalledWith('Facebook', 'https://www.facebook.com', 'Test Group');
+    expect(mockAddNamedBookmark).toHaveBeenCalledWith(
+      'Facebook',
+      'https://www.facebook.com',
+      'Test Group'
+    );
   });
 
   test('should hide the form when the close button is clicked', () => {
     renderComponent();
     fireEvent.click(screen.getByText('+ Add a link'));
-
-    // Make sure the form is visible first
     expect(screen.getByPlaceholderText('Enter a link name')).toBeInTheDocument();
 
-    const closeButton = screen.getByRole('button', { name: /close form/i });
-    fireEvent.click(closeButton);
+    fireEvent.click(screen.getByRole('button', { name: /close form/i }));
 
-    // The form should now be hidden
     expect(screen.queryByPlaceholderText('Enter a link name')).not.toBeInTheDocument();
     expect(screen.getByText('+ Add a link')).toBeInTheDocument();
   });
