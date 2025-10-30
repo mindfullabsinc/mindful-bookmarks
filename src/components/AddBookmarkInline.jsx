@@ -1,4 +1,4 @@
-import React, { useContext, useState, useEffect, useRef, useCallback } from 'react';
+import React, { useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 
 /* CSS styles */
 import '@/styles/AddBookmarkInline.css';
@@ -13,6 +13,51 @@ import { constructValidURL } from "@/core/utils/Utilities";
 
 /* Analytics */
 import { useAnalytics } from "@/analytics/AnalyticsContext";
+import { AnalyticsContext } from "@/analytics/AnalyticsContext"; 
+
+
+// Lazy-load the REAL AnalyticsProvider (same export you used in NewTabPage)
+const AnalyticsProviderLazy = React.lazy(async () => {
+  const mod = await import("@/analytics/AnalyticsProvider");
+  const Provider = mod.default ?? mod.AnalyticsProvider ?? (({ children }) => <>{children}</>);
+  return { default: Provider };
+});
+
+/** No-op provider for anonymous mode so useAnalytics() won't throw */
+function NullAnalyticsProvider({ children }) {
+  const { userId } = useContext(AppContext) || {};
+  const value = useMemo(
+    () => ({
+      capture: () => {},  // swallow events in anon mode
+      optOut: true,
+      setOptOut: () => {},
+      userId: userId ?? null,
+    }),
+    [userId]
+  );
+  return <AnalyticsContext.Provider value={value}>{children}</AnalyticsContext.Provider>;
+}
+
+/**
+ * Gate that ensures a provider exists:
+ * - If a provider is already above, do nothing.
+ * - If signed in, lazy-load the real provider.
+ * - If signed out, use a no-op provider.
+ */
+function AnalyticsGate({ children }) {
+  const existing = useContext(AnalyticsContext);
+  if (existing) return <>{children}</>; // avoid double-wrapping if NewTabPage already provided it
+
+  const { isSignedIn } = useContext(AppContext);
+  if (isSignedIn) {
+    return (
+      <React.Suspense fallback={children}>
+        <AnalyticsProviderLazy>{children}</AnalyticsProviderLazy>
+      </React.Suspense>
+    );
+  }
+  return <NullAnalyticsProvider>{children}</NullAnalyticsProvider>;
+}
 
 function AddBookmarkInline(props) {
   const {
@@ -45,19 +90,21 @@ function AddBookmarkInline(props) {
       {!linkBeingEdited ? (
         <AddLinkButton onClick={handleAddLinkClicked} />
       ) : (
-        <CreateNewBookmark
-          groupName={bookmarkGroupName}
-          setLinkBeingEdited={setLinkBeingEdited}
-          // focus/refs
-          autoFocus={true}
-          inputRef={inputRef}
-          focusField={focusField}
-          onDone={onDone}
-          // prefills
-          prefillUrl={prefillUrl}
-          prefillName={prefillName}
-          autofillFromClipboard={autofillFromClipboard}
-        />
+        <AnalyticsGate>
+          <CreateNewBookmark
+            groupName={bookmarkGroupName}
+            setLinkBeingEdited={setLinkBeingEdited}
+            // focus/refs
+            autoFocus={true}
+            inputRef={inputRef}
+            focusField={focusField}
+            onDone={onDone}
+            // prefills
+            prefillUrl={prefillUrl}
+            prefillName={prefillName}
+            autofillFromClipboard={autofillFromClipboard}
+          />
+        </AnalyticsGate>
       )}
     </div>
   );
