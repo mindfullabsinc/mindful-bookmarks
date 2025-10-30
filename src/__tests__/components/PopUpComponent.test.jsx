@@ -1,24 +1,25 @@
-// src/__tests__/components/PopUpComponent.test.jsx
-import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+ // src/__tests__/components/PopUpComponent.test.jsx
+ import React from 'react';
+ import { render, screen, waitFor } from '@testing-library/react';
+ import userEvent from '@testing-library/user-event';
 
-/* Component & context */
-import PopUpComponent from '@/components/PopUpComponent';
-import { AppContext } from '@/scripts/AppContextProvider';
+ /* Component & context */
+ import PopUpComponent from '@/components/PopUpComponent';
+ import { AppContext } from '@/scripts/AppContextProvider';
 
-/* Constants */
-import { EMPTY_GROUP_IDENTIFIER } from '@/core/constants/Constants';
+ /* Constants */
+ import { EMPTY_GROUP_IDENTIFIER } from '@/core/constants/Constants';
 
 // --- Mock chrome.tabs.query ---
 beforeAll(() => {
-  // Minimal chrome mock
+  // Minimal chrome mock with runtime.id so window.close() gets called
   global.chrome = {
     tabs: {
       query: jest.fn((query, cb) =>
         cb([{ url: 'example.com', title: 'Example Site' }])
       ),
     },
+    runtime: { id: 'test-extension-id' },
   };
 });
 
@@ -45,11 +46,21 @@ const closeSpy = jest.spyOn(window, 'close').mockImplementation(() => {});
 
 afterEach(() => {
   jest.clearAllMocks();
+  // Persisted default group is scoped by (userId, storageMode); clear to avoid cross-test leakage
+  try { localStorage.clear(); } catch {}
 });
 
-function renderWithContext(groups) {
+function renderWithContext(groups, opts = {}) {
+  const ctxValue = {
+    // fast index not required here; component will use bookmarkGroups fallback
+    groupsIndex: [],
+    bookmarkGroups: groups,
+    // ensure scope is known so the default selection logic runs
+    userId: opts.userId ?? 'u_test',
+    storageMode: opts.storageMode ?? 'local',
+  };
   return render(
-    <AppContext.Provider value={{ bookmarkGroups: groups }}>
+    <AppContext.Provider value={ctxValue}>
       <PopUpComponent />
     </AppContext.Provider>
   );
