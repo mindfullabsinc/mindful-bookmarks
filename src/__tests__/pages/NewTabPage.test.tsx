@@ -312,8 +312,10 @@ describe.each([
     });
 
     it('should clean up the storage listener on unmount', async () => {
-      const addsBefore = chrome.storage.onChanged.addListener.mock.calls.length;
-      const removesBefore = chrome.storage.onChanged.removeListener.mock.calls.length;
+      const addMock = chrome.storage.onChanged.addListener as unknown as jest.Mock;
+      const removeMock = chrome.storage.onChanged.removeListener as unknown as jest.Mock;
+      const addsBefore = addMock.mock.calls.length;
+      const removesBefore = removeMock.mock.calls.length;
 
       const { unmount } = render(
         <AppContextProvider user={mockUser}>
@@ -324,8 +326,8 @@ describe.each([
       await screen.findByTestId('top-banner');
       unmount();
 
-      const addsDuring = chrome.storage.onChanged.addListener.mock.calls.length - addsBefore;
-      const removesDuring = chrome.storage.onChanged.removeListener.mock.calls.length - removesBefore;
+      const addsDuring = addMock.mock.calls.length - addsBefore;
+      const removesDuring = removeMock.mock.calls.length - removesBefore;
 
       // invariant: we remove as many as we added during this mount (or more, in StrictMode double-invoke)
       expect(removesDuring).toBeGreaterThanOrEqual(addsDuring);
