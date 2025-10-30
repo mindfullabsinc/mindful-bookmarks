@@ -10,7 +10,7 @@ import {
 } from 'aws-amplify/auth';
 
 /* Types */
-import type { BookmarkGroupType, BookmarkType } from "@/core/types/bookmarks";
+import type { BookmarkGroupType } from "@/core/types/bookmarks";
 
 /* Scripts */
 import {

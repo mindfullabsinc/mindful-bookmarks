@@ -1,4 +1,3 @@
-// src/scripts/BookmarkCacheLocalFirstPaint.ts
 import { fpGroupsIndexKey, fpGroupsBlobKey } from "@/scripts/CacheKeys";
 import type { BookmarkGroupType } from "@/core/types/bookmarks"; 
 

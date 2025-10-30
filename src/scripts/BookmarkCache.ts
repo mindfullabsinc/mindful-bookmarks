@@ -2,52 +2,38 @@
 import { WorkspaceId, DEFAULT_LOCAL_WORKSPACE_ID } from '@/core/constants/workspaces';
 /* ---------------------------------------------------------- */
 
-
-/* -------------------- Constants --------------------*/
-const NS = 'mindful:v1';
-// (Removed unused LEGACY_* constants)
-/* ---------------------------------------------------------- */
-
 /* -------------------- Local types and interfaces -------------------- */
 export type BookmarkSnapshot = { data: any; at: number; etag?: string };
 /* ---------------------------------------------------------- */
 
 /* -------------------- Helper functions functions -------------------- */
-const legacyBookmarkKey = (userId?: string | null, StorageMode?: string) =>
-  `${NS}:bookmarkGroups:${userId || 'anon'}:${StorageMode || 'local'}`;
-
-// New, workspace-scoped keys:
 const groupsIndexKey = (wid: WorkspaceId) => `mindful_${wid}_groups_index_v1`;
 const bookmarksSnapshotKey = (wid: WorkspaceId) => `mindful_${wid}_bookmarks_snapshot_v1`;
 /* ---------------------------------------------------------- */
 
 /* -------------------- Exportable functions -------------------- */
-export function readBookmarkCacheSync(workspaceId: WorkspaceId = DEFAULT_LOCAL_WORKSPACE_ID) {
+/**
+ * Read the synchronous bookmark snapshot and index for a workspace from localStorage.
+ *
+ * @param workspaceId Workspace identifier whose cache should be read.
+ * @returns Stored bookmark snapshot or null when nothing is cached.
+ */
+export function readBookmarkCacheSync(
+  workspaceId: WorkspaceId = DEFAULT_LOCAL_WORKSPACE_ID
+): BookmarkSnapshot | null {  
   try {
-    // Try new workspace-scoped keys first
-    const idx = JSON.parse(localStorage.getItem(groupsIndexKey(workspaceId)) ?? 'null');
     const snap = JSON.parse(localStorage.getItem(bookmarksSnapshotKey(workspaceId)) ?? 'null');
-    if (idx && snap) return { idx, snap };
-
-    // fallback legacy (prefer the real legacy key with userId/storageMode)
-    const lidxUserScoped = JSON.parse(localStorage.getItem(legacyBookmarkKey()) ?? 'null');
-    const lsnap = snap; // no separate legacy snapshot; reuse whatever we have
-
-    if (lidxUserScoped && lsnap) {
-      // Best-effort migration into workspace-scoped keys
-      try {
-        localStorage.setItem(groupsIndexKey(workspaceId), JSON.stringify(lidxUserScoped));
-        localStorage.setItem(bookmarksSnapshotKey(workspaceId), JSON.stringify(lsnap));
-        // Optional: clean up old key after successful write
-        localStorage.removeItem(legacyBookmarkKey());
-      } catch {}
-      return { idx: lidxUserScoped, snap: lsnap };
-    }
-
-    return null;
+    return snap ?? null; // snap is already a BookmarkSnapshot
   } catch { return null; }
 }
 
+/**
+ * Persist bookmark index snapshot data to localStorage for the given workspace.
+ *
+ * @param data Object containing index (`idx`) and snapshot (`snap`) payloads.
+ * @param workspaceId Workspace identifier whose cache should be updated.
+ * @returns void
+ */
 export function writeBookmarkCacheSync(
   data: { idx: unknown; snap: unknown },
   workspaceId: WorkspaceId = DEFAULT_LOCAL_WORKSPACE_ID
@@ -58,35 +44,30 @@ export function writeBookmarkCacheSync(
   } catch {}
 }
 
-export async function readBookmarkCacheSession(workspaceId: WorkspaceId = DEFAULT_LOCAL_WORKSPACE_ID) {
-  const key = groupsIndexKey(workspaceId);
+/**
+ * Read the sessionStorage bookmark snapshot for a workspace.
+ *
+ * @param workspaceId Workspace identifier whose session cache should be read.
+ * @returns Promise resolving to the stored snapshot or null.
+ */
+export async function readBookmarkCacheSession(
+  workspaceId: WorkspaceId = DEFAULT_LOCAL_WORKSPACE_ID
+): Promise<BookmarkSnapshot | null> {
   const key2 = bookmarksSnapshotKey(workspaceId);
   const ss = (globalThis as any).sessionStorage;
   try {
-    // Try new workspace-scoped keys first
-    const idx = JSON.parse(ss?.getItem(key) ?? 'null');
     const snap = JSON.parse(ss?.getItem(key2) ?? 'null');
-    if (idx && snap) return { idx, snap };
-
-    // fallback legacy (prefer the real legacy key with userId/storageMode)
-    const lidxUserScoped = JSON.parse(ss?.getItem(legacyBookmarkKey()) ?? 'null');
-    const lsnap = snap; // no separate legacy snapshot in session scope
-
-    if (lidxUserScoped && lsnap) {
-      // Best-effort migration into workspace-scoped keys
-      try {
-        ss?.setItem(key, JSON.stringify(lidxUserScoped));
-        ss?.setItem(key2, JSON.stringify(lsnap));
-        // Optional: clean up old key after successful write
-        ss?.removeItem(legacyBookmarkKey());
-      } catch {}
-      return { idx: lidxUserScoped, snap: lsnap };
-    }
-
-    return null;
+    return snap ?? null;
   } catch { return null; }
 }
 
+/**
+ * Persist bookmark index snapshot data to sessionStorage for the given workspace.
+ *
+ * @param data Object containing index (`idx`) and snapshot (`snap`) payloads.
+ * @param workspaceId Workspace identifier whose session cache should be updated.
+ * @returns Promise that resolves when the write attempt completes.
+ */
 export async function writeBookmarkCacheSession(
   data: { idx: unknown; snap: unknown },
   workspaceId: WorkspaceId = DEFAULT_LOCAL_WORKSPACE_ID
@@ -96,5 +77,20 @@ export async function writeBookmarkCacheSession(
     ss?.setItem(groupsIndexKey(workspaceId), JSON.stringify(data.idx));
     ss?.setItem(bookmarksSnapshotKey(workspaceId), JSON.stringify(data.snap));
   } catch {}
+}
+
+
+/**
+ * Remove workspace-scoped bookmark caches (both index and snapshot) from
+ * localStorage and sessionStorage.
+ *
+ * @param workspaceId Workspace identifier whose caches should be cleared.
+ * @returns void
+ */
+export function clearBookmarkCaches(workspaceId: WorkspaceId = DEFAULT_LOCAL_WORKSPACE_ID) {
+  try { localStorage.removeItem(groupsIndexKey(workspaceId)); } catch {}
+  try { localStorage.removeItem(bookmarksSnapshotKey(workspaceId)); } catch {}
+  try { (globalThis as any).sessionStorage?.removeItem(groupsIndexKey(workspaceId)); } catch {}
+  try { (globalThis as any).sessionStorage?.removeItem(bookmarksSnapshotKey(workspaceId)); } catch {}
 }
 /* ---------------------------------------------------------- */

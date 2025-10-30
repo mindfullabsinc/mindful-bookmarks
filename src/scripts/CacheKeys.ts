@@ -1,8 +1,11 @@
 // src/scripts/CacheKeys.ts
-export const WS_PREFIX = (wsid: string) => `WS_${String(wsid)}`;
+const V_FP_INDEX = 'v1';
+const V_FP_BLOB  = 'v1';
+export const normalizeWsId = (wsid: string) => String(wsid ?? '').trim();
+export const WS_PREFIX = (wsid: string) => `WS_${normalizeWsId(wsid)}`;
 
 export const fpGroupsIndexKey = (wsid: string) =>
-  `${WS_PREFIX(wsid)}::groups_index_v1`;   // tiny list [{id, groupName}]
+  `${WS_PREFIX(wsid)}::groups_index_${V_FP_INDEX}`;   // tiny list [{id, groupName}]
 
-export const fpGroupsBlobKey = (wsid: string) =>
-  `${WS_PREFIX(wsid)}::groups_blob_v1`;    // full groups snapshot for first paint
+export const fpGroupsBlobKey = (wsid: string) => 
+  `${WS_PREFIX(wsid)}::groups_blob_${V_FP_BLOB}`;     // full groups snapshot for first paint
