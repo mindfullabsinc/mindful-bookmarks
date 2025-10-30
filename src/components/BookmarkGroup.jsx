@@ -70,10 +70,7 @@ export const BookmarkGroup = ({
         <EditableBookmarkGroupHeading
           bookmarkGroup={bookmarkGroup}
           groupIndex={groupIndex}
-          isEditing={isTitleEditing}
-          inputRef={titleInputRef}
-          onCommit={onCommitTitle}
-          onCancel={onCancelTitleEdit}
+          {...(isTitleEditing ? { isEditing: true, inputRef: titleInputRef, onCommit: onCommitTitle, onCancel: onCancelTitleEdit } : {})}
         />
       </div>
 
