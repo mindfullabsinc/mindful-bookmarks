@@ -364,11 +364,7 @@ const DraggableGrid = forwardRef<GridHandle, DraggableGridProps>(function Dragga
                   }
                 }}
                 onCommitTitle={async (newName: string) => {
-                  if (
-                    isEditing &&                      // only commit for the active group
-                    newName &&
-                    newName !== bookmarkGroup.groupName
-                  ) {
+                  if (newName && newName !== bookmarkGroup.groupName) {
                     await editBookmarkGroupHeading(groupIndex, newName);
                   }
                   setEditingGroupId(null);

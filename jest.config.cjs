@@ -14,7 +14,8 @@ module.exports = {
         '\\.(png|jpg|jpeg|gif|svg)$': '<rootDir>/src/__tests__/mocks/fileMock.js',
       },
       transform: {
-        '^.+\\.[jt]sx?$': 'babel-jest',
+        '^.+\\.(ts|tsx)$': ['ts-jest', { tsconfig: 'tsconfig.json', isolatedModules: true }],
+        '^.+\\.[jt]sx?$': 'babel-jest'
       },
       moduleFileExtensions: ['js', 'jsx', 'ts', 'tsx', 'json'],
       testMatch: ['<rootDir>/src/**/*.test.[jt]s?(x)'],
@@ -34,7 +35,8 @@ module.exports = {
         '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
       },
       transform: {
-        '^.+\\.[jt]sx?$': 'babel-jest',
+        '^.+\\.(ts|tsx)$': ['ts-jest', { tsconfig: 'tsconfig.json', isolatedModules: true }],
+        '^.+\\.[jt]sx?$': 'babel-jest'
       },
       // Transpile ESM deps used by the backend tests
       transformIgnorePatterns: ['/node_modules/(?!(aws-sdk-client-mock|sinon)/)'],

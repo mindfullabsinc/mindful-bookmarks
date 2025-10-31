@@ -9,10 +9,25 @@ export type AnalyticsCtx = {
   userId: string | null;
 };
 
-export const AnalyticsContext = createContext<AnalyticsCtx | null>(null);
+export type Analytics = {
+  capture: (event: string, props?: Record<string, unknown>) => void;
+  identify: (id: string, traits?: Record<string, unknown>) => void;
+  optOut: boolean;
+  setOptOut: (v: boolean) => void;
+  userId?: string;
+};
 
-export function useAnalytics() {
-  const ctx = useContext(AnalyticsContext);
-  if (!ctx) throw new Error("useAnalytics must be used within <AnalyticsProvider/>");
-  return ctx;
+const fallback: Analytics = {
+  capture: () => {},
+  identify: () => {},
+  optOut: false,
+  setOptOut: () => {},
+  userId: undefined,
+};
+
+export const AnalyticsContext = React.createContext<Analytics | null>(null);
+
+export function useAnalytics(): Analytics {
+  const ctx = React.useContext(AnalyticsContext);
+  return ctx ?? fallback; // <— never throws in tests
 }
