@@ -1,4 +1,4 @@
-// ✅ put mocks FIRST so they're applied before the component is imported
+// put mocks FIRST so they're applied before the component is imported
 jest.mock('@/hooks/useBookmarkManager');
 jest.mock('@/core/utils/Utilities');
 
@@ -8,11 +8,11 @@ jest.mock('@/core/utils/Utilities');
 // - AnalyticsProvider: no-op wrapper (if something tries to render it)
 jest.mock('@/analytics/AnalyticsContext', () => {
   const React = require('react');
-  const stub = { capture: jest.fn(), optOut: false, setOptOut: jest.fn(), userId: 'test' };
+  const stub = { capture: jest.fn(), identify: jest.fn(), optOut: false, setOptOut: jest.fn(), userId: 'test' };
   return {
-    AnalyticsProvider: ({ children }: any) => <>{children}</>,
     AnalyticsContext: React.createContext(stub),
     useAnalytics: () => stub,
+    TestAnalyticsProvider: ({ children }: { children?: any }) => <>{children}</>,
   };
 });
 
