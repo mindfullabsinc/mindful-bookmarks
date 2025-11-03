@@ -1,25 +1,65 @@
+// Core workspace types (Local-only foundation)
+
+import { 
+  StorageMode,
+  type StorageModeType 
+} from "@/core/constants/storageMode";
+
+/* -------------------- Types -------------------- */
 export type WorkspaceId = string;
 
 export type Workspace = {
   id: WorkspaceId;
   name: string;
-  mode: 'LOCAL';           // reserve 'REMOTE' for later
+  storageMode: StorageModeType; // "local" for PR3
   createdAt: number;
   updatedAt: number;
-};
+}
+
+// WorkspaceRegistryV1 keeps track of all workspaces and the active one
+export interface WorkspaceRegistryV1 {
+  version: 1;
+  activeId: WorkspaceId;
+  items: Record<WorkspaceId, Workspace>;
+  migratedLegacyLocal?: boolean; // marks whether legacy Local data has been moved under WS_<id>
+}
+
+export type WorkspaceRegistry = WorkspaceRegistryV1;
+/* ---------------------------------------------------------- */
+
+/* -------------------- Keys and constants -------------------- */
+export const WORKSPACE_REGISTRY_KEY = 'mindful.workspaces.registry.v1';
+
+
+/**
+ * Construct a namespaced storage key for a workspace-scoped payload.
+ *
+ * @param workspaceId Workspace identifier used as the namespace prefix.
+ * @param key Logical storage key (e.g., `groups_index_v1`).
+ * @returns Namespaced storage key string.
+ */
+// Namespace format for Local adapter keys:
+// e.g., WS_local-default__groups_index_v1
+export const wsKey = (workspaceId: WorkspaceId, key: string) =>
+  `WS_${workspaceId}__${key}`;
 
 export const DEFAULT_LOCAL_WORKSPACE_ID = 'local-default';
-export const WORKSPACES_KEY = 'mindful_workspaces_v1';
-export const ACTIVE_WORKSPACE_KEY = 'mindful_active_workspace_v1';
+/* ---------------------------------------------------------- */
 
-// Small helper: single default local workspace.
+/* -------------------- Helper functions -------------------- */
+/**
+ * Create the default local workspace descriptor used for initial bootstraps.
+ *
+ * @returns Workspace metadata for the built-in local workspace.
+ */
 export function makeDefaultLocalWorkspace(): Workspace {
   const now = Date.now();
   return {
     id: DEFAULT_LOCAL_WORKSPACE_ID,
-    name: 'My Workspace',
-    mode: 'LOCAL',
+    name: 'My Bookmarks',
+    storageMode: StorageMode.LOCAL,
     createdAt: now,
     updatedAt: now,
   };
 }
+/* ---------------------------------------------------------- */

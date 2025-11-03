@@ -41,7 +41,7 @@ import {
 import {
   Workspace, WorkspaceId,
   DEFAULT_LOCAL_WORKSPACE_ID,
-  WORKSPACES_KEY, ACTIVE_WORKSPACE_KEY,
+  WORKSPACE_REGISTRY_KEY,
   makeDefaultLocalWorkspace,
 } from '@/core/constants/workspaces';
 /* ---------------------------------------------------------- */
@@ -174,7 +174,7 @@ export function AppContextProvider({
     // PR-1: in local mode there is only one; silently enforce it.
     if (id !== DEFAULT_LOCAL_WORKSPACE_ID) return;
     _setActiveWorkspaceId(id);
-    try { (globalThis as any).chrome?.storage?.local?.set?.({ [ACTIVE_WORKSPACE_KEY]: id }); } catch {}
+    try { (globalThis as any).chrome?.storage?.local?.set?.({ [WORKSPACE_REGISTRY_KEY]: id }); } catch {}
   };
 
   /**
@@ -218,11 +218,12 @@ export function AppContextProvider({
 
   /**
    * Persist small index + warm caches only when data is non-empty.
-   * Keeps the last good cache from being overwritten by [] on transient errors.
-   *
-   * @param workspaceId Workspace whose caches should be refreshed.
-   * @param groups Bookmark collection to persist when available.
-   * @returns void
+  * Keeps the last good cache from being overwritten by [] on transient errors.
+  *
+  * @param workspaceId Workspace whose caches should be refreshed.
+  * @param groups Bookmark collection to persist when available.
+   * @param currentStorageMode Optional storage mode used to determine adapter behaviour.
+   * @returns Promise that resolves once the cache persistence work finishes.
    */
   async function persistCachesIfNonEmpty(
     workspaceId: WorkspaceId,
@@ -318,13 +319,13 @@ export function AppContextProvider({
       try {
         const ls = (globalThis as any).chrome?.storage?.local;
         // 1) load existing workspaces
-        const wsData = (await ls?.get?.(WORKSPACES_KEY))?.[WORKSPACES_KEY];
+        const wsData = (await ls?.get?.(WORKSPACE_REGISTRY_KEY))?.[WORKSPACE_REGISTRY_KEY];
         let wsMap: Record<WorkspaceId, Workspace>;
 
         if (!wsData || typeof wsData !== 'object') {
           const def = makeDefaultLocalWorkspace();
           wsMap = { [def.id]: def };
-          await ls?.set?.({ [WORKSPACES_KEY]: wsMap });
+          await ls?.set?.({ [ WORKSPACE_REGISTRY_KEY ]: wsMap });
         } else {
           wsMap = wsData;
         }
@@ -332,11 +333,11 @@ export function AppContextProvider({
         setWorkspaces(wsMap);
 
         // 2) active workspace
-        const active = (await ls?.get?.(ACTIVE_WORKSPACE_KEY))?.[ACTIVE_WORKSPACE_KEY] as WorkspaceId | undefined;
+        const active = (await ls?.get?.(WORKSPACE_REGISTRY_KEY))?.[WORKSPACE_REGISTRY_KEY] as WorkspaceId | undefined;
         const id = (active && wsMap[active]) ? active : DEFAULT_LOCAL_WORKSPACE_ID;
 
         if (!active || active !== id) {
-          await ls?.set?.({ [ACTIVE_WORKSPACE_KEY]: id });
+          await ls?.set?.({ [WORKSPACE_REGISTRY_KEY]: id });
         }
         _setActiveWorkspaceId(id);
       } catch {}
