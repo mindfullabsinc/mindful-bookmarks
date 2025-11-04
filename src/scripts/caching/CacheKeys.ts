@@ -1,4 +1,3 @@
-// src/scripts/CacheKeys.ts
 const V_FP_INDEX = 'v1';
 const V_FP_BLOB  = 'v1';
 export const normalizeWsId = (wsid: string) => String(wsid ?? '').trim();

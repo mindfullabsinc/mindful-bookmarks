@@ -2,13 +2,13 @@ import React, { useState, useEffect, useContext, useMemo } from "react";
 
 /* Scripts */
 import { AppContext } from "@/scripts/AppContextProvider";
-import { importChromeBookmarksAsSingleGroup, importOpenTabsAsSingleGroup } from '@/scripts/Importers'; 
+import { importChromeBookmarksAsSingleGroup, importOpenTabsAsSingleGroup } from '@/scripts/importers'; 
 
 /* Hooks */
 import useImportBookmarks from '@/hooks/useImportBookmarks';
 
 /* Constants */
-import { EMPTY_GROUP_IDENTIFIER } from "@/core/constants/Constants";
+import { EMPTY_GROUP_IDENTIFIER } from "@/core/constants/constants";
 import { StorageMode, StorageLabel } from "@/core/constants/storageMode";
 
 const DISMISS_KEY = "mindful.emptyStateDismissed";

@@ -1,6 +1,6 @@
 /* -------------------- Imports -------------------- */
 /* Libraries */
-import React from 'react';
+import React, { act } from 'react';
 import { createContext, useState, useEffect, useCallback } from 'react';
 import type { ReactNode, ReactElement, Dispatch, SetStateAction } from 'react';
 import {
@@ -32,24 +32,25 @@ import {
   writeBookmarkCacheSync,
   readBookmarkCacheSession,
   writeBookmarkCacheSession,
-} from '@/scripts/caching/BookmarkCache';
-import type { BookmarkSnapshot } from '@/scripts/caching/BookmarkCache';
-import {
-  readFpGroupsLocalSync,
-} from '@/scripts/caching/BookmarkCacheLocalFirstPaint';
+} from '@/scripts/caching/bookmarkCache';
+import type { BookmarkSnapshot } from '@/scripts/caching/bookmarkCache';
 
-import {
-  Workspace, WorkspaceId,
-  DEFAULT_LOCAL_WORKSPACE_ID,
-  WORKSPACES_KEY, ACTIVE_WORKSPACE_KEY,
-  makeDefaultLocalWorkspace,
-} from '@/core/constants/workspaces';
+/* Workspaces */
+import { Workspace, WorkspaceIdType } from '@/core/constants/workspaces';
+import { 
+  loadRegistry, 
+  initializeLocalWorkspaceRegistry, 
+  setActiveWorkspace, 
+} from "@/workspaces/registry";
 /* ---------------------------------------------------------- */
 
 /* -------------------- Class-level helpers -------------------- */
 // Workspace-scoped small index keys 
-const sessionGroupsIndexKey = (wid: WorkspaceId) => `groupsIndex:${wid}`;
-const localGroupsIndexKey   = (wid: WorkspaceId) => `groupsIndex:${wid}`;
+const sessionGroupsIndexKey = (wid: WorkspaceIdType) => `groupsIndex:${wid}`;
+const localGroupsIndexKey   = (wid: WorkspaceIdType) => `groupsIndex:${wid}`;
+
+// Ensure the workspace registry exists and legacy data is migrated (runs once)
+const registryReady: Promise<void> = initializeLocalWorkspaceRegistry();
 /* ---------------------------------------------------------- */
 
 /* -------------------- Local types and interfaces -------------------- */
@@ -66,9 +67,9 @@ type AppContextProviderUser = {
 
 export interface AppContextValue {
   /* Workspaces */
-  workspaces: Record<WorkspaceId, Workspace>;
-  activeWorkspaceId: WorkspaceId;
-  setActiveWorkspaceId: (id: WorkspaceId) => void; // no-op in LOCAL for now
+  workspaces: Record<WorkspaceIdType, Workspace>;
+  activeWorkspaceId: WorkspaceIdType | null;  // allow null during boot
+  setActiveWorkspaceId: (id: WorkspaceIdType) => void; 
 
   groupsIndex: GroupsIndexEntry[];
   bookmarkGroups: BookmarkGroupType[];
@@ -115,17 +116,12 @@ export function AppContextProvider({
   const [userAttributes, setUserAttributes] = useState<UserAttributes | null>(null);
 
   // Workspaces
-  const [workspaces, setWorkspaces] = useState<Record<WorkspaceId, Workspace>>({});
-  const [activeWorkspaceId, _setActiveWorkspaceId] = useState<WorkspaceId>(DEFAULT_LOCAL_WORKSPACE_ID);
+  const [workspaces, setWorkspaces] = useState<Record<WorkspaceIdType, Workspace>>({});
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState<WorkspaceIdType | null>(null);
 
-  // PR-1 Local-only: use WS-scoped first-paint LOCAL snapshot to avoid touching any remote cache.
-  // Seed immediately from LOCAL WS-scoped first-paint snapshot to avoid touching generic/remote caches.
-  const seedLocal = readFpGroupsLocalSync(DEFAULT_LOCAL_WORKSPACE_ID);
-  const initialGroups = Array.isArray(seedLocal) ? seedLocal : [];
-
-  const [bookmarkGroups, setBookmarkGroups] = useState<BookmarkGroupType[]>(initialGroups);
+  const [bookmarkGroups, setBookmarkGroups] = useState<BookmarkGroupType[]>([]);
   const [groupsIndex, setGroupsIndex] = useState<GroupsIndexEntry[]>([]); // [{ id, groupName }]
-  const [hasHydrated, setHasHydrated] = useState<boolean>(initialGroups.length > 0);
+  const [hasHydrated, setHasHydrated] = useState<boolean>(false);
   const [isHydratingRemote, setIsHydratingRemote] = useState<boolean>(false);
 
   const [userId, setUserId] = useState<string | null>(null);
@@ -141,9 +137,6 @@ export function AppContextProvider({
   /** @deprecated Prefer `authMode === AuthMode.AUTH`. `isSignedIn` remains for backward compatibility. */
   const isSignedIn = authMode === AuthMode.AUTH;
   const authKey = authMode === AuthMode.AUTH ? resolvedUserId : 'anon-key';
-
-  // Storage
-  const shouldHydrateRemote = authMode === AuthMode.AUTH && storageMode === StorageMode.REMOTE;
   /* ---------------------------------------------------------- */
 
   /* -------------------- Helper functions -------------------- */
@@ -164,18 +157,19 @@ export function AppContextProvider({
   };
 
   /**
-   * Update the currently active workspace. Local mode only supports the default workspace,
-   * so any other id is ignored.
+   * Persist the active workspace change to the registry and mirror it into local state.
    *
-   * @param id Workspace identifier requested by the caller.
-   * @returns void
+   * @param id Workspace identifier selected by the user.
+   * @returns Promise that resolves once the registry has been updated.
    */
-  const setActiveWorkspaceId = (id: WorkspaceId): void => {
-    // PR-1: in local mode there is only one; silently enforce it.
-    if (id !== DEFAULT_LOCAL_WORKSPACE_ID) return;
-    _setActiveWorkspaceId(id);
-    try { (globalThis as any).chrome?.storage?.local?.set?.({ [ACTIVE_WORKSPACE_KEY]: id }); } catch {}
-  };
+  const updateActiveWorkspaceId = useCallback(async (id: WorkspaceIdType) => {
+    try {
+      await setActiveWorkspace(id);     // persist to registry
+      setActiveWorkspaceId(id);         // reflect in state
+    } catch (e) {
+      console.error("Failed to set active workspace:", e);
+    }
+  }, []);
 
   /**
    * Resolve a lightweight groups index by probing session and local caches before falling back to
@@ -187,9 +181,11 @@ export function AppContextProvider({
    */
   async function readGroupsIndexFast(
     currentStorageMode?: StorageModeType,
-    workspaceId: WorkspaceId = DEFAULT_LOCAL_WORKSPACE_ID
+    workspaceId?: WorkspaceIdType, 
   ): Promise<GroupsIndexEntry[]> {
-    // 1) try memory cache (persists while SW alive) – namespaced only
+    if (!workspaceId) return [];   // guard if not ready yet
+
+    // 1) Try session cache (namespaced). Persists while SW alive. 
     try {
       const sessionKey = sessionGroupsIndexKey(workspaceId);
       const sessionPayload =
@@ -201,11 +197,10 @@ export function AppContextProvider({
       }
     } catch {}
 
-    // 2) try a small persistent key – namespaced only 
+    // 2) Try persistent local cache (namespaced). 
     try {
       const localKey = localGroupsIndexKey(workspaceId);
-      const persistedPayload =
-        (await chrome?.storage?.local?.get?.([localKey])) ?? {};
+      const persistedPayload = (await chrome?.storage?.local?.get?.([localKey])) ?? {};
       const persisted = (persistedPayload as Record<string, unknown>)[localKey];
       if (Array.isArray(persisted)) {
         try { await chrome?.storage?.session?.set?.({ [sessionGroupsIndexKey(workspaceId)]: persisted }); } catch {}
@@ -222,10 +217,11 @@ export function AppContextProvider({
    *
    * @param workspaceId Workspace whose caches should be refreshed.
    * @param groups Bookmark collection to persist when available.
-   * @returns void
+   * @param currentStorageMode Optional storage mode used to determine adapter behaviour.
+   * @returns Promise that resolves once the cache persistence work finishes.
    */
   async function persistCachesIfNonEmpty(
-    workspaceId: WorkspaceId,
+    workspaceId: WorkspaceIdType,
     groups: BookmarkGroupType[] | undefined | null,
     currentStorageMode?: StorageModeType
   ) { 
@@ -264,11 +260,11 @@ export function AppContextProvider({
     userIdArg: string | null,
     idForCache: string,
     storageMode: StorageModeType | undefined,
-    workspaceId: WorkspaceId, // NEW
+    workspaceId: WorkspaceIdType, // NEW
     setBookmarkGroups: Dispatch<SetStateAction<BookmarkGroupType[]>>,
     deepEqualFn: (a: unknown, b: unknown) => boolean
   ): Promise<BookmarkGroupType[]> {
-    const fullRaw = await loadInitialBookmarks(userIdArg, storageMode, {
+    const fullRaw = await loadInitialBookmarks(userIdArg, workspaceId, storageMode, {
       noLocalFallback: storageMode !== StorageMode.LOCAL,
     });
     const full = Array.isArray(fullRaw) ? (fullRaw as BookmarkGroupType[]) : [];
@@ -312,43 +308,38 @@ export function AppContextProvider({
   /* ---------------------------------------------------------- */
 
   /* -------------------- Effects -------------------- */
-  // PR-1: local-only → always one workspace. We still persist to allow future upgrades.
+  /**
+   * Wait for the workspace registry bootstrap to finish, then hydrate local state with the
+   * registered workspaces and active workspace identifier.
+   */
   useEffect(() => {
+    let cancelled = false;
     (async () => {
       try {
-        const ls = (globalThis as any).chrome?.storage?.local;
-        // 1) load existing workspaces
-        const wsData = (await ls?.get?.(WORKSPACES_KEY))?.[WORKSPACES_KEY];
-        let wsMap: Record<WorkspaceId, Workspace>;
+        await registryReady;                 // init + migrate (once)
+        const reg = await loadRegistry();    // single source of truth
+        if (!reg || cancelled) return;
 
-        if (!wsData || typeof wsData !== 'object') {
-          const def = makeDefaultLocalWorkspace();
-          wsMap = { [def.id]: def };
-          await ls?.set?.({ [WORKSPACES_KEY]: wsMap });
-        } else {
-          wsMap = wsData;
+        setWorkspaces(reg.items);
+        setActiveWorkspaceId(reg.activeId);
+
+        if (process.env.NODE_ENV !== "production") {
+          console.debug("[Mindful] Active workspace:", reg.activeId);
         }
-
-        setWorkspaces(wsMap);
-
-        // 2) active workspace
-        const active = (await ls?.get?.(ACTIVE_WORKSPACE_KEY))?.[ACTIVE_WORKSPACE_KEY] as WorkspaceId | undefined;
-        const id = (active && wsMap[active]) ? active : DEFAULT_LOCAL_WORKSPACE_ID;
-
-        if (!active || active !== id) {
-          await ls?.set?.({ [ACTIVE_WORKSPACE_KEY]: id });
-        }
-        _setActiveWorkspaceId(id);
-      } catch {}
+      } catch (e) {
+        console.error("Failed to load workspace registry:", e);
+        // leave activeWorkspaceId as null so downstream effects bail gracefully
+      }
     })();
-  }, []);
+    return () => { cancelled = true; };
+  }, []);  // empty deps → one-time on mount
 
   /**
    * Log when the storage mode stabilises so we can correlate downstream effects in devtools.
    */
   useEffect(() => {
     if (storageMode) {
-      console.debug('[AppContext] ready:', { userId, storageMode });
+      console.debug('[AppContextProvider] ready:', { userId, storageMode });
     }
   }, [userId, storageMode]);
 
@@ -358,7 +349,7 @@ export function AppContextProvider({
    */
   useEffect(() => {
     let cancelled = false;
-    console.log('[AppContext] phase0 start: user?', !!user);
+    console.log('[AppContextProvider] phase0 start: user?', !!user);
 
     (async () => {
       // If user explicitly chose anon mode in the popup, force LOCAL immediately.
@@ -371,7 +362,7 @@ export function AppContextProvider({
           if (!cancelled) {
             setUserId(LOCAL_USER_ID);
             setStorageMode(StorageMode.LOCAL as StorageModeType);
-            console.log('[AppContext] forced LOCAL due to anon mode');
+            console.log('[AppContextProvider] forced LOCAL due to anon mode');
           }
           return; // short-circuit phase 0
         }
@@ -410,7 +401,7 @@ export function AppContextProvider({
                 setBookmarkGroups([]);
                 setHasHydrated(false);
               }
-              console.log('[AppContext] ready (SILENT AUTH):', {
+              console.log('[AppContextProvider] ready (SILENT AUTH):', {
                 userId: derivedUserId,
                 storageMode: effectiveType,
               });
@@ -435,7 +426,7 @@ export function AppContextProvider({
               ? (StorageMode.LOCAL as StorageModeType)
               : (preferredStorageMode || StorageMode.LOCAL);
           setStorageMode(effective as StorageModeType);
-          console.log('[AppContext] ready (UNAUTH):', {
+          console.log('[AppContextProvider] ready (UNAUTH):', {
             userId: LOCAL_USER_ID,
             storageMode: effective,
           });
@@ -449,7 +440,7 @@ export function AppContextProvider({
           identityId?: string | null;
         };
         const attributes = (await fetchUserAttributes().catch(() => ({}))) as UserAttributes;
-        console.log('Signed in user attributes: ', attributes);
+        console.log('[AppContextProvider] Signed in user attributes: ', attributes);
 
         // Robust user id derivation for remote data keys
         const sub = attributes?.sub ?? attributes?.['sub'];
@@ -464,10 +455,10 @@ export function AppContextProvider({
         const storedType = attributes?.['custom:storage_type'] as
           | StorageModeType
           | undefined;
-        console.log('User provided storage type: ', storedType);
+        console.log('[AppContextProvider] User provided storage type: ', storedType);
         const effectiveType =
           preferredStorageMode || storedType || DEFAULT_STORAGE_MODE;
-        console.log('effectiveType: ', effectiveType);
+        console.log('[AppContextProvider] Effective storage type: ', effectiveType);
 
         if (!cancelled) setStorageMode(effectiveType as StorageModeType);
         if (!cancelled && effectiveType === StorageMode.REMOTE) {
@@ -486,9 +477,9 @@ export function AppContextProvider({
           }).catch(() => {});
         }
       } catch (err) {
-        console.warn('Auth bootstrap failed, falling back to LOCAL:', err);
+        console.warn(`Auth bootstrap failed, falling back to ${LOCAL_USER_ID}:`, err);
         if (!cancelled) {
-          setUserId('local');
+          setUserId(LOCAL_USER_ID);
           setStorageMode(StorageMode.LOCAL as StorageModeType);
         }
       }
@@ -505,12 +496,13 @@ export function AppContextProvider({
    */
   useEffect(() => {
     if (!storageMode) return;
+    if (!activeWorkspaceId) return;
     if (storageMode === StorageMode.REMOTE && isHydratingRemote) return; // don't seed while remote gating
 
     const storageAdapter = getAdapter(storageMode);
     if (storageAdapter) {
       const seed = storageAdapter.readPhase1aSnapshot(activeWorkspaceId);
-      console.log('cached (LOCAL fp via storageAdapter) in phase 1a: ', seed);
+      console.log('[AppContextProvider] Cached (LOCAL fp via storageAdapter) in phase 1a: ', seed);
       if (Array.isArray(seed) && seed.length && !deepEqual(bookmarkGroups, seed)) {
         setBookmarkGroups(seed);
         setHasHydrated(true);
@@ -518,13 +510,13 @@ export function AppContextProvider({
     } else { 
       // Future/REMOTE path (kept for completeness)
       const cached = readBookmarkCacheSync(activeWorkspaceId) as BookmarkSnapshot | null;
-      console.log('cached (REMOTE) bookmarks in phase 1a: ', cached);
+      console.log('[AppContextProvider] Cached (REMOTE) bookmarks in phase 1a: ', cached);
       if (cached?.data && Array.isArray(cached.data) && !deepEqual(bookmarkGroups, cached.data)) {
         setBookmarkGroups(cached.data as BookmarkGroupType[]);
         setHasHydrated(true);
       }
     }
-  }, [authKey, storageMode]); // treat anon as stable key
+  }, [authKey, storageMode, activeWorkspaceId]); // treat anon as stable key
 
   /**
    * Phase 1b: asynchronously read the session cache plus groups index so UI elements can render
@@ -536,8 +528,7 @@ export function AppContextProvider({
     (async () => {
       setIsLoading(true);
 
-      // PR-1: don’t touch any cache path until storageMode is resolved.
-      if (!storageMode) {
+      if (!storageMode || !activeWorkspaceId) {            
         setIsLoading(false);
         return;
       }
@@ -550,7 +541,6 @@ export function AppContextProvider({
 
       try {
         const id = authMode === AuthMode.AUTH ? resolvedUserId : LOCAL_USER_ID;
-        console.log("storageMode: ", storageMode);
         const storageAdapter = getAdapter(storageMode);
         if (storageAdapter) {
           const cached = await storageAdapter.readPhase1bSessionSnapshot(activeWorkspaceId);
@@ -560,8 +550,7 @@ export function AppContextProvider({
           }
         } else {
           // Future/REMOTE path: keep existing session cache read
-          console.log("Calling readBookmarkCacheSession in remote path");
-          const cached = (await readBookmarkCacheSession(activeWorkspaceId)) as BookmarkSnapshot | null;
+          const cached = await readBookmarkCacheSession(activeWorkspaceId) as BookmarkSnapshot | null;
           if (!cancelled && cached?.data && Array.isArray(cached.data) && cached.data.length) {
             setBookmarkGroups((prev) =>
               deepEqual(prev, cached.data) ? prev : (cached.data as BookmarkGroupType[]),
@@ -586,7 +575,7 @@ export function AppContextProvider({
     return () => {
       cancelled = true;
     };
-  }, [authKey, storageMode, user]);
+  }, [authKey, storageMode, user, activeWorkspaceId]);
 
   /**
    * Phase 2: load the authoritative bookmark list (remote or local) during idle time, update caches,
@@ -594,7 +583,7 @@ export function AppContextProvider({
    */
   useEffect(() => {
     if (isMigrating) return;
-    if (!storageMode) return;
+    if (!storageMode || !activeWorkspaceId) return;
 
     // Always resolve a concrete id (LOCAL_USER_ID for anon)
     const id = authMode === AuthMode.AUTH ? resolvedUserId : LOCAL_USER_ID;
@@ -631,7 +620,7 @@ export function AppContextProvider({
     return () => {
       cancelled = true;
     };
-  }, [authKey, storageMode, isMigrating, user, isHydratingRemote]);
+  }, [authKey, storageMode, isMigrating, user, isHydratingRemote, activeWorkspaceId]);
 
   /**
    * Listen for cross-view "bookmarks updated" signals and visibility changes so the context
@@ -642,6 +631,7 @@ export function AppContextProvider({
 
     const reload = async () => {
       try {
+        if (!activeWorkspaceId) return;
         const id = authMode === AuthMode.AUTH ? resolvedUserId : LOCAL_USER_ID;
         await loadAndCache(userId, id, storageMode, activeWorkspaceId, setBookmarkGroups, deepEqual);
       } catch (e) {
@@ -681,7 +671,7 @@ export function AppContextProvider({
       } catch {}
       document.removeEventListener('visibilitychange', onVis);
     };
-  }, [authKey, storageMode, isMigrating, user]);
+  }, [authKey, storageMode, isMigrating, user, activeWorkspaceId]);
   /* ---------------------------------------------------------- */
 
   // ----- render gate: only block first paint if we truly have nothing -----
@@ -692,7 +682,9 @@ export function AppContextProvider({
   const contextValue: AppContextValue = {
     workspaces,
     activeWorkspaceId,
-    setActiveWorkspaceId,
+    // Set wrapper so callers don't get a plain state setter, which could cause divergence
+    // from the registry on disk.
+    setActiveWorkspaceId: updateActiveWorkspaceId,
 
     groupsIndex,
     bookmarkGroups,

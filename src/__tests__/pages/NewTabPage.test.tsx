@@ -13,13 +13,98 @@ import { AppContextProvider } from '@/scripts/AppContextProvider';
 import * as bookmarksData from '@/scripts/bookmarksData';
 import * as useBookmarkManager from '@/hooks/useBookmarkManager';
 import useImportBookmarksDefault from '@/hooks/useImportBookmarks';
-import * as Utilities from '@/core/utils/Utilities';
+import * as Utilities from '@/core/utils/utilities';
 import { StorageMode, type StorageModeType } from '@/core/constants/storageMode'; 
 /* ---------------------------------------------------------- */
 
 /* -------------------- Mocks -------------------- */
 const useImportBookmarksMock =
   useImportBookmarksDefault as unknown as jest.MockedFunction<typeof useImportBookmarksDefault>;
+
+jest.mock('@/scripts/AppContextProvider', () => {
+  const React = require('react') as typeof import('react');
+  const { StorageMode } = require('@/core/constants/storageMode');
+  const { LOCAL_USER_ID } = require('@/core/constants/authMode');
+  const { DEFAULT_LOCAL_WORKSPACE_ID } = require('@/core/constants/workspaces');
+  const { fetchUserAttributes } = require('aws-amplify/auth');
+  const { loadInitialBookmarks } = require('@/scripts/bookmarksData');
+
+  type Ctx = { /* …same as before… */ };
+  const AppContext = React.createContext<Ctx | null>(null);
+
+  function AppContextProvider({ user, children }: { user: any; children?: React.ReactNode }) {
+    const initialMode = (globalThis as any).__TEST_STORAGE_MODE__ ?? StorageMode.LOCAL;
+    const [bookmarkGroups, setBookmarkGroups] = React.useState<any[] | null>(null);
+    const [storageMode, setStorageMode] = React.useState<string>(initialMode);
+    const [userAttributes, setUserAttributes] = React.useState<Record<string, unknown> | undefined>(undefined);
+    const [hasHydrated, setHasHydrated] = React.useState(false);
+
+    const signedInUserId = user?.sub ?? null;
+    const isSignedIn = !!signedInUserId;
+
+    const userId = isSignedIn ? signedInUserId : LOCAL_USER_ID;
+    const activeWorkspaceId = isSignedIn ? 'ws-local' : DEFAULT_LOCAL_WORKSPACE_ID;
+
+    const bootedRef = React.useRef(false);
+
+    React.useEffect(() => {
+      if (bootedRef.current) return;
+      bootedRef.current = true;
+
+      (async () => {
+        try {
+          if (isSignedIn) {
+            // Signed-in: fetch attributes; may switch to REMOTE
+            const attrs = await fetchUserAttributes();
+            setUserAttributes(attrs);
+            const mode = (attrs && (attrs as any)['custom:storage_type']) || storageMode;
+            setStorageMode(mode);
+          }
+          // Anonymous: DO NOT force LOCAL; keep initialMode from the suite
+        } catch {}
+
+        try {
+          const shouldLoad =
+            storageMode === StorageMode.LOCAL ||
+            (isSignedIn && storageMode === StorageMode.REMOTE);
+
+          if (shouldLoad) {
+            const groups = await loadInitialBookmarks(
+              userId as string,
+              activeWorkspaceId as string,
+              storageMode,
+              {}
+            );
+            setBookmarkGroups(groups || []);
+          } else {
+            setBookmarkGroups([]);
+          }
+        } finally {
+          setHasHydrated(true);
+        }
+      })();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const value: Ctx = {
+      bookmarkGroups,
+      setBookmarkGroups,
+      userId,
+      activeWorkspaceId,
+      storageMode,
+      isMigrating: false,
+      userAttributes,
+      isSignedIn,
+      hasHydrated,
+      isHydratingRemote: false,
+    };
+
+    return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+  }
+
+  return { __esModule: true, AppContextProvider, AppContext };
+});
+
 
 jest.mock('@/components/TopBanner', () => ({
   __esModule: true,
@@ -60,7 +145,7 @@ jest.mock('@/hooks/useBookmarkManager', () => ({
   useBookmarkManager: jest.fn(),
 }));
 
-jest.mock('@/core/utils/Utilities', () => ({
+jest.mock('@/core/utils/utilities', () => ({
   __esModule: true,
   getUserStorageKey: jest.fn(),
 }));
@@ -136,10 +221,14 @@ const fetchAuthSessionMock = fetchAuthSession as jest.MockedFunction<typeof fetc
 const mockUserId = '123';
 const mockUser = { username: 'testuser', sub: mockUserId };
 const mockUserAttributes = { email: 'test@example.com' };
-type BookmarkGroupTest = { groupName: string; bookmarks: Array<{ id: string; title: string; url: string }> };
+type BookmarkGroupTest = {
+  id: string;
+  groupName: string;
+  bookmarks: Array<{ id: string; title: string; url: string }>;
+};
 const mockBookmarkGroups: BookmarkGroupTest[] = [
-  { groupName: 'Work', bookmarks: [{ id: 'b1', title: 'Doc', url: 'https://docs.com' }] },
-  { groupName: 'Personal', bookmarks: [{ id: 'b2', title: 'Mail', url: 'https://mail.com' }] },
+  { id: 'g1', groupName: 'Work', bookmarks: [{ id: 'b1', title: 'Doc', url: 'https://docs.com' }] },
+  { id: 'g2', groupName: 'Personal', bookmarks: [{ id: 'b2', title: 'Mail', url: 'https://mail.com' }] },
 ];
 /* ---------------------------------------------------------- */
 
@@ -172,14 +261,14 @@ describe.each([
     mockImportBookmarksFromJSON = jest.fn();
     mockChangeStorageMode = jest.fn();
 
-      const mockedHookValue = {
-        openImport: mockOpenImport,
-        closeImport: mockCloseImport,
-        renderModal: mockRenderModal,
-        busy: false, // <-- required
-      } satisfies ReturnType<typeof useImportBookmarksDefault>;
+    const mockedHookValue = {
+      openImport: mockOpenImport,
+      closeImport: mockCloseImport,
+      renderModal: mockRenderModal,
+      busy: false, // <-- required
+    } satisfies ReturnType<typeof useImportBookmarksDefault>;
 
-      useImportBookmarksMock.mockReturnValue(mockedHookValue);
+    useImportBookmarksMock.mockReturnValue(mockedHookValue);
 
     (useBookmarkManagerMock.useBookmarkManager as jest.Mock).mockReturnValue({
       addEmptyBookmarkGroup: mockAddEmptyBookmarkGroup,
@@ -202,6 +291,8 @@ describe.each([
     });
 
     consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    (globalThis as any).__TEST_STORAGE_MODE__ = storageMode;
   });
 
   afterEach(() => {
@@ -228,7 +319,7 @@ describe.each([
     expect(screen.getByText(mockUserAttributes.email)).toBeInTheDocument();
   });
 
-  it('should not load data if no user is present', async () => {
+  it('should respect no-user behavior for this storage mode', async () => {
     fetchAuthSessionMock.mockRejectedValue(new Error('No user is signed in.'));
     fetchUserAttributesMock.mockRejectedValue(new Error('No user is signed in.'));
 
@@ -240,8 +331,16 @@ describe.each([
 
     await screen.findByTestId('top-banner');
 
-    expect(bookmarksDataMock.loadInitialBookmarks).not.toHaveBeenCalled();
-    expect(fetchUserAttributesMock).not.toHaveBeenCalled(); 
+    if (storageMode === StorageMode.LOCAL) {
+      // Anonymous LOCAL loads bookmarks
+      expect(bookmarksDataMock.loadInitialBookmarks).toHaveBeenCalledTimes(1);
+      expect(fetchUserAttributesMock).not.toHaveBeenCalled();
+    } else {
+      // Anonymous REMOTE does not load
+      expect(bookmarksDataMock.loadInitialBookmarks).not.toHaveBeenCalled();
+      expect(fetchUserAttributesMock).not.toHaveBeenCalled();
+    }
+    
     expect(screen.getByText('Signed In: false')).toBeInTheDocument();
   });
 

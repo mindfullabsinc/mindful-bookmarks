@@ -8,17 +8,17 @@
     "forceConsistentCasingInFileNames": true,
     "strict": true,
     "skipLibCheck": true,
-
     "baseUrl": ".",
     "paths": { 
       "@": ["src"],
       "@/*": ["src/*"], 
       "$amplify/*": ["../.amplify/generated/*"] 
     },
-    "types": ["chrome", "vite/client", "react"],
+    "types": ["chrome", "vite/client", "react", "jest"],
     "allowJs": true,
     "jsx": "react-jsx",
-    "lib": ["dom", "esnext"]
+    "lib": ["dom", "esnext"],
+    "isolatedModules": true,
   },
   "include": [
     "src", 

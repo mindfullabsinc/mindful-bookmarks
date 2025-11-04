@@ -1,14 +1,30 @@
-import { CHROME_NEW_TAB } from '@/core/constants/Constants';
+import { CHROME_NEW_TAB } from '@/core/constants/constants';
 
-
-export function getUserStorageKey(userId: string): string {
-  return `bookmarks_${userId}`;
+/**
+ * Build the chrome.storage key used to persist bookmarks for a specific user.
+ *
+ * @param userId Identifier for the user whose bookmarks are being stored.
+ * @param workspaceId Workspace namespace that scopes the stored data.
+ * @returns Namespaced storage key string.
+ */
+export function getUserStorageKey(userId: string, workspaceId: string): string {
+  return `WS_${workspaceId}__bookmarks_${userId}`;
+}
+/**
+ * Generate a short pseudo-random identifier suitable for local keys.
+ *
+ * @returns Random alphanumeric identifier.
+ */
+export function createUniqueID (): string {
+  return Math.random().toString(36).slice(2, 8) + Math.random().toString(36).slice(2, 8);
 }
 
-export function createUniqueID() {
-  return Date.now() + Math.random();
-}
-
+/**
+ * Ensure a URL string includes an explicit protocol, defaulting to http:// when missing.
+ *
+ * @param url Raw URL string provided by the user.
+ * @returns Normalized URL string with protocol prepended if necessary.
+ */
 export function constructValidURL(url: string): string {
   // Check if the URL is missing the protocol
   if (!url.startsWith('http://') && !url.startsWith('https://')) {
@@ -18,16 +34,13 @@ export function constructValidURL(url: string): string {
   } else {
     return url;
   }
-  // if (!/^https?:\/\//i.test(url)) {
-  //   url = 'http://' + url;
-  // }
-  // url = new URL(url);
-  // if (!/^www\./i.test(url.hostname)) {
-  //   url.hostname = 'www.' + url.hostname;
-  // }
-  // return url.href;
 }
 
+/**
+ * Determine whether the currently active tab is the Mindful new tab page.
+ *
+ * @returns Promise resolving to true when the active tab is the new tab.
+ */
 export const isCurrentTabTheNewTab = () => {
   return new Promise((resolve) => {
     chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
@@ -45,6 +58,8 @@ export const isCurrentTabTheNewTab = () => {
 /**
  * Notify every Mindful surface that bookmarks changed,
  * then (optionally) hard-refresh any known tabs.
+ *
+ * @returns Promise that resolves once notifications are dispatched.
  */
 export async function refreshOtherMindfulTabs() {
   // 1) Broadcast to all extension views (popup, new tab, options, background)
@@ -88,6 +103,11 @@ export async function refreshOtherMindfulTabs() {
   }
 }
 
+/**
+ * Reload the currently active browser tab when it is displaying the Mindful new tab page.
+ *
+ * @returns Promise that resolves after attempting the reload.
+ */
 export async function refreshActiveMindfulTab() {
   // Reload the current active tab if it is pointed to newtab (aka Mindful page)
   const tabs = await chrome.tabs.query({}); // Promise<Tab[]>
@@ -98,6 +118,12 @@ export async function refreshActiveMindfulTab() {
   }
 }
 
+/**
+ * Convert a phone number into E.164 format, assuming +1 when ten digits are provided.
+ *
+ * @param p Raw phone number string.
+ * @returns Normalized E.164 phone number.
+ */
 export function toE164(p: string): string {
   if (!p) return "";
   if (p.startsWith("+")) return p;

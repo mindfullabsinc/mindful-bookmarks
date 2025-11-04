@@ -4,12 +4,12 @@ import React, { useContext, useState, useEffect, useRef, useCallback, useMemo } 
 import '@/styles/AddBookmarkInline.css';
 
 /* Constants */
-import { URL_PATTERN } from '@/core/constants/Constants';
+import { URL_PATTERN } from '@/core/constants/constants';
 
 /* Hooks and Utilities */
 import { useBookmarkManager } from '@/hooks/useBookmarkManager';
 import { AppContext } from '@/scripts/AppContextProvider';
-import { constructValidURL } from "@/core/utils/Utilities";
+import { constructValidURL } from "@/core/utils/utilities";
 
 /* Analytics */
 import { useAnalytics } from "@/analytics/AnalyticsContext";

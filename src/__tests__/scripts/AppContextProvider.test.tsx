@@ -29,12 +29,40 @@ const mock_writeBookmarkCacheSync = jest.fn();
 const mock_readBookmarkCacheSession = jest.fn();
 const mock_writeBookmarkCacheSession = jest.fn();
 
-jest.mock("@/scripts/caching/BookmarkCache", () => ({
-  readBookmarkCacheSync: (...args: any[]) => mock_readBookmarkCacheSync(...args),
-  writeBookmarkCacheSync: (...args: any[]) => mock_writeBookmarkCacheSync(...args),
-  readBookmarkCacheSession: (...args: any[]) => mock_readBookmarkCacheSession(...args),
-  writeBookmarkCacheSession: (...args: any[]) => mock_writeBookmarkCacheSession(...args),
-}));
+// Workspace registry: make an active workspace available immediately
+jest.mock('@/workspaces/registry', () => {
+  return {
+    initializeLocalWorkspaceRegistry: jest.fn(async () => void 0),
+    loadRegistry: jest.fn(async () => ({
+      items: {
+        local: { id: 'local', name: 'Local Workspace', storageMode: 'LOCAL' },
+      },
+      activeId: 'local',
+    })),
+    setActiveWorkspace: jest.fn(async () => void 0),
+  };
+});
+
+jest.mock('@/scripts/caching/bookmarkCache', () => {
+  const mock_readBookmarkCacheSync = jest.fn();
+  const mock_writeBookmarkCacheSync = jest.fn();
+  const mock_readBookmarkCacheSession = jest.fn();
+  const mock_writeBookmarkCacheSession = jest.fn();
+  return {
+    readBookmarkCacheSync: (...args: any[]) => mock_readBookmarkCacheSync(...args),
+    writeBookmarkCacheSync: (...args: any[]) => mock_writeBookmarkCacheSync(...args),
+    readBookmarkCacheSession: (...args: any[]) => mock_readBookmarkCacheSession(...args),
+    writeBookmarkCacheSession: (...args: any[]) => mock_writeBookmarkCacheSession(...args),
+
+    // re-export the mocks so the existing expectations keep working
+    __mocks: {
+      mock_readBookmarkCacheSync,
+      mock_writeBookmarkCacheSync,
+      mock_readBookmarkCacheSession,
+      mock_writeBookmarkCacheSession,
+    },
+  };
+});
 
 // ---- Adapter mock (this is what the provider now talks to for LOCAL) ----
 const mock_adapter_readPhase1aSnapshot = jest.fn<any, any>(() => null);

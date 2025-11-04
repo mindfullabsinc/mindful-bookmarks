@@ -6,7 +6,7 @@ import '@/styles/NewTab.css';
 /* Hooks and Utilities */
 import { useBookmarkManager } from '@/hooks/useBookmarkManager';
 import { AppContext } from '@/scripts/AppContextProvider';
-import { createUniqueID } from "@/core/utils/Utilities";
+import { createUniqueID } from "@/core/utils/utilities";
 
 /* -----------------------------
    Favicon helpers + component
