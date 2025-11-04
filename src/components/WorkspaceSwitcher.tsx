@@ -1,13 +1,12 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useContext } from 'react';
 import {
+  getActiveWorkspaceId,
   listLocalWorkspaces,
   createLocalWorkspace,
   renameWorkspace,
   archiveWorkspace,
-  getActiveWorkspaceId,
-  setActiveWorkspace,
 } from '@/workspaces/registry';
-import { loadInitialBookmarks } from '@/scripts/bookmarksData';
+import { AppContext } from "@/scripts/AppContextProvider";
 import {
   clearSessionGroupsIndexExcept,
   writeGroupsIndexSession,
@@ -18,6 +17,15 @@ import { LOCAL_USER_ID } from '@/core/constants/authMode';
 
 
 export const WorkspaceSwitcher: React.FC = () => {
+  // Get needed context from AppContext
+  const { 
+    setActiveWorkspaceId, 
+    activeWorkspaceId: ctxActiveId 
+  } = useContext(AppContext) as {
+    setActiveWorkspaceId: (id: string) => Promise<void> | void;
+    activeWorkspaceId: string | null;
+  };
+
   const [menuOpen, setMenuOpen] = useState(false);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -49,20 +57,18 @@ export const WorkspaceSwitcher: React.FC = () => {
   };
 
   async function handleSwitch(workspace_id: string) {
-    if (!workspace_id || workspace_id === activeId) {
+    console.log(`[WorkspaceSwitcher.tsx] Calling handleSwitch() with workspace ID ${workspace_id}`);
+    if (!workspace_id || workspace_id === activeId || workspace_id === ctxActiveId) { 
       setMenuOpen(false);
       return;
     }
 
     // Switch registry active workspace id
-    await setActiveWorkspace(workspace_id);
+    await setActiveWorkspaceId(workspace_id);
 
     // Session mirror hygiene: only keep the active wid’s tiny index mirror
     await clearSessionGroupsIndexExcept(workspace_id);
     await writeGroupsIndexSession(null, workspace_id); // placeholder; real value will be set by data load
-
-    // Kick live load for this wid (Local-only baseline)
-    await loadInitialBookmarks(LOCAL_USER_ID, workspace_id, StorageMode.LOCAL);
 
     await refresh();
     setMenuOpen(false);
@@ -71,10 +77,11 @@ export const WorkspaceSwitcher: React.FC = () => {
   async function handleCreate() {
     const ws = await createLocalWorkspace('Local Workspace');
 
+    await (setActiveWorkspaceId as any)(ws.id);  // reflect in context immediately
+
     // New workspace starts empty → clear mirrors and seed placeholder
     await clearSessionGroupsIndexExcept(ws.id);
     await writeGroupsIndexSession(null, ws.id);
-    await loadInitialBookmarks(LOCAL_USER_ID, ws.id, StorageMode.LOCAL);
 
     await refresh();
     setMenuOpen(false);
@@ -94,9 +101,10 @@ export const WorkspaceSwitcher: React.FC = () => {
 
     // After archiving, the active may have changed in the registry
     const newActive = await getActiveWorkspaceId();
+    await (setActiveWorkspaceId as any)(newActive);   // trigger context effects
+
     await clearSessionGroupsIndexExcept(newActive);
     await writeGroupsIndexSession(null, newActive);
-    await loadInitialBookmarks(LOCAL_USER_ID, newActive, StorageMode.LOCAL);
 
     await refresh();
   }
