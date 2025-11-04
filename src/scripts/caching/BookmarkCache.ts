@@ -22,9 +22,9 @@ const groupsIndexSessionKey = (wid: WorkspaceIdType) => `groupsIndex:${wid}`;
 
 /* -------------------- Exportable functions -------------------- */
 /**
- * Read the synchronous bookmark snapshot and index for a workspace from localStorage.
+ * Read the stored bookmark snapshot for a workspace from localStorage.
  *
- * @param workspaceId Workspace identifier whose cache should be read.
+ * @param workspaceId Workspace identifier whose cache should be read. Defaults to the local workspace.
  * @returns Stored bookmark snapshot or null when nothing is cached.
  */
 export function readBookmarkCacheSync(
@@ -39,8 +39,8 @@ export function readBookmarkCacheSync(
 /**
  * Persist bookmark index and snapshot data to localStorage for the given workspace.
  *
- * @param data Object containing index (`idx`) and snapshot (`snap`) payloads.
- * @param workspaceId Workspace identifier whose cache should be updated.
+ * @param data Compact payload containing index (`idx`) and snapshot (`snap`) entries.
+ * @param workspaceId Workspace identifier whose cache should be updated. Defaults to the local workspace.
  */
 export function writeBookmarkCacheSync(
   data: { idx: unknown; snap: unknown },
@@ -56,6 +56,9 @@ export function writeBookmarkCacheSync(
 /**
  * Read the tiny groups-index mirror from chrome.storage.session (fast-path for reopen).
  * NOTE: This is NOT the source of truth; localStorage snapshot is.
+ *
+ * @param workspaceId Workspace identifier whose session mirror should be read. Defaults to the local workspace.
+ * @returns Previously cached groups index or null when nothing is mirrored.
  */
 export async function readGroupsIndexSession(
   workspaceId: WorkspaceIdType = DEFAULT_LOCAL_WORKSPACE_ID
@@ -71,6 +74,9 @@ export async function readGroupsIndexSession(
 
 /**
  * Write the tiny groups-index mirror to chrome.storage.session.
+ *
+ * @param idx Serialized groups index to store in the session mirror.
+ * @param workspaceId Workspace identifier whose session mirror should be updated. Defaults to the local workspace.
  */
 export async function writeGroupsIndexSession(
   idx: unknown,
@@ -85,6 +91,8 @@ export async function writeGroupsIndexSession(
 
 /**
  * Remove all groups-index mirrors except the active one's mirror to avoid cross-leaks.
+ *
+ * @param workspaceId Workspace identifier whose mirror should be kept. Defaults to the local workspace.
  */
 export async function clearSessionGroupsIndexExcept(
   workspaceId: WorkspaceIdType = DEFAULT_LOCAL_WORKSPACE_ID
@@ -106,6 +114,8 @@ export async function clearSessionGroupsIndexExcept(
  * Read the sessionStorage bookmark snapshot for a workspace.
  *
  * @deprecated use localStorage snapshot + readGroupsIndexSession() for fast index.
+ * @param workspaceId Workspace identifier whose session cache should be read. Defaults to the local workspace.
+ * @returns Stored bookmark snapshot or null when nothing is cached.
  */
 export async function readBookmarkCacheSession(
   workspaceId: WorkspaceIdType = DEFAULT_LOCAL_WORKSPACE_ID
@@ -122,6 +132,8 @@ export async function readBookmarkCacheSession(
  * Persist bookmark index and snapshot data to sessionStorage for the given workspace.
  *
  * @deprecated prefer writeGroupsIndexSession() (index only) and keep snapshot only in localStorage.
+ * @param data Compact payload containing index (`idx`) and snapshot (`snap`) entries.
+ * @param workspaceId Workspace identifier whose session cache should be updated. Defaults to the local workspace.
  */
 export async function writeBookmarkCacheSession(
   data: { idx: unknown; snap: unknown },
@@ -138,7 +150,7 @@ export async function writeBookmarkCacheSession(
 
 /**
  * Remove workspace-scoped bookmark caches (both index and snapshot) from
- * localStorage and sessionStorage.
+ * localStorage, sessionStorage, and chrome.storage.session mirrors.
  *
  * @param workspaceId Workspace identifier whose caches should be cleared.
  */

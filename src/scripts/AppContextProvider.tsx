@@ -32,6 +32,8 @@ import {
   writeBookmarkCacheSync,
   readBookmarkCacheSession,
   writeBookmarkCacheSession,
+  writeGroupsIndexSession,           
+  clearSessionGroupsIndexExcept,     
 } from '@/scripts/caching/bookmarkCache';
 import type { BookmarkSnapshot } from '@/scripts/caching/bookmarkCache';
 
@@ -238,6 +240,7 @@ export function AppContextProvider({
     // Remote/other future modes can keep using the generic path.
     try { chrome?.storage?.local?.set?.({ [localGroupsIndexKey(workspaceId)]: idx }); } catch {}
     try { chrome?.storage?.session?.set?.({ [sessionGroupsIndexKey(workspaceId)]: idx }); } catch {}
+    try { await writeGroupsIndexSession(idx, workspaceId); } catch {}
     const snap: BookmarkSnapshot = { data: groups, at: Date.now() };
     const payload = { idx, snap };
     try { writeBookmarkCacheSync(payload, workspaceId); } catch {}
@@ -672,6 +675,21 @@ export function AppContextProvider({
       document.removeEventListener('visibilitychange', onVis);
     };
   }, [authKey, storageMode, isMigrating, user, activeWorkspaceId]);
+  
+  /**
+   * Keep the chrome.storage.session tiny index mirror isolated to the active workspace.
+   * We seed null (placeholder) and let writers populate real values after loads.
+   */
+  useEffect(() => {
+    (async () => {
+      if (!activeWorkspaceId) return;
+      if (storageMode === StorageMode.REMOTE && isHydratingRemote) return; // don't touch mirrors while gating remote
+      try {
+        await clearSessionGroupsIndexExcept(activeWorkspaceId);
+        await writeGroupsIndexSession(null, activeWorkspaceId);
+      } catch {}
+    })();
+  }, [activeWorkspaceId, storageMode, isHydratingRemote]);
   /* ---------------------------------------------------------- */
 
   // ----- render gate: only block first paint if we truly have nothing -----
