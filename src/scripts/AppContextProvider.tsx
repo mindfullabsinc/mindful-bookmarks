@@ -47,8 +47,19 @@ import {
 /* ---------------------------------------------------------- */
 
 /* -------------------- Class-level helpers -------------------- */
-// Workspace-scoped small index keys 
+/**
+ * Derive the chrome.sessionStorage key for the groups index cache bound to a workspace.
+ *
+ * @param wid Workspace identifier used to namespace the session cache entry.
+ * @returns Fully qualified session key for the workspace groups index.
+ */
 const sessionGroupsIndexKey = (wid: WorkspaceIdType) => `groupsIndex:${wid}`;
+/**
+ * Derive the chrome.local storage key for the groups index cache bound to a workspace.
+ *
+ * @param wid Workspace identifier used to namespace the persistent cache entry.
+ * @returns Fully qualified local storage key for the workspace groups index.
+ */
 const localGroupsIndexKey   = (wid: WorkspaceIdType) => `groupsIndex:${wid}`;
 
 // Ensure the workspace registry exists and legacy data is migrated (runs once)
@@ -594,6 +605,11 @@ export function AppContextProvider({
 
     let cancelled = false;
 
+    /**
+     * Trigger the authoritative bookmark load and cache refresh for the active workspace.
+     *
+     * @returns Promise from the load pipeline, used for idle scheduling management.
+     */
     const kickoff = () =>
       loadAndCache(userId, id, storageMode, activeWorkspaceId, setBookmarkGroups, deepEqual)
         .then(() => {
@@ -632,6 +648,9 @@ export function AppContextProvider({
   useEffect(() => {
     if (isMigrating) return;
 
+    /**
+     * Pull the latest bookmark payload for the active workspace and update state without touching the global loading indicators.
+     */
     const reload = async () => {
       try {
         if (!activeWorkspaceId) return;
@@ -643,6 +662,11 @@ export function AppContextProvider({
     };
 
     // Runtime messages (e.g., popup saved/imported)
+    /**
+     * React to chrome runtime messages indicating bookmark mutations from other surfaces.
+     *
+     * @param msg Cross-context message payload emitted by the extension runtime.
+     */
     const runtimeHandler = (msg: { type?: string }) => {
       if (msg?.type === 'MINDFUL_BOOKMARKS_UPDATED') reload();
     };
@@ -660,6 +684,9 @@ export function AppContextProvider({
     } catch {}
 
     // Visibility regain (tab refocus) — best-effort refresh
+    /**
+     * Refresh bookmarks when the current document regains visibility.
+     */
     const onVis = () => {
       if (document.visibilityState === 'visible') reload();
     };

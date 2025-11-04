@@ -16,6 +16,9 @@ import { StorageMode } from '@/core/constants/storageMode';
 import { LOCAL_USER_ID } from '@/core/constants/authMode';
 
 
+/**
+ * Dropdown control that lists available workspaces and allows switching, creating, renaming, or archiving.
+ */
 export const WorkspaceSwitcher: React.FC = () => {
   // Get needed context from AppContext
   const { 
@@ -47,6 +50,9 @@ export const WorkspaceSwitcher: React.FC = () => {
     [workspaces, activeId]
   );
 
+  /**
+   * Reload the workspace list and active workspace id from storage.
+   */
   const refresh = async () => {
     const [list, active] = await Promise.all([
       listLocalWorkspaces(),
@@ -56,6 +62,11 @@ export const WorkspaceSwitcher: React.FC = () => {
     setActiveId(active);
   };
 
+  /**
+   * Switch the active workspace in both context and storage, then refresh the dropdown state.
+   *
+   * @param workspace_id Target workspace identifier selected by the user.
+   */
   async function handleSwitch(workspace_id: string) {
     console.log(`[WorkspaceSwitcher.tsx] Calling handleSwitch() with workspace ID ${workspace_id}`);
     if (!workspace_id || workspace_id === activeId || workspace_id === ctxActiveId) { 
@@ -74,6 +85,9 @@ export const WorkspaceSwitcher: React.FC = () => {
     setMenuOpen(false);
   }
 
+  /**
+   * Create a new local workspace, make it active, and refresh the dropdown state.
+   */
   async function handleCreate() {
     const ws = await createLocalWorkspace('Local Workspace');
 
@@ -87,6 +101,11 @@ export const WorkspaceSwitcher: React.FC = () => {
     setMenuOpen(false);
   }
 
+  /**
+   * Prompt the user to rename a workspace and persist the change.
+   *
+   * @param id Workspace identifier to rename.
+   */
   async function onRename(id: string) {
     const current = workspaces.find(w => w.id === id);
     const name = prompt('Rename workspace', current?.name ?? 'Local Workspace');
@@ -95,6 +114,11 @@ export const WorkspaceSwitcher: React.FC = () => {
     await refresh();
   }
 
+  /**
+   * Archive a workspace and ensure state mirrors are cleaned up afterwards.
+   *
+   * @param id Workspace identifier to archive.
+   */
   async function onArchive(id: string) {
     if (!confirm('Archive this workspace? You can restore it later.')) return;
     await archiveWorkspace(id);
