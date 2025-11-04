@@ -62,7 +62,7 @@ async function removeLocal(workspaceId: WorkspaceIdType, key: string): Promise<v
 /* ---------------------------------------------------------- */
 
 /* -------------------- Adapter -------------------- */
-export const LocalAdapter: StorageAdapter = {
+export const LocalAdapter: Required<StorageAdapter> = {
   // Phase 1a: synchronous seed from WS-scoped LOCAL first-paint snapshot
   /**
    * Return the first-paint snapshot for a workspace when available.
