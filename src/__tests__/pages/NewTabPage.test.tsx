@@ -21,6 +21,7 @@ import { StorageMode, type StorageModeType } from '@/core/constants/storageMode'
 const useImportBookmarksMock =
   useImportBookmarksDefault as unknown as jest.MockedFunction<typeof useImportBookmarksDefault>;
 
+/* Scripts and hooks */
 jest.mock('@/scripts/AppContextProvider', () => {
   const React = require('react') as typeof import('react');
   const { StorageMode } = require('@/core/constants/storageMode');
@@ -38,12 +39,12 @@ jest.mock('@/scripts/AppContextProvider', () => {
     const [storageMode, setStorageMode] = React.useState<string>(initialMode);
     const [userAttributes, setUserAttributes] = React.useState<Record<string, unknown> | undefined>(undefined);
     const [hasHydrated, setHasHydrated] = React.useState(false);
+    const [activeWorkspaceId, setActiveWorkspaceId] = React.useState<string>(DEFAULT_LOCAL_WORKSPACE_ID);
 
     const signedInUserId = user?.sub ?? null;
     const isSignedIn = !!signedInUserId;
 
     const userId = isSignedIn ? signedInUserId : LOCAL_USER_ID;
-    const activeWorkspaceId = isSignedIn ? 'ws-local' : DEFAULT_LOCAL_WORKSPACE_ID;
 
     const bootedRef = React.useRef(false);
 
@@ -59,6 +60,8 @@ jest.mock('@/scripts/AppContextProvider', () => {
             setUserAttributes(attrs);
             const mode = (attrs && (attrs as any)['custom:storage_type']) || storageMode;
             setStorageMode(mode);
+            // Give signed-in a distinct ws id just like app code
+            setActiveWorkspaceId('ws-local');
           }
           // Anonymous: DO NOT force LOCAL; keep initialMode from the suite
         } catch {}
@@ -91,6 +94,7 @@ jest.mock('@/scripts/AppContextProvider', () => {
       setBookmarkGroups,
       userId,
       activeWorkspaceId,
+      setActiveWorkspaceId: (id: string) => setActiveWorkspaceId(id),
       storageMode,
       isMigrating: false,
       userAttributes,
@@ -105,7 +109,79 @@ jest.mock('@/scripts/AppContextProvider', () => {
   return { __esModule: true, AppContextProvider, AppContext };
 });
 
+jest.mock('@/workspaces/registry', () => {
+  // in-memory fake registry for this test file
+  const now = () => Date.now();
+  let reg = {
+    version: 1,
+    activeId: 'local',
+    items: {
+      local: { id: 'local', name: 'Local Workspace', storageMode: 'LOCAL', createdAt: 1, updatedAt: 1 },
+    } as Record<string, any>,
+    migratedLegacyLocal: true,
+  };
 
+  return {
+    __esModule: true,
+    initializeLocalWorkspaceRegistry: jest.fn(async () => {}),
+    loadRegistry: jest.fn(async () => reg),
+    setActiveWorkspace: jest.fn(async (id: string) => { reg.activeId = id; }),
+    getActiveWorkspaceId: jest.fn(async () => reg.activeId),
+    listLocalWorkspaces: jest.fn(async ({ includeArchived } = { includeArchived: false }) => {
+      const all = Object.values(reg.items).sort((a: any, b: any) => a.createdAt - b.createdAt);
+      return includeArchived ? all : all.filter((w: any) => !w.archived);
+    }),
+    createLocalWorkspace: jest.fn(async (name = 'Local Workspace') => {
+      const id = `local-mock-${Object.keys(reg.items).length + 1}`;
+      reg.items[id] = { id, name, storageMode: 'LOCAL', createdAt: now(), updatedAt: now() };
+      reg.activeId = id;
+      return reg.items[id];
+    }),
+    renameWorkspace: jest.fn(async (id: string, name: string) => {
+      if (reg.items[id]) reg.items[id] = { ...reg.items[id], name, updatedAt: now() };
+    }),
+    archiveWorkspace: jest.fn(async (id: string) => {
+      if (!reg.items[id]) return;
+      const live = Object.values(reg.items).filter((w: any) => !w.archived);
+      if (live.length <= 1) return; // don’t archive the last one
+      reg.items[id] = { ...reg.items[id], archived: true, updatedAt: now() };
+      if (reg.activeId === id) {
+        const fallback = Object.values(reg.items).find((w: any) => !w.archived)?.id || 'local';
+        reg.activeId = fallback as string;
+      }
+    }),
+  };
+});
+
+jest.mock('@/hooks/useBookmarkManager', () => ({
+  __esModule: true,
+  useBookmarkManager: jest.fn(),
+}));
+
+jest.mock('@/core/utils/utilities', () => ({
+  __esModule: true,
+  getUserStorageKey: jest.fn(),
+}));
+
+jest.mock('@/analytics/AnalyticsProvider', () => ({
+  __esModule: true,
+  default: ({ children }: { children?: ReactNode }) => <>{children}</>,
+}));
+
+jest.mock('@/scripts/bookmarksData', () => ({
+  __esModule: true,
+  loadInitialBookmarks: jest.fn(),
+}));
+
+jest.mock('@/scripts/caching/bookmarkCache', () => {
+  return {
+    __esModule: true,
+    writeGroupsIndexSession: jest.fn(async () => {}),
+    clearSessionGroupsIndexExcept: jest.fn(async () => {}),
+  };
+});
+
+/* Components */
 jest.mock('@/components/TopBanner', () => ({
   __esModule: true,
   default: (props: {
@@ -133,32 +209,13 @@ jest.mock('@/components/DraggableGrid', () => ({
   ),
 }));
 
-// External modules
+/* External modules */
 jest.mock('aws-amplify/auth', () => ({
   __esModule: true,
   fetchUserAttributes: jest.fn(),
   fetchAuthSession: jest.fn(),
 }));
 
-jest.mock('@/hooks/useBookmarkManager', () => ({
-  __esModule: true,
-  useBookmarkManager: jest.fn(),
-}));
-
-jest.mock('@/core/utils/utilities', () => ({
-  __esModule: true,
-  getUserStorageKey: jest.fn(),
-}));
-
-jest.mock('@/analytics/AnalyticsProvider', () => ({
-  __esModule: true,
-  default: ({ children }: { children?: ReactNode }) => <>{children}</>,
-}));
-
-jest.mock('@/scripts/bookmarksData', () => ({
-  __esModule: true,
-  loadInitialBookmarks: jest.fn(),
-}));
 
 let lastEmptyStateOnImport: (() => void) | undefined;
 jest.mock('@/components/EmptyBookmarksState', () => ({
