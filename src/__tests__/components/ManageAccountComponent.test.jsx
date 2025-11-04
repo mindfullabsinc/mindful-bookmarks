@@ -37,7 +37,7 @@ jest.mock("@/scripts/AppContextProvider", () => {
 
 // 5) Stabilize toE164 so it’s identity for already-E.164,
 //    and normalizes US-ish inputs otherwise.
-jest.mock("@/core/utils/Utilities", () => ({
+jest.mock("@/core/utils/utilities", () => ({
   toE164: jest.fn((v) => {
     if (v == null) return "";
     const s = String(v).trim();
@@ -49,7 +49,7 @@ jest.mock("@/core/utils/Utilities", () => ({
 }));
 
 // 6) Constants
-jest.mock("@/core/constants/Constants", () => ({
+jest.mock("@/core/constants/constants", () => ({
   StorageMode: { LOCAL: "local", REMOTE: "remote" },
   StorageLabel: { local: "Local-Only", remote: "Encrypted Sync" },
 }));
@@ -101,7 +101,7 @@ describe("ManageAccountComponent", () => {
     jest.clearAllMocks();
 
     // Re-apply toE164 implementation to be safe
-    const { toE164 } = jest.requireMock("@/core/utils/Utilities");
+    const { toE164 } = jest.requireMock("@/core/utils/utilities");
     toE164.mockImplementation((v) => {
       if (v == null) return "";
       const s = String(v).trim();
@@ -245,7 +245,7 @@ describe("ManageAccountComponent", () => {
   });
 
   test("Phone is normalized via toE164 before update", async () => {
-    const { toE164 } = jest.requireMock("@/core/utils/Utilities");
+    const { toE164 } = jest.requireMock("@/core/utils/utilities");
     renderWithContext(<ManageAccountComponent />);
 
     await userEvent.clear(screen.getByLabelText("Phone input"));

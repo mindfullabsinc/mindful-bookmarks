@@ -2,7 +2,7 @@ import React, { useContext, useState, useEffect, useRef } from 'react';
 
 /* Scripts */
 import { AppContext } from "@/scripts/AppContextProvider";
-import { importChromeBookmarksAsSingleGroup, importOpenTabsAsSingleGroup } from '@/scripts/Importers'; 
+import { importChromeBookmarksAsSingleGroup, importOpenTabsAsSingleGroup } from '@/scripts/importers'; 
 import { StorageMode, StorageLabel, DEFAULT_STORAGE_MODE } from "@/core/constants/storageMode";
 
 /* Hooks */

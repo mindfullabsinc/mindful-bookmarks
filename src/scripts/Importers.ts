@@ -15,6 +15,12 @@ type AppGroup = {
 };
 
 // --- Helpers ---
+/**
+ * Normalize URLs for duplicate detection by stripping fragments and reserializing.
+ *
+ * @param u Raw URL string to normalize.
+ * @returns Normalized URL or original input when parsing fails.
+ */
 function normalizeUrl(u: string): string {
   try {
     const url = new URL(u);
@@ -25,6 +31,12 @@ function normalizeUrl(u: string): string {
   }
 }
 
+/**
+ * Convert a Chrome bookmark node into the app's bookmark shape.
+ *
+ * @param n Chrome bookmark node.
+ * @returns Converted application bookmark.
+ */
 function toAppBookmark(n: ChromeBmNode): AppBookmark {
   return {
     id: String(Date.now() + Math.random()),
@@ -34,19 +46,30 @@ function toAppBookmark(n: ChromeBmNode): AppBookmark {
   };
 }
 
+/**
+ * Depth-first traversal helper that visits every bookmark node.
+ *
+ * @param nodes Current bookmark subtree.
+ * @param onBookmark Callback invoked for each bookmark entry.
+ */
 function walk(
   nodes: ChromeBmNode[],
   onBookmark: (bm: ChromeBmNode) => void
-) {
+): void {
   for (const n of nodes) {
     if (n.url) onBookmark(n);
     else if (n.children) walk(n.children, onBookmark);
   }
 }
 
+/**
+ * Aggregate all Chrome bookmarks into a single group and pass them to the provided inserter.
+ *
+ * @param insertGroups Callback that receives the generated group(s) to insert into app state.
+ */
 export async function importChromeBookmarksAsSingleGroup(
   insertGroups: (groups: AppGroup[]) => Promise<void>
-) {
+): Promise<void> {
   // Modal already asked for permissions; assume we have them.
   const tree = await chrome.bookmarks.getTree();
 
@@ -76,10 +99,16 @@ export async function importChromeBookmarksAsSingleGroup(
   await insertGroups([group]);
 }
 
+/**
+ * Capture open browser tabs as a single bookmark group.
+ *
+ * @param insertGroups Callback that receives the generated group for persistence.
+ * @param opts Optional filters controlling which tabs are included.
+ */
 export async function importOpenTabsAsSingleGroup(
   insertGroups: (groups: AppGroup[]) => Promise<void>,
   opts?: { scope?: 'current' | 'all'; includePinned?: boolean; includeDiscarded?: boolean }
-) {
+): Promise<void> {
   const { scope = 'current', includePinned = true, includeDiscarded = true } = opts ?? {};
 
   // ensure permission (ok to call even if already granted)

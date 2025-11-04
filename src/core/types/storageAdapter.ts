@@ -1,22 +1,22 @@
 import type { BookmarkGroupType } from "@/core/types/bookmarks";
-import type { WorkspaceId } from "@/core/constants/workspaces";
-import type { BookmarkSnapshot } from "@/scripts/caching/BookmarkCache";
+import type { WorkspaceIdType } from "@/core/constants/workspaces";
+import type { BookmarkSnapshot } from "@/scripts/caching/bookmarkCache";
 
 export interface StorageAdapter {
   /** Phase 1a: synchronous seed snapshot for first paint (or null if none) */
-  readPhase1aSnapshot(workspaceId: WorkspaceId): BookmarkGroupType[] | null;
+  readPhase1aSnapshot(workspaceId: WorkspaceIdType): BookmarkGroupType[] | null;
 
   /** Phase 1b: async warm snapshot for session (or null if none) */
-  readPhase1bSessionSnapshot(workspaceId: WorkspaceId): Promise<BookmarkSnapshot | null>;
+  readPhase1bSessionSnapshot(workspaceId: WorkspaceIdType): Promise<BookmarkSnapshot | null>;
 
   /** Fast tiny groups index */
   readGroupsIndexFast(
-    workspaceId: WorkspaceId
+    workspaceId: WorkspaceIdType
   ): Promise<Array<{ id: string; groupName: string }>>;
 
   /** Persist small index + caches only when data is non-empty */
   persistCachesIfNonEmpty(
-    workspaceId: WorkspaceId,
+    workspaceId: WorkspaceIdType,
     groups: BookmarkGroupType[]
   ): Promise<void>;
 
@@ -25,9 +25,9 @@ export interface StorageAdapter {
    * LocalAdapter implements these and namespaces keys as WS_<id>__<key>.
    * Remote adapters may skip for now.
    */
-  get?<T = unknown>(workspaceId: WorkspaceId, key: string): Promise<T | undefined>;
-  set?<T = unknown>(workspaceId: WorkspaceId, key: string, value: T): Promise<void>;
-  remove?(workspaceId: WorkspaceId, key: string): Promise<void>;
+  get?<T = unknown>(workspaceId: WorkspaceIdType, key: string): Promise<T | undefined>;
+  set?<T = unknown>(workspaceId: WorkspaceIdType, key: string, value: T): Promise<void>;
+  remove?(workspaceId: WorkspaceIdType, key: string): Promise<void>;
 }
 
 /** Narrowing helper for callers that want to use KV ops safely */

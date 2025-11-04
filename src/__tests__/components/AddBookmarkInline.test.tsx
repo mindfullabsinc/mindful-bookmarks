@@ -1,6 +1,6 @@
 // put mocks FIRST so they're applied before the component is imported
 jest.mock('@/hooks/useBookmarkManager');
-jest.mock('@/core/utils/Utilities');
+jest.mock('@/core/utils/utilities');
 
 // Provide a fully stubbed Analytics module:
 // - useAnalytics: stable stub (so calling it never throws)
@@ -23,7 +23,7 @@ import '@testing-library/jest-dom';
 import { AddBookmarkInline } from '@/components/AddBookmarkInline';
 import { AppContext } from '@/scripts/AppContextProvider';
 import { useBookmarkManager } from '@/hooks/useBookmarkManager';
-import { constructValidURL } from '@/core/utils/Utilities';
+import { constructValidURL } from '@/core/utils/utilities';
 
 // --- Test setup ---
 

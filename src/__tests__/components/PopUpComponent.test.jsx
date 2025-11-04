@@ -8,7 +8,7 @@
  import { AppContext } from '@/scripts/AppContextProvider';
 
  /* Constants */
- import { EMPTY_GROUP_IDENTIFIER } from '@/core/constants/Constants';
+ import { EMPTY_GROUP_IDENTIFIER } from '@/core/constants/constants';
 
 // --- Mock chrome.tabs.query ---
 beforeAll(() => {

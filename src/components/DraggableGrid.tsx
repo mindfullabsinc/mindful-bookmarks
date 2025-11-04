@@ -22,7 +22,7 @@ import { BookmarkGroup } from "@/components/BookmarkGroup";
 import { BookmarkItem } from "@/components/BookmarkItem";
 import { AppContext } from "@/scripts/AppContextProvider";
 import { useBookmarkManager } from "@/hooks/useBookmarkManager";
-import { EMPTY_GROUP_IDENTIFIER } from "@/core/constants/Constants";
+import { EMPTY_GROUP_IDENTIFIER } from "@/core/constants/constants";
 
 /* -------------------- Local helper types (minimal) -------------------- */
 type GroupId = string | number;

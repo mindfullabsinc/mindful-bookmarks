@@ -5,24 +5,23 @@ import type { ReactElement } from 'react';
 /* CSS styles */
 import "@/styles/Login.css";
 
-/* Constants */
+/* Constants and Types */
 import {
   EMPTY_GROUP_IDENTIFIER,
   ONBOARDING_NEW_GROUP_PREFILL,
-} from "@/core/constants/Constants";
+} from "@/core/constants/constants";
 import { 
   StorageMode,
   type StorageModeType
 } from "@/core/constants/storageMode";
+import type { WorkspaceIdType } from "@/core/constants/workspaces";
+import type { BookmarkGroupType, BookmarkType } from "@/core/types/bookmarks";
 
 /* Hooks and Utilities */
-import { getUserStorageKey } from '@/core/utils/Utilities';
+import { getUserStorageKey } from '@/core/utils/utilities';
 import { useBookmarkManager } from '@/hooks/useBookmarkManager';
 import { loadInitialBookmarks } from '@/scripts/bookmarksData';
 import { AppContext } from "@/scripts/AppContextProvider";
-
-/* Types */
-import type { BookmarkGroupType, BookmarkType } from "@/core/types/bookmarks";
 
 /* Components */
 import TopBanner from "@/components/TopBanner";
@@ -37,6 +36,7 @@ type AppCtxShape = {
   bookmarkGroups: BookmarkGroupType[] | null;
   setBookmarkGroups: (groups: BookmarkGroupType[]) => void;
   userId: Nullable<string>;
+  activeWorkspaceId: WorkspaceIdType | null;
   storageMode: StorageModeType;
   isMigrating: boolean;
   userAttributes: Record<string, any> | undefined;
@@ -85,6 +85,7 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
     bookmarkGroups: bookmarkGroupsRaw,
     setBookmarkGroups,
     userId,
+    activeWorkspaceId,
     storageMode,
     isMigrating,
     userAttributes,
@@ -283,6 +284,7 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
   useEffect(() => {
     // Only attach this listener if we are in LOCAL storage mode.
     // It's irrelevant for remote storage.
+    if (!activeWorkspaceId) return;
     if (storageMode !== StorageMode.LOCAL || !userId) {
       return; // Do nothing if in remote mode or not signed in.
     }
@@ -296,11 +298,11 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
       changes: Record<string, { oldValue?: any; newValue?: any }>,
       area: string
     ) => {
-      const userStorageKey = getUserStorageKey(userId);
+      const userStorageKey = getUserStorageKey(userId, activeWorkspaceId);
       if (area === "local" && changes[userStorageKey]) {
         console.log("Local storage changed in another tab. Reloading bookmarks...");
         // Pass the correct storageMode to the loading function.
-        const freshGroups = await loadInitialBookmarks(userId, storageMode, {
+        const freshGroups = await loadInitialBookmarks(userId, activeWorkspaceId, storageMode, {
           noLocalFallback: storageMode !== StorageMode.LOCAL
         });
         setBookmarkGroups(freshGroups || []);
@@ -313,7 +315,7 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
     return () => {
       (globalThis as any).chrome?.storage?.onChanged?.removeListener?.(handleStorageChange);
     };
-  }, [userId, storageMode, setBookmarkGroups, isMigrating]); // Re-runs if user or storageMode changes
+  }, [userId, storageMode, activeWorkspaceId, setBookmarkGroups, isMigrating]); // Re-runs if user or storageMode changes
 
   /**
    * Subscribe to runtime messages signaling auth changes or storage mode flips so this page can

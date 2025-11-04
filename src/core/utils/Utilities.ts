@@ -1,15 +1,15 @@
-import { CHROME_NEW_TAB } from '@/core/constants/Constants';
+import { CHROME_NEW_TAB } from '@/core/constants/constants';
 
 /**
  * Build the chrome.storage key used to persist bookmarks for a specific user.
  *
  * @param userId Identifier for the user whose bookmarks are being stored.
+ * @param workspaceId Workspace namespace that scopes the stored data.
  * @returns Namespaced storage key string.
  */
-export function getUserStorageKey(userId: string): string {
-  return `bookmarks_${userId}`;
+export function getUserStorageKey(userId: string, workspaceId: string): string {
+  return `WS_${workspaceId}__bookmarks_${userId}`;
 }
-
 /**
  * Generate a short pseudo-random identifier suitable for local keys.
  *

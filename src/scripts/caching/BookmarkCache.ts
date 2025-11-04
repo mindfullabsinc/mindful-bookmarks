@@ -1,5 +1,5 @@
 /* -------------------- Imports -------------------- */
-import { WorkspaceId, DEFAULT_LOCAL_WORKSPACE_ID } from '@/core/constants/workspaces';
+import { WorkspaceIdType, DEFAULT_LOCAL_WORKSPACE_ID } from '@/core/constants/workspaces';
 /* ---------------------------------------------------------- */
 
 /* -------------------- Local types and interfaces -------------------- */
@@ -7,8 +7,14 @@ export type BookmarkSnapshot = { data: any; at: number; etag?: string };
 /* ---------------------------------------------------------- */
 
 /* -------------------- Helper functions functions -------------------- */
-const groupsIndexKey = (wid: WorkspaceId) => `mindful_${wid}_groups_index_v1`;
-const bookmarksSnapshotKey = (wid: WorkspaceId) => `mindful_${wid}_bookmarks_snapshot_v1`;
+/**
+ * Compute the localStorage key used for the workspace's compact groups index.
+ */
+const groupsIndexKey = (wid: WorkspaceIdType) => `mindful_${wid}_groups_index_v1`;
+/**
+ * Compute the localStorage key used for the workspace's full bookmark snapshot.
+ */
+const bookmarksSnapshotKey = (wid: WorkspaceIdType) => `mindful_${wid}_bookmarks_snapshot_v1`;
 /* ---------------------------------------------------------- */
 
 /* -------------------- Exportable functions -------------------- */
@@ -19,7 +25,7 @@ const bookmarksSnapshotKey = (wid: WorkspaceId) => `mindful_${wid}_bookmarks_sna
  * @returns Stored bookmark snapshot or null when nothing is cached.
  */
 export function readBookmarkCacheSync(
-  workspaceId: WorkspaceId = DEFAULT_LOCAL_WORKSPACE_ID
+  workspaceId: WorkspaceIdType = DEFAULT_LOCAL_WORKSPACE_ID
 ): BookmarkSnapshot | null {  
   try {
     const snap = JSON.parse(localStorage.getItem(bookmarksSnapshotKey(workspaceId)) ?? 'null');
@@ -28,15 +34,14 @@ export function readBookmarkCacheSync(
 }
 
 /**
- * Persist bookmark index snapshot data to localStorage for the given workspace.
+ * Persist bookmark index and snapshot data to localStorage for the given workspace.
  *
  * @param data Object containing index (`idx`) and snapshot (`snap`) payloads.
  * @param workspaceId Workspace identifier whose cache should be updated.
- * @returns void
  */
 export function writeBookmarkCacheSync(
   data: { idx: unknown; snap: unknown },
-  workspaceId: WorkspaceId = DEFAULT_LOCAL_WORKSPACE_ID
+  workspaceId: WorkspaceIdType = DEFAULT_LOCAL_WORKSPACE_ID
 ) {
   try {
     localStorage.setItem(groupsIndexKey(workspaceId), JSON.stringify(data.idx));
@@ -51,7 +56,7 @@ export function writeBookmarkCacheSync(
  * @returns Promise resolving to the stored snapshot or null.
  */
 export async function readBookmarkCacheSession(
-  workspaceId: WorkspaceId = DEFAULT_LOCAL_WORKSPACE_ID
+  workspaceId: WorkspaceIdType = DEFAULT_LOCAL_WORKSPACE_ID
 ): Promise<BookmarkSnapshot | null> {
   const key2 = bookmarksSnapshotKey(workspaceId);
   const ss = (globalThis as any).sessionStorage;
@@ -62,15 +67,14 @@ export async function readBookmarkCacheSession(
 }
 
 /**
- * Persist bookmark index snapshot data to sessionStorage for the given workspace.
+ * Persist bookmark index and snapshot data to sessionStorage for the given workspace.
  *
  * @param data Object containing index (`idx`) and snapshot (`snap`) payloads.
  * @param workspaceId Workspace identifier whose session cache should be updated.
- * @returns Promise that resolves when the write attempt completes.
  */
 export async function writeBookmarkCacheSession(
   data: { idx: unknown; snap: unknown },
-  workspaceId: WorkspaceId = DEFAULT_LOCAL_WORKSPACE_ID
+  workspaceId: WorkspaceIdType = DEFAULT_LOCAL_WORKSPACE_ID
 ) {
   const ss = (globalThis as any).sessionStorage;
   try {
@@ -85,9 +89,8 @@ export async function writeBookmarkCacheSession(
  * localStorage and sessionStorage.
  *
  * @param workspaceId Workspace identifier whose caches should be cleared.
- * @returns void
  */
-export function clearBookmarkCaches(workspaceId: WorkspaceId = DEFAULT_LOCAL_WORKSPACE_ID) {
+export function clearBookmarkCaches(workspaceId: WorkspaceIdType = DEFAULT_LOCAL_WORKSPACE_ID) {
   try { localStorage.removeItem(groupsIndexKey(workspaceId)); } catch {}
   try { localStorage.removeItem(bookmarksSnapshotKey(workspaceId)); } catch {}
   try { (globalThis as any).sessionStorage?.removeItem(groupsIndexKey(workspaceId)); } catch {}

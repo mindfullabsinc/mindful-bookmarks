@@ -6,10 +6,10 @@ import {
 } from "@/core/constants/storageMode";
 
 /* -------------------- Types -------------------- */
-export type WorkspaceId = string;
+export type WorkspaceIdType = string;
 
 export type Workspace = {
-  id: WorkspaceId;
+  id: WorkspaceIdType;
   name: string;
   storageMode: StorageModeType; // "local" for PR3
   createdAt: number;
@@ -19,8 +19,8 @@ export type Workspace = {
 // WorkspaceRegistryV1 keeps track of all workspaces and the active one
 export interface WorkspaceRegistryV1 {
   version: 1;
-  activeId: WorkspaceId;
-  items: Record<WorkspaceId, Workspace>;
+  activeId: WorkspaceIdType;
+  items: Record<WorkspaceIdType, Workspace>;
   migratedLegacyLocal?: boolean; // marks whether legacy Local data has been moved under WS_<id>
 }
 
@@ -40,7 +40,7 @@ export const WORKSPACE_REGISTRY_KEY = 'mindful.workspaces.registry.v1';
  */
 // Namespace format for Local adapter keys:
 // e.g., WS_local-default__groups_index_v1
-export const wsKey = (workspaceId: WorkspaceId, key: string) =>
+export const wsKey = (workspaceId: WorkspaceIdType, key: string) =>
   `WS_${workspaceId}__${key}`;
 
 export const DEFAULT_LOCAL_WORKSPACE_ID = 'local-default';

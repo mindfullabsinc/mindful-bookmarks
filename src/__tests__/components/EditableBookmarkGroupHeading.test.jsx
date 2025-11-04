@@ -5,7 +5,7 @@ import '@testing-library/jest-dom';
 import { EditableBookmarkGroupHeading } from '@/components/EditableBookmarkGroupHeading';
 import { AppContext } from '@/scripts/AppContextProvider';
 import { useBookmarkManager } from '@/hooks/useBookmarkManager';
-import { EMPTY_GROUP_IDENTIFIER } from "@/core/constants/Constants";
+import { EMPTY_GROUP_IDENTIFIER } from "@/core/constants/constants";
 
 // Mock the CSS import
 jest.mock('@/styles/EditableBookmarkGroupHeading.css', () => ({}));

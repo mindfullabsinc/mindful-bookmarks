@@ -1,6 +1,6 @@
 
 /* -------------------- Imports -------------------- */
-import { importChromeBookmarksAsSingleGroup, importOpenTabsAsSingleGroup } from '@/scripts/Importers';
+import { importChromeBookmarksAsSingleGroup, importOpenTabsAsSingleGroup } from '@/scripts/importers';
 /* ---------------------------------------------------------- */
 
 export {}; // ensure this file is a module so our globals don't merge with lib.d.ts

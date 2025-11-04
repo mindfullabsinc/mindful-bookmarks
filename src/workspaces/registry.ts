@@ -1,79 +1,176 @@
 import { StorageMode } from "@/core/constants/storageMode";
-import type { WorkspaceId, Workspace, WorkspaceRegistry } from "@/core/constants/workspaces";
-import { createUniqueID } from "@/core/utils/Utilities";
+import type { WorkspaceIdType, Workspace, WorkspaceRegistry } from "@/core/constants/workspaces";
+import { createUniqueID } from "@/core/utils/utilities";
 import { 
   DEFAULT_LOCAL_WORKSPACE_ID, 
   WORKSPACE_REGISTRY_KEY 
 } from "@/core/constants/workspaces";
 
+/* -------------------- Legacy keys (pre-PR3) -------------------- */
+const LEGACY_WORKSPACES_KEY = "mindful_workspaces_v1";       // items map
+const LEGACY_ACTIVE_KEY     = "mindful_active_workspace_v1"; // active id
+/* ---------------------------------------------------------- */
 
 /* -------------------- Storage helpers (Local-only for PR-3) -------------------- */
 /**
- * Read the entire chrome.storage.local namespace as a plain object.
+ * Retrieve the entire chrome.storage.local map.
  *
- * @returns Promise resolving to the full local storage map.
+ * @returns Promise resolving to every key/value pair stored locally.
  */
 async function readAllLocal(): Promise<Record<string, unknown>> {
-  // chrome.storage.local.get(null) returns the whole object
-  // If your test shims differ, align accordingly.
   return await chrome.storage.local.get(null) as Record<string, unknown>;
 }
-
 /**
- * Read a single chrome.storage.local key and return its typed value when present.
+ * Read a specific key from chrome.storage.local, returning a typed value.
  *
- * @param key Storage key to look up.
- * @returns Promise resolving to the stored value or undefined.
+ * @param key Storage key to read.
+ * @returns Stored value or undefined when absent.
  */
 async function readLocal<T = unknown>(key: string): Promise<T | undefined> {
   const obj = await chrome.storage.local.get(key);
   return obj?.[key] as T | undefined;
 }
-
 /**
- * Persist a value to chrome.storage.local under the provided key.
+ * Persist a value to chrome.storage.local under the given key.
  *
- * @param key Storage key to update.
+ * @param key Storage key to write.
  * @param value Serializable value to store.
- * @returns Promise that resolves once the write completes.
  */
 async function writeLocal(key: string, value: unknown): Promise<void> {
   await chrome.storage.local.set({ [key]: value });
 }
+/**
+ * Remove one or more keys from chrome.storage.local.
+ *
+ * @param keys Storage keys to delete.
+ */
+async function removeLocal(...keys: string[]): Promise<void> {
+  if (keys.length) await chrome.storage.local.remove(keys);
+}
+/* ---------------------------------------------------------- */
+
+/* -------------------- Type guards & helpers -------------------- */
+/**
+ * Type guard that verifies a value conforms to the Workspace shape.
+ */
+function isWorkspace(x: any): x is Workspace {
+  return x && typeof x === "object" && typeof x.id === "string" && typeof x.name === "string";
+}
+/**
+ * Check whether a value appears to be a workspace items map.
+ */
+function looksLikeItemsMap(x: any): x is Record<WorkspaceIdType, Workspace> {
+  if (!x || typeof x !== "object") return false;
+  return Object.values(x).some(isWorkspace);
+}
+/**
+ * Validate that a value resembles a WorkspaceRegistry object.
+ */
+function isRegistryObject(x: any): x is WorkspaceRegistry {
+  return x && typeof x === "object" && x.version === 1 && x.items && x.activeId;
+}
+
+/** Build a default Local workspace object, using PR-3 schema. */
+function makeDefaultLocalWorkspace(id?: WorkspaceIdType): Workspace {
+  const now = Date.now();
+  return {
+    id: id ?? `local-${createUniqueID()}`,
+    name: "My Bookmarks",      // default display name for PR-3
+    storageMode: StorageMode.LOCAL,             
+    createdAt: now,
+    updatedAt: now,
+  };
+}
 
 /**
- * Remove a chrome.storage.local entry for the given key.
- *
- * @param key Storage key to delete.
- * @returns Promise that resolves once removal is complete.
+ * Coerce any legacy shapes into a v1 registry object and persist it.
+ * Handles:
+ *  A) separate legacy keys: items map + active id
+ *  B) WORKSPACE_REGISTRY_KEY accidentally stored as a string (activeId)
+ *  C) WORKSPACE_REGISTRY_KEY stored as a raw items map (no wrapper)
  */
-async function removeLocal(key: string): Promise<void> {
-  await chrome.storage.local.remove(key);
+async function coerceRegistryFromLegacy(): Promise<WorkspaceRegistry | undefined> {
+  const legacyItems = await readLocal<Record<WorkspaceIdType, Workspace>>(LEGACY_WORKSPACES_KEY);
+  const legacyActive = await readLocal<WorkspaceIdType>(LEGACY_ACTIVE_KEY);
+  const rawReg = await readLocal<any>(WORKSPACE_REGISTRY_KEY);
+
+  // A) Separate legacy keys present
+  if (legacyItems && looksLikeItemsMap(legacyItems)) {
+    const activeId =
+      (legacyActive && legacyItems[legacyActive]) ? legacyActive
+      : Object.keys(legacyItems)[0] || DEFAULT_LOCAL_WORKSPACE_ID;
+    const reg: WorkspaceRegistry = {
+      version: 1,
+      activeId,
+      items: legacyItems,
+      migratedLegacyLocal: false,
+    };
+    await writeLocal(WORKSPACE_REGISTRY_KEY, reg);
+    await removeLocal(LEGACY_WORKSPACES_KEY, LEGACY_ACTIVE_KEY);
+    return reg;
+  }
+
+  // B) Registry key contains just a string (activeId)
+  if (typeof rawReg === "string") {
+    const id = rawReg as WorkspaceIdType;
+    let items: Record<WorkspaceIdType, Workspace> | undefined = undefined;
+
+    if (legacyItems && looksLikeItemsMap(legacyItems)) {
+      items = legacyItems;
+    } else {
+      const ws = makeDefaultLocalWorkspace(id);
+      items = { [ws.id]: ws };
+    }
+
+    const reg: WorkspaceRegistry = {
+      version: 1,
+      activeId: id,
+      items,
+      migratedLegacyLocal: false,
+    };
+    await writeLocal(WORKSPACE_REGISTRY_KEY, reg);
+    await removeLocal(LEGACY_WORKSPACES_KEY, LEGACY_ACTIVE_KEY);
+    return reg;
+  }
+
+  // C) Registry key contains a raw items map (no version wrapper)
+  if (rawReg && looksLikeItemsMap(rawReg)) {
+    const first = Object.keys(rawReg)[0] || DEFAULT_LOCAL_WORKSPACE_ID;
+    const reg: WorkspaceRegistry = {
+      version: 1,
+      activeId: first,
+      items: rawReg,
+      migratedLegacyLocal: false,
+    };
+    await writeLocal(WORKSPACE_REGISTRY_KEY, reg);
+    await removeLocal(LEGACY_WORKSPACES_KEY, LEGACY_ACTIVE_KEY);
+    return reg;
+  }
+
+  // Nothing to coerce
+  return undefined;
 }
 /* ---------------------------------------------------------- */
 
 /* -------------------- Registry public API -------------------- */
 /**
- * Load the workspace registry from persistent storage, if available.
+ * Load the workspace registry object from chrome.storage.local.
  *
- * @returns Promise resolving to the registry or undefined when not yet created.
+ * @returns Promise resolving to the registry or undefined when not found.
  */
 export async function loadRegistry(): Promise<WorkspaceRegistry | undefined> {
   return await readLocal<WorkspaceRegistry>(WORKSPACE_REGISTRY_KEY);
 }
-
 /**
- * Persist the workspace registry back to chrome.storage.local.
+ * Persist the workspace registry object to chrome.storage.local.
  *
  * @param registry Registry payload to store.
- * @returns Promise that resolves after saving.
  */
 export async function saveRegistry(registry: WorkspaceRegistry): Promise<void> {
   await writeLocal(WORKSPACE_REGISTRY_KEY, registry);
 }
-
 /**
- * Resolve the currently active workspace, creating the registry if needed.
+ * Resolve the currently active workspace, creating a registry if necessary.
  *
  * @returns Promise resolving to the active workspace metadata.
  */
@@ -81,14 +178,12 @@ export async function getActiveWorkspace(): Promise<Workspace> {
   const reg = await ensureRegistry();
   return reg.items[reg.activeId];
 }
-
 /**
- * Mark a workspace as active and update its `updatedAt` timestamp.
+ * Switch the active workspace identifier and refresh its updatedAt timestamp.
  *
  * @param id Workspace identifier to activate.
- * @returns Promise that resolves once the registry is stored.
  */
-export async function setActiveWorkspace(id: WorkspaceId): Promise<void> {
+export async function setActiveWorkspace(id: WorkspaceIdType): Promise<void> {
   const reg = await ensureRegistry();
   if (!reg.items[id]) throw new Error(`Workspace ${id} not found`);
   reg.activeId = id;
@@ -97,31 +192,29 @@ export async function setActiveWorkspace(id: WorkspaceId): Promise<void> {
 }
 
 /**
- * Create a default local workspace if none exists and migrate legacy storage once.
- *
- * @returns Promise that resolves after initialization/migration work completes.
+ * Create/upgrade registry and run one-time legacy data migration.
  */
 export async function initializeLocalWorkspaceRegistry(): Promise<void> {
+  // Try reading the new-format registry
   let reg = await loadRegistry();
 
-  if (!reg) {
-    const id = `local-${createUniqueID()}`;
-    const now = Date.now();
-    const ws: Workspace = {
-      id,
-      name: DEFAULT_LOCAL_WORKSPACE_ID,
-      storageMode: StorageMode.LOCAL, // your enum/type from constants
-      createdAt: now,
-      updatedAt: now,
-    };
+  // If missing or malformed, try to upgrade any legacy shapes
+  if (!reg || !isRegistryObject(reg)) {
+    const upgraded = await coerceRegistryFromLegacy();
+    if (upgraded) {
+      reg = upgraded;
+    }
+  }
 
+  // If still missing, create a brand-new default local registry
+  if (!reg || !isRegistryObject(reg)) {
+    const ws = makeDefaultLocalWorkspace(DEFAULT_LOCAL_WORKSPACE_ID);
     reg = {
       version: 1,
-      activeId: id,
-      items: { [id]: ws },
+      activeId: ws.id,
+      items: { [ws.id]: ws },
       migratedLegacyLocal: false,
     };
-
     await saveRegistry(reg);
   }
 
@@ -136,13 +229,13 @@ export async function initializeLocalWorkspaceRegistry(): Promise<void> {
 
 /* -------------------- Internal helpers -------------------- */
 /**
- * Ensure a registry exists by lazily creating the default entry when absent.
+ * Guarantee a registry exists by lazily initializing it when absent.
  *
- * @returns Promise resolving to the workspace registry.
+ * @returns Promise resolving to a valid workspace registry.
  */
 async function ensureRegistry(): Promise<WorkspaceRegistry> {
   let reg = await loadRegistry();
-  if (!reg) {
+  if (!reg || !isRegistryObject(reg)) {
     await initializeLocalWorkspaceRegistry();
     reg = (await loadRegistry())!;
   }
@@ -152,35 +245,27 @@ async function ensureRegistry(): Promise<WorkspaceRegistry> {
 /**
  * Move any legacy (non-namespaced) local storage keys into the active workspace namespace.
  *
- * @param targetWsId Workspace identifier receiving the migrated data.
- * @returns Promise that resolves after migration completes.
+ * @param targetWsId Workspace identifier that should own the migrated entries.
  */
-async function migrateLegacyLocalData(targetWsId: WorkspaceId): Promise<void> {
+async function migrateLegacyLocalData(targetWsId: WorkspaceIdType): Promise<void> {
   const all = await readAllLocal();
   const entries = Object.entries(all);
 
-  // Keys to leave alone:
-  // - Registry itself
-  // - Already namespaced keys (start with "WS_")
-  // - Any other global/technical keys you know about
+  // Keep registry object and already namespaced keys
   const shouldKeepGlobal = (k: string) =>
-    k === WORKSPACE_REGISTRY_KEY || k.startsWith("WS_");
+    k === WORKSPACE_REGISTRY_KEY || k.startsWith("WS_") ||
+    k === LEGACY_WORKSPACES_KEY || k === LEGACY_ACTIVE_KEY;
 
   const legacyEntries = entries.filter(([k]) => !shouldKeepGlobal(k));
-
   if (legacyEntries.length === 0) return;
 
-  // Copy to namespaced and remove legacy
   const puts: Record<string, unknown> = {};
   for (const [k, v] of legacyEntries) {
     const nk = `WS_${targetWsId}__${k}`;
     puts[nk] = v;
   }
 
-  // Write all namespaced
   await chrome.storage.local.set(puts);
-
-  // Remove legacy
   await chrome.storage.local.remove(legacyEntries.map(([k]) => k));
 }
 /* ---------------------------------------------------------- */
