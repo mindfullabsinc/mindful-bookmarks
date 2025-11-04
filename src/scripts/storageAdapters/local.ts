@@ -2,8 +2,11 @@
 import type { StorageAdapter } from "@/core/types/storageAdapter";
 import type { WorkspaceIdType } from "@/core/constants/workspaces";
 import type { BookmarkGroupType } from "@/core/types/bookmarks";
-import type { BookmarkSnapshot } from "@/scripts/caching/bookmarkCache";
-
+import { 
+  BookmarkSnapshot, 
+  readGroupsIndexSession, 
+  writeGroupsIndexSession 
+} from "@/scripts/caching/bookmarkCache";
 import {
   readFpGroupsLocalSync,
   readFpIndexLocalSync,
@@ -94,6 +97,15 @@ export const LocalAdapter: Required<StorageAdapter> = {
    * @returns Array of group id/name pairs.
    */
   async readGroupsIndexFast(workspaceId: WorkspaceIdType) {
+    // 1) chrome.storage.session tiny mirror (fast on reopen)
+    try {
+      const mirrored = await readGroupsIndexSession(workspaceId);
+      if (Array.isArray(mirrored) && mirrored.length) {
+        return mirrored as { id: string; groupName: string }[];
+      }
+    } catch {}
+    
+    // 2) First-paint LOCAL snapshot (authoritative fallback)
     return readFpIndexLocalSync(workspaceId);
   },
 
@@ -107,6 +119,12 @@ export const LocalAdapter: Required<StorageAdapter> = {
     if (!Array.isArray(groups) || groups.length === 0) return;
     try { writeFpIndexLocalSync(workspaceId, groups); } catch {}
     try { writeFpGroupsLocalSync(workspaceId, groups); } catch {}
+
+    // Update the tiny chrome.storage.session mirror for fast reopen
+    try {
+      const idx = groups.map(g => ({ id: String(g.id), groupName: String(g.groupName) }));
+      await writeGroupsIndexSession(idx, workspaceId);
+    } catch {}
   },
 
   /* -------------------- Generic WS-scoped storage (new in PR-3) -------------------- */
