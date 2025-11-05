@@ -139,6 +139,7 @@ export const WorkspaceSwitcher: React.FC = () => {
         type="button"
         aria-expanded={panelOpen}
         aria-controls="ws-panel"
+        aria-label={panelOpen ? 'Hide workspaces' : 'Show workspaces'} 
         onClick={() => setPanelOpen((v) => !v)}
         className="fixed left-0 top-1/2 z-50 -translate-y-1/2 rounded-r-2xl border border-l-0  shadow-lg px-2 py-3 text-[11px] font-medium 0 focus:outline-none focus:ring-2
                  bg-neutral-100 dark:bg-neutral-900
