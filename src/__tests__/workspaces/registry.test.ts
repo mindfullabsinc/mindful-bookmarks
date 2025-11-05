@@ -18,7 +18,7 @@ import {
 } from '@/workspaces/registry';
 
 import { StorageMode } from '@/core/constants/storageMode';
-import type { Workspace, WorkspaceRegistry, WorkspaceIdType } from '@/core/constants/workspaces';
+import type { WorkspaceType, WorkspaceRegistryType, WorkspaceIdType } from '@/core/constants/workspaces';
 import {
   DEFAULT_LOCAL_WORKSPACE_ID,
   WORKSPACE_REGISTRY_KEY,
@@ -141,7 +141,7 @@ async function readAllLocal(): Promise<Record<string, unknown>> {
   return (await chrome.storage.local.get(null)) as Record<string, unknown>;
 }
 
-function makeWorkspace(id: WorkspaceIdType, name = 'WS', createdAt = FIXED_NOW_1): Workspace {
+function makeWorkspace(id: WorkspaceIdType, name = 'WS', createdAt = FIXED_NOW_1): WorkspaceType {
   return {
     id,
     name,
@@ -162,7 +162,7 @@ describe('registry (PR-4, local-only)', () => {
 
     await initializeLocalWorkspaceRegistry();
 
-    const reg = (await loadRegistry()) as WorkspaceRegistry;
+    const reg = (await loadRegistry()) as WorkspaceRegistryType;
     expect(reg).toBeDefined();
     expect(reg.version).toBe(1);
     expect(reg.activeId).toBe(DEFAULT_LOCAL_WORKSPACE_ID);
@@ -184,7 +184,7 @@ describe('registry (PR-4, local-only)', () => {
 
   test('saveRegistry / loadRegistry roundtrip', async () => {
     const ws = makeWorkspace(DEFAULT_LOCAL_WORKSPACE_ID);
-    const payload: WorkspaceRegistry = {
+    const payload: WorkspaceRegistryType = {
       version: 1,
       activeId: ws.id,
       items: { [ws.id]: ws },
@@ -198,7 +198,7 @@ describe('registry (PR-4, local-only)', () => {
 
   test('getActiveWorkspace returns the active workspace from an existing registry', async () => {
     const ws = makeWorkspace('local-abc' as WorkspaceIdType);
-    const reg: WorkspaceRegistry = {
+    const reg: WorkspaceRegistryType = {
       version: 1,
       activeId: ws.id,
       items: { [ws.id]: ws },
@@ -213,7 +213,7 @@ describe('registry (PR-4, local-only)', () => {
   test('setActiveWorkspace switches activeId and bumps updatedAt', async () => {
     const ws1 = makeWorkspace('local-1' as WorkspaceIdType, 'One', FIXED_NOW_1);
     const ws2 = makeWorkspace('local-2' as WorkspaceIdType, 'Two', FIXED_NOW_1);
-    const reg: WorkspaceRegistry = {
+    const reg: WorkspaceRegistryType = {
       version: 1,
       activeId: ws1.id,
       items: { [ws1.id]: ws1, [ws2.id]: ws2 },
@@ -304,7 +304,7 @@ describe('registry (PR-4, local-only)', () => {
       const items = {
         'local-a': makeWorkspace('local-a' as WorkspaceIdType, 'A'),
         'local-b': makeWorkspace('local-b' as WorkspaceIdType, 'B'),
-      } as Record<WorkspaceIdType, Workspace>;
+      } as Record<WorkspaceIdType, WorkspaceType>;
 
       await chrome.storage.local.set({
         [LEGACY_WORKSPACES_KEY]: items,
@@ -326,7 +326,7 @@ describe('registry (PR-4, local-only)', () => {
     test('A) activeId missing/invalid → falls back to first key or DEFAULT_LOCAL_WORKSPACE_ID', async () => {
       const items = {
         'local-x': makeWorkspace('local-x' as WorkspaceIdType, 'X'),
-      } as Record<WorkspaceIdType, Workspace>;
+      } as Record<WorkspaceIdType, WorkspaceType>;
 
       await chrome.storage.local.set({
         [LEGACY_WORKSPACES_KEY]: items,
@@ -362,7 +362,7 @@ describe('registry (PR-4, local-only)', () => {
     test('B) registry key is string + legacy items exist → uses legacy items and string as activeId', async () => {
       const items = {
         'local-z': makeWorkspace('local-z' as WorkspaceIdType, 'Z'),
-      } as Record<WorkspaceIdType, Workspace>;
+      } as Record<WorkspaceIdType, WorkspaceType>;
       await chrome.storage.local.set({
         [WORKSPACE_REGISTRY_KEY]: 'local-z',
         [LEGACY_WORKSPACES_KEY]: items,
@@ -379,7 +379,7 @@ describe('registry (PR-4, local-only)', () => {
       const rawItems = {
         'local-raw': makeWorkspace('local-raw' as WorkspaceIdType, 'RAW'),
         'local-raw-2': makeWorkspace('local-raw-2' as WorkspaceIdType, 'RAW2'),
-      } as Record<WorkspaceIdType, Workspace>;
+      } as Record<WorkspaceIdType, WorkspaceType>;
 
       await chrome.storage.local.set({
         [WORKSPACE_REGISTRY_KEY]: rawItems,

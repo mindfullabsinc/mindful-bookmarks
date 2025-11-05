@@ -9,7 +9,7 @@ import { createUniqueID } from "@/core/utils/utilities";
 /* -------------------- Types -------------------- */
 export type WorkspaceIdType = string;
 
-export type Workspace = {
+export type WorkspaceType = {
   id: WorkspaceIdType;
   name: string;
   storageMode: StorageModeType; // "local" for PR3
@@ -22,11 +22,11 @@ export type Workspace = {
 export interface WorkspaceRegistryV1 {
   version: 1;
   activeId: WorkspaceIdType;
-  items: Record<WorkspaceIdType, Workspace>;
+  items: Record<WorkspaceIdType, WorkspaceType>;
   migratedLegacyLocal?: boolean; // marks whether legacy Local data has been moved under WS_<id>
 }
 
-export type WorkspaceRegistry = WorkspaceRegistryV1;
+export type WorkspaceRegistryType = WorkspaceRegistryV1;
 /* ---------------------------------------------------------- */
 
 /* -------------------- Keys and constants -------------------- */
@@ -61,7 +61,7 @@ export const makeLocalWorkspaceId = (): WorkspaceIdType =>
  *
  * @returns Workspace metadata for the built-in local workspace.
  */
-export function makeDefaultLocalWorkspace(): Workspace {
+export function makeDefaultLocalWorkspace(): WorkspaceType {
   const now = Date.now();
   return {
     id: DEFAULT_LOCAL_WORKSPACE_ID,

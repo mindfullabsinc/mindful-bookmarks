@@ -1,4 +1,6 @@
 import React, { useMemo, useState, useContext, useEffect, useRef } from 'react';
+
+/* Scripts and hooks */
 import {
   getActiveWorkspaceId,
   listLocalWorkspaces,
@@ -11,34 +13,36 @@ import {
   clearSessionGroupsIndexExcept,
   writeGroupsIndexSession,
 } from '@/scripts/caching/bookmarkCache';
-import type { Workspace } from '@/core/constants/workspaces';
+
+/* Types */
+import type { WorkspaceType } from '@/core/constants/workspaces';
 
 /**
  * WorkspaceSwitcher (Left Tab Popout)
  *
  * A compact, always-available left-edge tab that slides out a panel.
- * - Keeps Mindful's dark zinc theme
+ * - Keeps Mindful's dark neutral theme
  * - Keyboard accessible (Tab/Shift+Tab, ESC closes)
  * - Click outside closes
  * - Works with existing registry + AppContext flow
  */
 export const WorkspaceSwitcher: React.FC = () => {
-  // Context
+  /* -------------------- Context / state -------------------- */
   const { setActiveWorkspaceId, activeWorkspaceId: ctxActiveId } = useContext(AppContext) as {
     setActiveWorkspaceId: (id: string) => Promise<void> | void;
     activeWorkspaceId: string | null;
   };
 
-  // Local state
   const [panelOpen, setPanelOpen] = useState(false);
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  const [workspaces, setWorkspaces] = useState<WorkspaceType[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
 
   // Refs for click-outside and focus handling
   const panelRef = useRef<HTMLDivElement | null>(null);
   const openerRef = useRef<HTMLButtonElement | null>(null);
+  /* ---------------------------------------------------------- */
 
-  // Bootstrap
+  /* -------------------- Effects -------------------- */
   useEffect(() => {
     (async () => {
       const [list, active] = await Promise.all([
@@ -50,6 +54,20 @@ export const WorkspaceSwitcher: React.FC = () => {
     })();
   }, []);
 
+  // Close on ESC and restore focus
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setPanelOpen(false);
+        requestAnimationFrame(() => openerRef.current?.focus());
+      }
+    }
+    if (panelOpen) document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [panelOpen]);
+  /* ---------------------------------------------------------- */
+
+  /* -------------------- Handlers -------------------- */ 
   const activeName = useMemo(
     () => workspaces.find((w) => w.id === activeId)?.name ?? 'Workspace',
     [workspaces, activeId]
@@ -111,19 +129,9 @@ export const WorkspaceSwitcher: React.FC = () => {
 
     await refresh();
   }
+  /* ---------------------------------------------------------- */
 
-  // Close on ESC and restore focus
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') {
-        setPanelOpen(false);
-        requestAnimationFrame(() => openerRef.current?.focus());
-      }
-    }
-    if (panelOpen) document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [panelOpen]);
-
+  /* -------------------- Component UI -------------------- */
   return (
     <>
       {/* Backdrop when open */}
@@ -249,4 +257,5 @@ export const WorkspaceSwitcher: React.FC = () => {
       </div>
     </>
   );
+  /* ---------------------------------------------------------- */
 };
