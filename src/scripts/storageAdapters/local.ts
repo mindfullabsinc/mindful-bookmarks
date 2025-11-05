@@ -62,6 +62,34 @@ async function removeLocal(workspaceId: WorkspaceIdType, key: string): Promise<v
   const full = ns(workspaceId, key);
   await chrome.storage.local.remove(full);
 }
+
+/**
+ * Derive a lightweight "groups index" from a full workspace groups array.
+ *
+ * This is used to populate the fast session mirror (`chrome.storage.session`)
+ * for quick reopen and workspace switching without loading full bookmark data.
+ * Each entry contains only the group’s `id` and `groupName`, which are enough
+ * for listing and selection in the UI.
+ *
+ * @param {BookmarkGroupType[]} groups
+ *   Full array of bookmark groups belonging to a workspace.
+ *
+ * @returns {{ id: string; groupName: string }[]}
+ *   A compact array of objects containing each group's identifier and name,
+ *   suitable for storage in `chrome.storage.session`.
+ *
+ * @example
+ * deriveIndex([
+ *   { id: "g1", groupName: "Work", bookmarks: [...] },
+ *   { id: "g2", groupName: "Personal", bookmarks: [...] }
+ * ]);
+ * // → [ { id: "g1", groupName: "Work" }, { id: "g2", groupName: "Personal" } ]
+ */
+export const deriveIndex = (groups: BookmarkGroupType[]) =>
+  groups.map(g => ({
+    id: String(g.id),
+    groupName: String(g.groupName),
+  }));
 /* ---------------------------------------------------------- */
 
 /* -------------------- Adapter -------------------- */
@@ -147,6 +175,33 @@ export const LocalAdapter: Required<StorageAdapter> = {
    */
   async remove(workspaceId: WorkspaceIdType, key: string): Promise<void> {
     await removeLocal(workspaceId, key);
+  },
+
+    /** Return all groups for a workspace (no caching side-effects). */
+  async readAllGroups(workspaceId: string): Promise<BookmarkGroupType[]> {
+    // Read from the canonical local store:
+    const raw = localStorage.getItem(`mindful_${workspaceId}_bookmarks_snapshot_v1`);
+    if (!raw) return [];
+    try {
+      const snap = JSON.parse(raw);
+      return Array.isArray(snap?.data?.groups) ? snap.data.groups as BookmarkGroupType[] : [];
+    } catch {
+      return [];
+    }
+  },
+
+  /** Overwrite all groups for a workspace. No mutation beyond this workspace. */
+  async writeAllGroups(workspaceId: string, groups: BookmarkGroupType[]): Promise<void> {
+    const payload = {
+      data: { groups },
+      at: Date.now(),
+    };
+    localStorage.setItem(
+      `mindful_${workspaceId}_bookmarks_snapshot_v1`,
+      JSON.stringify(payload)
+    );
+    // update the session mirror 
+    writeGroupsIndexSession?.(workspaceId, deriveIndex(groups));
   },
   /* ---------------------------------------------------------- */
 };

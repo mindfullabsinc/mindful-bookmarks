@@ -28,6 +28,22 @@ export interface StorageAdapter {
   get?<T = unknown>(workspaceId: WorkspaceIdType, key: string): Promise<T | undefined>;
   set?<T = unknown>(workspaceId: WorkspaceIdType, key: string, value: T): Promise<void>;
   remove?(workspaceId: WorkspaceIdType, key: string): Promise<void>;
+
+  /**
+   * Return the full groups array for a workspace.
+   * PR-5 needs a raw, non-mutating read/write path for Local→Local copy.
+   * Non-Local adapters can omit this (it’s optional).
+   */
+  readAllGroups?(workspaceId: WorkspaceIdType): Promise<BookmarkGroupType[]>;
+
+  /**
+   * Overwrite the full groups array for a workspace.
+   * Must not mutate any other workspace or caches as side-effects.
+   */
+  writeAllGroups?(
+    workspaceId: WorkspaceIdType,
+    groups: BookmarkGroupType[]
+  ): Promise<void>;
 }
 
 /** Narrowing helper for callers that want to use KV ops safely */
