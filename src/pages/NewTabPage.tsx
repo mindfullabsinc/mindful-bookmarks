@@ -381,9 +381,7 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
         onStorageModeChange={changeStorageMode}
       />
       {/* Workspace Switcher (Local-only). Compact, header-aligned. */}
-      <div className="px-3 pt-2 pb-1 flex justify-end">
-        <WorkspaceSwitcher />
-      </div>
+      <WorkspaceSwitcher />
       {ready && (
         <>
           <DraggableGrid
