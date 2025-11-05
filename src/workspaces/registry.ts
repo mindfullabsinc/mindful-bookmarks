@@ -55,6 +55,7 @@ async function removeLocal(...keys: string[]): Promise<void> {
  */
 function isWorkspace(x: any): x is Workspace {
   return x && typeof x === "object" && typeof x.id === "string" && typeof x.name === "string";
+  // archived is optional; no strict check needed
 }
 /**
  * Check whether a value appears to be a workspace items map.
@@ -70,7 +71,12 @@ function isRegistryObject(x: any): x is WorkspaceRegistry {
   return x && typeof x === "object" && x.version === 1 && x.items && x.activeId;
 }
 
-/** Build a default Local workspace object, using PR-3 schema. */
+/**
+ * Build a default Local workspace object, using PR-3 schema.
+ *
+ * @param id Optional workspace identifier override (auto-generated when omitted).
+ * @returns Workspace payload with sensible defaults.
+ */
 function makeDefaultLocalWorkspace(id?: WorkspaceIdType): Workspace {
   const now = Date.now();
   return {
@@ -88,6 +94,8 @@ function makeDefaultLocalWorkspace(id?: WorkspaceIdType): Workspace {
  *  A) separate legacy keys: items map + active id
  *  B) WORKSPACE_REGISTRY_KEY accidentally stored as a string (activeId)
  *  C) WORKSPACE_REGISTRY_KEY stored as a raw items map (no wrapper)
+ *
+ * @returns Promise resolving to a normalized registry or undefined when nothing was migrated.
  */
 async function coerceRegistryFromLegacy(): Promise<WorkspaceRegistry | undefined> {
   const legacyItems = await readLocal<Record<WorkspaceIdType, Workspace>>(LEGACY_WORKSPACES_KEY);
@@ -193,6 +201,8 @@ export async function setActiveWorkspace(id: WorkspaceIdType): Promise<void> {
 
 /**
  * Create/upgrade registry and run one-time legacy data migration.
+ *
+ * @returns Promise that resolves once initialization work finishes.
  */
 export async function initializeLocalWorkspaceRegistry(): Promise<void> {
   // Try reading the new-format registry
@@ -224,6 +234,132 @@ export async function initializeLocalWorkspaceRegistry(): Promise<void> {
     reg.migratedLegacyLocal = true;
     await saveRegistry(reg);
   }
+}
+
+/* -------------------- PR-4: Workspace Switcher APIs (additive) -------------------- */
+
+/**
+ * Return local workspaces, optionally including archived ones.
+ *
+ * Sorted by createdAt ascending to keep default at the top.
+ *
+ * @param opts Optional filters (e.g., include archived entries).
+ * @returns Sorted array of workspaces.
+ */
+export async function listLocalWorkspaces(opts?: {
+  includeArchived?: boolean;
+}): Promise<Workspace[]> {
+  const reg = await ensureRegistry();
+  const all = Object.values(reg.items).sort((a, b) => a.createdAt - b.createdAt);
+  return opts?.includeArchived ? all : all.filter(w => !w.archived);
+}
+
+/**
+ * Convenience: get just the active workspace id.
+ *
+ * @returns Promise resolving to the active workspace identifier.
+ */
+export async function getActiveWorkspaceId(): Promise<WorkspaceIdType> {
+  const reg = await ensureRegistry();
+  return reg.activeId;
+}
+
+/**
+ * Ensure there is at least one Local workspace and an active id set (for boot scenarios).
+ *
+ * @returns Promise that resolves once invariants are restored.
+ */
+export async function ensureDefaultWorkspace(): Promise<void> {
+  let reg = await loadRegistry();
+  if (!reg || !isRegistryObject(reg)) {
+    await initializeLocalWorkspaceRegistry();
+    reg = (await loadRegistry())!;
+  }
+
+  // If registry exists but somehow has no items, seed one default.
+  if (!Object.keys(reg.items ?? {}).length) {
+    const ws = makeDefaultLocalWorkspace(DEFAULT_LOCAL_WORKSPACE_ID);
+    reg.items = { [ws.id]: ws };
+    reg.activeId = ws.id;
+    await saveRegistry(reg);
+  }
+}
+
+/**
+ * Create a new Local workspace with an empty dataset (adapter will hydrate later)
+ * and switch the active workspace immediately.
+ *
+ * @param name Display name to use for the new workspace.
+ * @returns Newly created workspace metadata.
+ */
+export async function createLocalWorkspace(name = "Local Workspace"): Promise<Workspace> {
+  const reg = await ensureRegistry();
+
+  const id: WorkspaceIdType = `local-${createUniqueID()}`; // reuses your canonical helper
+  const now = Date.now();
+  const ws: Workspace = {
+    id,
+    name,
+    storageMode: StorageMode.LOCAL,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  reg.items[id] = ws;
+  reg.activeId = id;
+  await saveRegistry(reg);
+
+  return ws;
+}
+
+/**
+ * Rename a workspace (no-op if not found).
+ *
+ * @param id Workspace identifier to rename.
+ * @param name New display name.
+ */
+export async function renameWorkspace(id: WorkspaceIdType, name: string): Promise<void> {
+  const reg = await ensureRegistry();
+  const ws = reg.items[id];
+  if (!ws) return;
+  reg.items[id] = { ...ws, name: name.trim(), updatedAt: Date.now() };
+  await saveRegistry(reg);
+}
+
+/**
+ * Soft-archive a workspace (hide in switcher but keep all data).
+ * Guard: don’t allow archiving the last active non-archived workspace.
+ * If archiving the active one, fall back to DEFAULT_LOCAL_WORKSPACE_ID when available,
+ * otherwise pick the first non-archived workspace.
+ *
+ * @param id Workspace identifier to archive.
+ */
+export async function archiveWorkspace(id: WorkspaceIdType): Promise<void> {
+  const reg = await ensureRegistry();
+  const ws = reg.items[id];
+  if (!ws) return;
+
+  const live = Object.values(reg.items).filter(w => !w.archived);
+  if (live.length <= 1) {
+    // Don’t archive the only remaining live workspace
+    return;
+  }
+
+  reg.items[id] = { ...ws, archived: true, updatedAt: Date.now() };
+
+  if (reg.activeId === id) {
+    const fallback =
+      reg.items[DEFAULT_LOCAL_WORKSPACE_ID] && !reg.items[DEFAULT_LOCAL_WORKSPACE_ID].archived
+        ? DEFAULT_LOCAL_WORKSPACE_ID
+        : Object.values(reg.items).find(w => !w.archived && w.id !== id)?.id;
+
+    if (fallback) {
+      reg.activeId = fallback;
+      reg.items[fallback].updatedAt = Date.now();
+    }
+  }
+
+  await saveRegistry(reg);
 }
 /* ---------------------------------------------------------- */
 

@@ -27,6 +27,7 @@ import { AppContext } from "@/scripts/AppContextProvider";
 import TopBanner from "@/components/TopBanner";
 import DraggableGrid, { GridHandle } from '@/components/DraggableGrid';
 import EmptyBookmarksState from '@/components/EmptyBookmarksState';
+import { WorkspaceSwitcher } from "@/components/WorkspaceSwitcher";
 /* ---------------------------------------------------------- */
 
 /* -------------------- Local types and interfaces -------------------- */
@@ -379,6 +380,8 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
         isSignedIn={isSignedIn /* prefer context-derived status over props */}
         onStorageModeChange={changeStorageMode}
       />
+      {/* Workspace Switcher (Local-only). Compact, header-aligned. */}
+      <WorkspaceSwitcher />
       {ready && (
         <>
           <DraggableGrid

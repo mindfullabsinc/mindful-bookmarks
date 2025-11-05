@@ -1,6 +1,6 @@
 /**
  * @file registry.test.ts
- * Tests for PR-3 workspace registry (local-only).
+ * Tests for PR-4 workspace registry (Local-only) + legacy coercion from PR-3.
  */
 
 import {
@@ -9,6 +9,12 @@ import {
   getActiveWorkspace,
   setActiveWorkspace,
   initializeLocalWorkspaceRegistry,
+  getActiveWorkspaceId,
+  listLocalWorkspaces,
+  createLocalWorkspace,
+  renameWorkspace,
+  archiveWorkspace,
+  ensureDefaultWorkspace,
 } from '@/workspaces/registry';
 
 import { StorageMode } from '@/core/constants/storageMode';
@@ -149,8 +155,8 @@ function makeWorkspace(id: WorkspaceIdType, name = 'WS', createdAt = FIXED_NOW_1
 // Tests
 // =====================================================================
 
-describe('registry (PR-3, local-only)', () => {
-  test('initializeLocalWorkspaceRegistry → creates brand-new registry when empty and migrates legacy keys', async () => {
+describe('registry (PR-4, local-only)', () => {
+  test('initializeLocalWorkspaceRegistry → creates default registry when empty and migrates legacy keys', async () => {
     // seed one legacy (non-namespaced) local key that should be migrated
     store['mindful_local_groups_index_v1'] = { foo: 'bar' };
 
@@ -223,6 +229,74 @@ describe('registry (PR-3, local-only)', () => {
     const reloaded = (await loadRegistry())!;
     expect(reloaded.activeId).toBe(ws2.id);
     expect(reloaded.items[ws2.id].updatedAt).toBe(FIXED_NOW_2);
+  });
+
+  test('ensureDefaultWorkspace creates a sane registry if called first', async () => {
+    await ensureDefaultWorkspace();
+    const reg = (await loadRegistry())!;
+    expect(reg.version).toBe(1);
+    expect(reg.items[DEFAULT_LOCAL_WORKSPACE_ID]).toBeTruthy();
+    expect(reg.activeId).toBe(DEFAULT_LOCAL_WORKSPACE_ID);
+  });
+
+  test('listLocalWorkspaces returns non-archived by default (sorted by createdAt)', async () => {
+    await initializeLocalWorkspaceRegistry();
+    
+    // Make ids unique for the two creations below
+    const { createUniqueID } = require('@/core/utils/utilities');
+    (createUniqueID as jest.Mock)
+      .mockImplementationOnce(() => 'alpha-id')
+      .mockImplementationOnce(() => 'beta-id');
+
+    // add two additional workspaces
+    const a = await createLocalWorkspace('Alpha');
+    const b = await createLocalWorkspace('Beta');
+    
+    const list = await listLocalWorkspaces();
+    const names = list.map(w => w.name).sort();
+    expect(names).toEqual(['Alpha', 'Beta', 'My Bookmarks'].sort());
+
+    // includeArchived should include everything
+    const all = await listLocalWorkspaces({ includeArchived: true });
+    expect(all.map(w => w.id).sort()).toEqual(
+      [DEFAULT_LOCAL_WORKSPACE_ID, a.id, b.id].sort()
+    );
+  });
+
+  test('createLocalWorkspace adds a workspace and makes it active', async () => {
+    await initializeLocalWorkspaceRegistry();
+    const before = await getActiveWorkspaceId();
+    expect(before).toBe(DEFAULT_LOCAL_WORKSPACE_ID);
+    const w = await createLocalWorkspace('Project X');
+    expect(w.id).toMatch(/^local-/);
+    expect(await getActiveWorkspaceId()).toBe(w.id);
+    const reg = await loadRegistry();
+    expect(reg!.items[w.id]).toBeTruthy();
+  });
+
+  test('renameWorkspace updates name and updatedAt', async () => {
+    await initializeLocalWorkspaceRegistry();
+    const w = await createLocalWorkspace('Temp');
+    const prevUpdated = (await loadRegistry())!.items[w.id].updatedAt;
+    (Date.now as jest.Mock).mockReturnValue(FIXED_NOW_2);
+    await renameWorkspace(w.id, 'Renamed');
+    const reg = await loadRegistry();
+    expect(reg!.items[w.id].name).toBe('Renamed');
+    expect(reg!.items[w.id].updatedAt).toBeGreaterThanOrEqual(prevUpdated);
+  });
+
+  test('archiveWorkspace hides from default list and reassigns active if needed', async () => {
+    await initializeLocalWorkspaceRegistry();
+    const w1 = await createLocalWorkspace('One');
+    const w2 = await createLocalWorkspace('Two');
+    // active is w2
+    expect(await getActiveWorkspaceId()).toBe(w2.id);
+    await archiveWorkspace(w2.id);
+    const list = await listLocalWorkspaces();
+    expect(list.find(w => w.id === w2.id)).toBeUndefined();
+    // active moved to a non-archived workspace
+    const newActive = await getActiveWorkspaceId();
+    expect(newActive).not.toBe(w2.id);
   });
 
   describe('initializeLocalWorkspaceRegistry → coerce legacy shapes', () => {

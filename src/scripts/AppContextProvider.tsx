@@ -32,6 +32,8 @@ import {
   writeBookmarkCacheSync,
   readBookmarkCacheSession,
   writeBookmarkCacheSession,
+  writeGroupsIndexSession,           
+  clearSessionGroupsIndexExcept,     
 } from '@/scripts/caching/bookmarkCache';
 import type { BookmarkSnapshot } from '@/scripts/caching/bookmarkCache';
 
@@ -45,8 +47,19 @@ import {
 /* ---------------------------------------------------------- */
 
 /* -------------------- Class-level helpers -------------------- */
-// Workspace-scoped small index keys 
+/**
+ * Derive the chrome.sessionStorage key for the groups index cache bound to a workspace.
+ *
+ * @param wid Workspace identifier used to namespace the session cache entry.
+ * @returns Fully qualified session key for the workspace groups index.
+ */
 const sessionGroupsIndexKey = (wid: WorkspaceIdType) => `groupsIndex:${wid}`;
+/**
+ * Derive the chrome.local storage key for the groups index cache bound to a workspace.
+ *
+ * @param wid Workspace identifier used to namespace the persistent cache entry.
+ * @returns Fully qualified local storage key for the workspace groups index.
+ */
 const localGroupsIndexKey   = (wid: WorkspaceIdType) => `groupsIndex:${wid}`;
 
 // Ensure the workspace registry exists and legacy data is migrated (runs once)
@@ -238,6 +251,7 @@ export function AppContextProvider({
     // Remote/other future modes can keep using the generic path.
     try { chrome?.storage?.local?.set?.({ [localGroupsIndexKey(workspaceId)]: idx }); } catch {}
     try { chrome?.storage?.session?.set?.({ [sessionGroupsIndexKey(workspaceId)]: idx }); } catch {}
+    try { await writeGroupsIndexSession(workspaceId, idx); } catch {}
     const snap: BookmarkSnapshot = { data: groups, at: Date.now() };
     const payload = { idx, snap };
     try { writeBookmarkCacheSync(payload, workspaceId); } catch {}
@@ -591,6 +605,11 @@ export function AppContextProvider({
 
     let cancelled = false;
 
+    /**
+     * Trigger the authoritative bookmark load and cache refresh for the active workspace.
+     *
+     * @returns Promise from the load pipeline, used for idle scheduling management.
+     */
     const kickoff = () =>
       loadAndCache(userId, id, storageMode, activeWorkspaceId, setBookmarkGroups, deepEqual)
         .then(() => {
@@ -629,6 +648,9 @@ export function AppContextProvider({
   useEffect(() => {
     if (isMigrating) return;
 
+    /**
+     * Pull the latest bookmark payload for the active workspace and update state without touching the global loading indicators.
+     */
     const reload = async () => {
       try {
         if (!activeWorkspaceId) return;
@@ -640,6 +662,11 @@ export function AppContextProvider({
     };
 
     // Runtime messages (e.g., popup saved/imported)
+    /**
+     * React to chrome runtime messages indicating bookmark mutations from other surfaces.
+     *
+     * @param msg Cross-context message payload emitted by the extension runtime.
+     */
     const runtimeHandler = (msg: { type?: string }) => {
       if (msg?.type === 'MINDFUL_BOOKMARKS_UPDATED') reload();
     };
@@ -657,6 +684,9 @@ export function AppContextProvider({
     } catch {}
 
     // Visibility regain (tab refocus) — best-effort refresh
+    /**
+     * Refresh bookmarks when the current document regains visibility.
+     */
     const onVis = () => {
       if (document.visibilityState === 'visible') reload();
     };
@@ -672,6 +702,21 @@ export function AppContextProvider({
       document.removeEventListener('visibilitychange', onVis);
     };
   }, [authKey, storageMode, isMigrating, user, activeWorkspaceId]);
+  
+  /**
+   * Keep the chrome.storage.session tiny index mirror isolated to the active workspace.
+   * We seed null (placeholder) and let writers populate real values after loads.
+   */
+  useEffect(() => {
+    (async () => {
+      if (!activeWorkspaceId) return;
+      if (storageMode === StorageMode.REMOTE && isHydratingRemote) return; // don't touch mirrors while gating remote
+      try {
+        await clearSessionGroupsIndexExcept(activeWorkspaceId);
+        await writeGroupsIndexSession(activeWorkspaceId, []);
+      } catch {}
+    })();
+  }, [activeWorkspaceId, storageMode, isHydratingRemote]);
   /* ---------------------------------------------------------- */
 
   // ----- render gate: only block first paint if we truly have nothing -----

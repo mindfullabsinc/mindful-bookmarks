@@ -4,6 +4,7 @@ import {
   StorageMode,
   type StorageModeType 
 } from "@/core/constants/storageMode";
+import { createUniqueID } from "@/core/utils/utilities";
 
 /* -------------------- Types -------------------- */
 export type WorkspaceIdType = string;
@@ -14,6 +15,7 @@ export type Workspace = {
   storageMode: StorageModeType; // "local" for PR3
   createdAt: number;
   updatedAt: number;
+  archived?: boolean; // allow soft-hiding in switcher without data loss
 }
 
 // WorkspaceRegistryV1 keeps track of all workspaces and the active one
@@ -29,7 +31,7 @@ export type WorkspaceRegistry = WorkspaceRegistryV1;
 
 /* -------------------- Keys and constants -------------------- */
 export const WORKSPACE_REGISTRY_KEY = 'mindful.workspaces.registry.v1';
-
+export const DEFAULT_LOCAL_WORKSPACE_ID = 'local-default';
 
 /**
  * Construct a namespaced storage key for a workspace-scoped payload.
@@ -43,7 +45,14 @@ export const WORKSPACE_REGISTRY_KEY = 'mindful.workspaces.registry.v1';
 export const wsKey = (workspaceId: WorkspaceIdType, key: string) =>
   `WS_${workspaceId}__${key}`;
 
-export const DEFAULT_LOCAL_WORKSPACE_ID = 'local-default';
+/**
+ * Create a local-only workspace id.
+ * Kept simple & deterministic for tests; swap to nanoid later if desired.
+ *
+ * @returns New workspace identifier string.
+ */
+export const makeLocalWorkspaceId = (): WorkspaceIdType =>
+  `local-${createUniqueID()}`;
 /* ---------------------------------------------------------- */
 
 /* -------------------- Helper functions -------------------- */
