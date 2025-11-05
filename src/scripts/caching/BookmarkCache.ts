@@ -4,6 +4,7 @@ import { WorkspaceIdType, DEFAULT_LOCAL_WORKSPACE_ID } from '@/core/constants/wo
 
 /* -------------------- Local types and interfaces -------------------- */
 export type BookmarkSnapshot = { data: any; at: number; etag?: string };
+export type GroupsIndexEntry = { id: string; groupName: string };
 /* ---------------------------------------------------------- */
 
 /* -------------------- Helper functions -------------------- */
@@ -52,35 +53,34 @@ export function writeBookmarkCacheSync(
   } catch {}
 }
 
-/* -------------------- NEW: chrome.storage.session tiny mirror (index only) -------------------- */
+/* -------------------- chrome.storage.session tiny mirror (index only) -------------------- */
 /**
- * Read the tiny groups-index mirror from chrome.storage.session (fast-path for reopen).
- * NOTE: This is NOT the source of truth; localStorage snapshot is.
- *
- * @param workspaceId Workspace identifier whose session mirror should be read. Defaults to the local workspace.
- * @returns Previously cached groups index or null when nothing is mirrored.
+ * Read the tiny groups-index mirror for a workspace from chrome.storage.session.
  */
 export async function readGroupsIndexSession(
-  workspaceId: WorkspaceIdType = DEFAULT_LOCAL_WORKSPACE_ID
-): Promise<unknown | null> {
+  workspaceId: WorkspaceIdType
+): Promise<GroupsIndexEntry[] | null> {
   const api = (globalThis as any).chrome?.storage?.session;
   if (!api?.get) return null;
   try {
     const key = groupsIndexSessionKey(workspaceId);
-    const result = await api.get(key);
-    return result?.[key] ?? null;
-  } catch { return null; }
+    const obj = (await api.get([key])) ?? {};
+    const val = (obj as Record<string, unknown>)[key];
+    return Array.isArray(val) ? (val as GroupsIndexEntry[]) : null;
+  } catch {
+    return null;
+  }
 }
 
 /**
- * Write the tiny groups-index mirror to chrome.storage.session.
+ * Write the tiny groups-index mirror to chrome.storage.session (PR-4).
  *
- * @param idx Serialized groups index to store in the session mirror.
- * @param workspaceId Workspace identifier whose session mirror should be updated. Defaults to the local workspace.
+ * @param workspaceId Workspace identifier whose session mirror should be updated.
+ * @param idx Array of {id, groupName} for the groups index.
  */
 export async function writeGroupsIndexSession(
-  idx: unknown,
-  workspaceId: WorkspaceIdType = DEFAULT_LOCAL_WORKSPACE_ID
+  workspaceId: WorkspaceIdType,
+  idx: GroupsIndexEntry[]
 ): Promise<void> {
   const api = (globalThis as any).chrome?.storage?.session;
   if (!api?.set) return;
@@ -95,16 +95,16 @@ export async function writeGroupsIndexSession(
  * @param workspaceId Workspace identifier whose mirror should be kept. Defaults to the local workspace.
  */
 export async function clearSessionGroupsIndexExcept(
-  workspaceId: WorkspaceIdType = DEFAULT_LOCAL_WORKSPACE_ID
+  keepWorkspaceId: WorkspaceIdType
 ): Promise<void> {
   const api = (globalThis as any).chrome?.storage?.session;
   if (!api?.get || !api?.remove) return;
   try {
-    const all = await api.get(null as any);
-    const keys = Object.keys(all).filter(
-      k => k.startsWith('groupsIndex:') && k !== groupsIndexSessionKey(workspaceId)
+    const all = (await api.get(null)) ?? {};
+    const toRemove = Object.keys(all).filter(
+      (k) => k.startsWith('groupsIndex:') && k !== groupsIndexSessionKey(keepWorkspaceId)
     );
-    if (keys.length) await api.remove(keys);
+    if (toRemove.length) await api.remove(toRemove);
   } catch {}
 }
 /* --------------------------------------------------------------------------------------------- */

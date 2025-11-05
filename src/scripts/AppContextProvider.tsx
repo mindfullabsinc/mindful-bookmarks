@@ -251,7 +251,7 @@ export function AppContextProvider({
     // Remote/other future modes can keep using the generic path.
     try { chrome?.storage?.local?.set?.({ [localGroupsIndexKey(workspaceId)]: idx }); } catch {}
     try { chrome?.storage?.session?.set?.({ [sessionGroupsIndexKey(workspaceId)]: idx }); } catch {}
-    try { await writeGroupsIndexSession(idx, workspaceId); } catch {}
+    try { await writeGroupsIndexSession(workspaceId, idx); } catch {}
     const snap: BookmarkSnapshot = { data: groups, at: Date.now() };
     const payload = { idx, snap };
     try { writeBookmarkCacheSync(payload, workspaceId); } catch {}
@@ -713,7 +713,7 @@ export function AppContextProvider({
       if (storageMode === StorageMode.REMOTE && isHydratingRemote) return; // don't touch mirrors while gating remote
       try {
         await clearSessionGroupsIndexExcept(activeWorkspaceId);
-        await writeGroupsIndexSession(null, activeWorkspaceId);
+        await writeGroupsIndexSession(activeWorkspaceId, []);
       } catch {}
     })();
   }, [activeWorkspaceId, storageMode, isHydratingRemote]);

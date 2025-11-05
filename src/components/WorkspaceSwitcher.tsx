@@ -74,7 +74,7 @@ export const WorkspaceSwitcher: React.FC = () => {
 
     // Session mirror hygiene
     await clearSessionGroupsIndexExcept(workspace_id);
-    await writeGroupsIndexSession(null, workspace_id);
+    await writeGroupsIndexSession(workspace_id, []);
 
     await refresh();
     setPanelOpen(false);
@@ -87,7 +87,7 @@ export const WorkspaceSwitcher: React.FC = () => {
     const ws = await createLocalWorkspace('Local Workspace');
     await (setActiveWorkspaceId as any)(ws.id);
     await clearSessionGroupsIndexExcept(ws.id);
-    await writeGroupsIndexSession(null, ws.id);
+    await writeGroupsIndexSession(ws.id, []);
     await refresh();
   }
 
@@ -107,7 +107,7 @@ export const WorkspaceSwitcher: React.FC = () => {
     await (setActiveWorkspaceId as any)(newActive);
 
     await clearSessionGroupsIndexExcept(newActive);
-    await writeGroupsIndexSession(null, newActive);
+    await writeGroupsIndexSession(newActive, []);
 
     await refresh();
   }

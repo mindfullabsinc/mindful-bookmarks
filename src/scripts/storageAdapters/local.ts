@@ -123,7 +123,7 @@ export const LocalAdapter: Required<StorageAdapter> = {
     // Update the tiny chrome.storage.session mirror for fast reopen
     try {
       const idx = groups.map(g => ({ id: String(g.id), groupName: String(g.groupName) }));
-      await writeGroupsIndexSession(idx, workspaceId);
+      await writeGroupsIndexSession(workspaceId, idx);
     } catch {}
   },
 
