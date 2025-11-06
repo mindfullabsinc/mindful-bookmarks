@@ -3,6 +3,7 @@ import type { BookmarkGroupType, BookmarkType } from "@/core/types/bookmarks";
 import { getAdapter } from "@/scripts/storageAdapters";
 import { StorageMode } from "@/core/constants/storageMode";
 import { normalizeUrl } from "@/core/utils/utilities";
+import { EMPTY_GROUP_IDENTIFIER } from "@/core/constants/constants";
 
 type CopyTarget =
   | { kind: "group"; groupId: string }                 // copy whole group(s)
@@ -57,7 +58,8 @@ export async function copyItems(opts: CopyOptions): Promise<CopyResult> {
     abortSignal,
     onProgress,
   } = opts;
-  // Adapters: we’re Local-only for PR-5
+
+  // Local-only for PR-5
   const adapter = getAdapter(StorageMode.LOCAL);
   if (!adapter?.readAllGroups || !adapter?.writeAllGroups) {
     throw new Error("Local adapter missing readAllGroups/writeAllGroups");
@@ -68,7 +70,7 @@ export async function copyItems(opts: CopyOptions): Promise<CopyResult> {
     adapter.readAllGroups(fromStorageKey), // BookmarkGroupType[]
     adapter.readAllGroups(toStorageKey),
   ]);
-  
+
   // Build fast lookup maps
   const destGroupById = new Map<string, BookmarkGroupType>(destGroups.map(g => [g.id, g]));
 
@@ -77,10 +79,7 @@ export async function copyItems(opts: CopyOptions): Promise<CopyResult> {
   if (dedupeByUrl) {
     for (const g of destGroups) {
       for (const b of g.bookmarks) {
-        // Only normalize and add if the URL exists
-        if (b.url) {
-          destUrlSet.add(normalizeUrl(b.url));
-        }
+        if (b.url) destUrlSet.add(normalizeUrl(b.url));
       }
     }
   }
@@ -90,40 +89,45 @@ export async function copyItems(opts: CopyOptions): Promise<CopyResult> {
 
   // Helper to copy a single bookmark into a destination group
   const copyOneBookmarkInto = (b: BookmarkType, destGroup: BookmarkGroupType) => {
-  const urlKey = dedupeByUrl && b.url ? normalizeUrl(b.url) : null;
+    const urlKey = dedupeByUrl && b.url ? normalizeUrl(b.url) : null;
 
-  if (dedupeByUrl && urlKey && destUrlSet.has(urlKey)) {
-    skipped += 1;
-    return;
-  }
+    if (dedupeByUrl && urlKey && destUrlSet.has(urlKey)) {
+      skipped += 1;
+      return;
+    }
 
-  const cloned: BookmarkType = { ...b, id: newId() };
-  destGroup.bookmarks.push(cloned);
+    const cloned: BookmarkType = { ...b, id: newId() };
+    destGroup.bookmarks.push(cloned);
 
-  if (dedupeByUrl && urlKey) destUrlSet.add(urlKey);
-  added += 1;
-};
+    if (dedupeByUrl && urlKey) destUrlSet.add(urlKey);
+    added += 1;
+  };
 
   // 2) Perform copies, chunked with yields
   if (target.kind === "group") {
-    // Copy entire group(s) by id — keep names, make new group+bookmark ids
     const sourceGroupsById = new Map(srcGroups.map(g => [g.id, g]));
-    
-    // If groupId == "__ALL__", this will copy all groups in a workspace
-    const groupIds = target.groupId === "__ALL__"
-        ? srcGroups.map(g => g.id)
+
+    // If "__ALL__", copy all *non-placeholder* groups only
+    const groupIds =
+      target.groupId === "__ALL__"
+        ? srcGroups
+            .filter(g => g.groupName !== EMPTY_GROUP_IDENTIFIER)
+            .map(g => g.id)
         : target.groupId.split(",");
 
     for (let i = 0; i < groupIds.length; i += 1) {
       if (abortSignal?.aborted) break;
+
       const srcG = sourceGroupsById.get(groupIds[i]);
       if (!srcG) continue;
+
+      // Always skip placeholder groups
+      if (srcG.groupName === EMPTY_GROUP_IDENTIFIER) continue;
 
       // New group shell
       const newGroup: BookmarkGroupType = {
         ...srcG,
         id: newId(),
-        // shallow clone then we'll push fresh bookmark copies
         bookmarks: [],
       };
 
@@ -164,7 +168,16 @@ export async function copyItems(opts: CopyOptions): Promise<CopyResult> {
   }
 
   // 3) Persist destination workspace only (no source mutations)
-  await adapter.writeAllGroups(toWorkspaceId, toStorageKey, destGroups);
+  // Ensure the EMPTY group is at the end (stable ordering for others)
+  const nonPlaceholders = destGroups.filter(
+    g => g.groupName !== EMPTY_GROUP_IDENTIFIER
+  );
+  const placeholders = destGroups.filter(
+    g => g.groupName === EMPTY_GROUP_IDENTIFIER
+  );
+  const reordered = [...nonPlaceholders, ...placeholders];
+
+  await adapter.writeAllGroups(toWorkspaceId, toStorageKey, reordered);
 
   return { added, skipped };
 }
