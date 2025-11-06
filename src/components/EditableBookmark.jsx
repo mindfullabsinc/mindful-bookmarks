@@ -3,9 +3,16 @@ import React, { useState, useRef, useContext, useMemo } from 'react';
 /* CSS styles */
 import '@/styles/NewTab.css';
 
-/* Hooks and Utilities */
+/* Hooks */
 import { useBookmarkManager } from '@/hooks/useBookmarkManager';
+
+/* Scripts */
 import { AppContext } from '@/scripts/AppContextProvider';
+
+/* Events */
+import { openCopyTo } from '@/scripts/events/copyToBridge';
+
+/* Utilities */
 import { createUniqueID } from "@/core/utils/utilities";
 
 /* -----------------------------
@@ -113,13 +120,9 @@ function Favicon({ url, size = 16, className, fallback = 'letter' /* 'letter' | 
   );
 }
 
-/* -----------------------------
-   Your component, updated
-   ----------------------------- */
-
-function EditableBookmark(props) {
-  // Consume state from the context 
-  const { bookmarkGroups } = useContext(AppContext);
+export function EditableBookmark(props) {
+  /* -------------------- Context / state -------------------- */
+  const { bookmarkGroups, activeWorkspaceId } = useContext(AppContext);
 
   // Get all actions from the custom bookmarks hook
   const { 
@@ -130,6 +133,10 @@ function EditableBookmark(props) {
   const [text, setText] = useState(props.bookmark.name);
   const [url, setUrl] = useState(props.bookmark.url);
 
+  const aRef = useRef(null);
+  /* ---------------------------------------------------------- */
+
+  /* -------------------- Helper functions -------------------- */
   function handleBookmarkNameEdit(event, groupIndex, bookmarkIndex, aRef) {
     // Make the <a> element's content editable
     const aElement = aRef.current;
@@ -174,7 +181,18 @@ function EditableBookmark(props) {
     }
   }
 
-  const aRef = useRef(null);
+  function handleBookmarkCopy(event) {
+    event.stopPropagation(); // don’t start a drag
+    if (!activeWorkspaceId) return;
+    openCopyTo({
+      kind: 'bookmark',
+      fromWorkspaceId: activeWorkspaceId,
+      bookmarkIds: [props.bookmark.id], // single-bookmark copy; we can extend to multiselect later
+    });
+  }
+  /* ---------------------------------------------------------- */
+
+  /* -------------------- Component UI -------------------- */
   return (
     <div key={createUniqueID()} className="bookmark-container">
       {/* Replaces the raw <img> with a resilient favicon */}
@@ -195,30 +213,31 @@ function EditableBookmark(props) {
         {text}
       </a>
 
-      <ModifyBookmarkButton 
-        imagePath="assets/edit-icon.svg" 
+      <button
+        className='modify-link-button' 
         onClick={(event) => handleBookmarkNameEdit(event, props.groupIndex, props.bookmarkIndex, aRef)} 
         aria-label="Edit bookmark"
-      />
-      <ModifyBookmarkButton 
-        imagePath="assets/delete-icon.svg" 
+        title="Edit bookmark"
+      >
+        <i className="far fa-edit text-sm" />
+      </button>
+      <button 
+        className='modify-link-button' 
+        onClick={handleBookmarkCopy}
+        aria-label="Copy/Move bookmark"
+        title="Copy/Move bookmark"
+      >
+        <i className="far fa-copy text-sm" />
+      </button>
+      <button
+        className='modify-link-button' 
         onClick={(event) => handleBookmarkDelete(event, props.groupIndex, props.bookmarkIndex)}  
         aria-label="Delete bookmark"
-      />
+        title="Delete bookmark"
+      >
+        <i className="fas fa-xmark text-sm" />
+      </button>
     </div>
   );
+  /* ---------------------------------------------------------- */
 }
-
-function ModifyBookmarkButton(props) {
-  return (
-    <button 
-      className='modify-link-button' 
-      onClick={props.onClick}
-      aria-label={props['aria-label']}
-    >
-      <img src={props.imagePath} className='modify-link-button-img' />
-    </button>
-  );
-}
-
-export { EditableBookmark };

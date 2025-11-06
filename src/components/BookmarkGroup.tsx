@@ -109,7 +109,7 @@ export const BookmarkGroup: React.FC<BookmarkGroupProps> = ({
       {headingIsEntered && (
         <div
           className="
-            absolute right-2 top-2 flex items-center gap-1.5
+            absolute right-2 top-2 flex items-center 
             text-neutral-400 dark:text-neutral-400
 
             opacity-0 pointer-events-none
@@ -130,7 +130,7 @@ export const BookmarkGroup: React.FC<BookmarkGroupProps> = ({
           </button>
 
           <button
-            className="icon-button p-1 hover:text-rose-600 dark:rose:text-amber-400 transition-colors cursor-pointer"
+            className="icon-button p-1 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
             onClick={(event) => handleDeleteBookmarkGroup(event, groupIndex)}
             onPointerDown={(e) => e.stopPropagation()}
             aria-label="Delete group"
