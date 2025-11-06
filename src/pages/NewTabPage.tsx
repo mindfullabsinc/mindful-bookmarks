@@ -272,14 +272,14 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
     try {
       const moveOrCopyFunction = move ? moveItems : copyItems;
 
-      if (payload.kind === "workspace") {
-        if (!userId) {
-          // TODO: throw error
-          return;
-        }
-        const fromStorageKey = getUserStorageKey(userId, payload.fromWorkspaceId);
-        const toStorageKey = getUserStorageKey(userId, destWorkspaceId);
+      if (!userId) {
+        // TODO: throw error
+        return;
+      }
+      const fromStorageKey = getUserStorageKey(userId, payload.fromWorkspaceId);
+      const toStorageKey = getUserStorageKey(userId, destWorkspaceId);
 
+      if (payload.kind === "workspace") {
         // Copy *all groups* from source workspace → dest
         const res = await moveOrCopyFunction({
           fromWorkspaceId: payload.fromWorkspaceId,
@@ -290,7 +290,7 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
           dedupeByUrl: true,
           chunkSize: 200,
         } as any);
-        toast(`${res.added} added • ${res.skipped} skipped`);
+        toast(`${res.added} links added • ${res.skipped} links skipped`);
         return;
       }
 
@@ -298,24 +298,28 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
         const res = await moveOrCopyFunction({
           fromWorkspaceId: payload.fromWorkspaceId,
           toWorkspaceId: destWorkspaceId,
+          fromStorageKey: fromStorageKey,
+          toStorageKey: toStorageKey,
           target: { kind: "group", groupId: payload.groupId },
           dedupeByUrl: true,
           chunkSize: 200,
         } as any);
-        toast(`${res.added} added • ${res.skipped} skipped`);
+        toast(`${res.added} links added • ${res.skipped} links skipped`);
         return;
       }
 
       // bookmark → dest “Imported” group
       const intoGroupId = await ensureImportedGroup(destWorkspaceId);
-      const res = await fn({
+      const res = await moveOrCopyFunction({
         fromWorkspaceId: payload.fromWorkspaceId,
         toWorkspaceId: destWorkspaceId,
+        fromStorageKey: fromStorageKey,
+        toStorageKey: toStorageKey,
         target: { kind: "bookmark", bookmarkIds: payload.bookmarkIds, intoGroupId },
         dedupeByUrl: true,
         chunkSize: 200,
-      } as any);
-      toast(`${res.added} added • ${res.skipped} skipped`);
+      } as any)
+      toast(`${res.added} links added • ${res.skipped} links skipped`);
     } catch (err: any) {
       toast(`Copy failed: ${err?.message ?? String(err)}`);
     }
