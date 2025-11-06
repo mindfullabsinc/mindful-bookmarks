@@ -34,7 +34,7 @@ export interface StorageAdapter {
    * PR-5 needs a raw, non-mutating read/write path for Local→Local copy.
    * Non-Local adapters can omit this (it’s optional).
    */
-  readAllGroups?(workspaceId: WorkspaceIdType): Promise<BookmarkGroupType[]>;
+  readAllGroups?(fullStorageKey: string): Promise<BookmarkGroupType[]>;
 
   /**
    * Overwrite the full groups array for a workspace.
@@ -42,6 +42,7 @@ export interface StorageAdapter {
    */
   writeAllGroups?(
     workspaceId: WorkspaceIdType,
+    fullStorageKey: string,
     groups: BookmarkGroupType[]
   ): Promise<void>;
 }

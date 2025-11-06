@@ -9,8 +9,10 @@ type CopyTarget =
   | { kind: "bookmark"; bookmarkIds: string[]; intoGroupId: string }; // copy specific bookmarks into a dest group
 
 export type CopyOptions = {
-  fromWorkspaceId: WorkspaceIdType;
-  toWorkspaceId: WorkspaceIdType;
+  fromWorkspaceId: WorkspaceIdType,
+  toWorkspaceId: WorkspaceIdType,
+  fromStorageKey: string,
+  toStorageKey: string,
   target: CopyTarget;
   dedupeByUrl?: boolean;         // default true
   chunkSize?: number;            // default 100
@@ -27,23 +29,34 @@ const newId = () => (globalThis.crypto?.randomUUID?.() ?? `id_${Date.now().toStr
 const tick = () => new Promise<void>(r => setTimeout(r, 0));
 
 /**
- * Core copy routine (Local → Local). Non-mutating for source workspace.
- * - Groups are deep-copied with NEW ids for the group and its bookmarks.
- * - Bookmarks copied into a chosen destination group get NEW ids.
- * - De-dupe by normalized URL (default on).
- * - Chunked so large groups don't block the UI.
+ * Copy groups or bookmarks from one workspace to another without mutating the source.
+ * - Groups are deep-copied with new identifiers.
+ * - Bookmarks receive new identifiers and optionally dedupe on normalized URL.
+ * - Work is chunked/yielded to keep the UI responsive.
+ *
+ * @param opts Copy configuration including source, destination, and copy target details.
+ * @param opts.fromWorkspaceId Workspace identifier to copy items from.
+ * @param opts.toWorkspaceId Workspace identifier to copy items into.
+ * @param opts.target Group or bookmark selection to copy.
+ * @param opts.dedupeByUrl When true, skip adding bookmarks with duplicate URLs in the destination.
+ * @param opts.chunkSize Number of bookmarks to process per chunk before yielding.
+ * @param opts.abortSignal Optional signal to cancel the copy midway.
+ * @param opts.onProgress Optional callback invoked with cumulative added/skipped counts as chunks finish.
+ * @returns Totals for added and skipped bookmarks.
+ * @throws When the local storage adapter lacks read/write support or the destination group is missing.
  */
 export async function copyItems(opts: CopyOptions): Promise<CopyResult> {
   const {
     fromWorkspaceId,
     toWorkspaceId,
+    fromStorageKey,
+    toStorageKey,
     target,
     dedupeByUrl = true,
     chunkSize = 100,
     abortSignal,
     onProgress,
   } = opts;
-
   // Adapters: we’re Local-only for PR-5
   const adapter = getAdapter(StorageMode.LOCAL);
   if (!adapter?.readAllGroups || !adapter?.writeAllGroups) {
@@ -52,10 +65,10 @@ export async function copyItems(opts: CopyOptions): Promise<CopyResult> {
 
   // 1) Read source + destination snapshots
   const [srcGroups, destGroups] = await Promise.all([
-    adapter.readAllGroups(fromWorkspaceId), // BookmarkGroupType[]
-    adapter.readAllGroups(toWorkspaceId),
+    adapter.readAllGroups(fromStorageKey), // BookmarkGroupType[]
+    adapter.readAllGroups(toStorageKey),
   ]);
-
+  
   // Build fast lookup maps
   const destGroupById = new Map<string, BookmarkGroupType>(destGroups.map(g => [g.id, g]));
 
@@ -95,7 +108,11 @@ export async function copyItems(opts: CopyOptions): Promise<CopyResult> {
   if (target.kind === "group") {
     // Copy entire group(s) by id — keep names, make new group+bookmark ids
     const sourceGroupsById = new Map(srcGroups.map(g => [g.id, g]));
-    const groupIds = target.groupId.split(","); // allow one or many via comma if you pass it that way
+    
+    // If groupId == "__ALL__", this will copy all groups in a workspace
+    const groupIds = target.groupId === "__ALL__"
+        ? srcGroups.map(g => g.id)
+        : target.groupId.split(",");
 
     for (let i = 0; i < groupIds.length; i += 1) {
       if (abortSignal?.aborted) break;
@@ -147,12 +164,18 @@ export async function copyItems(opts: CopyOptions): Promise<CopyResult> {
   }
 
   // 3) Persist destination workspace only (no source mutations)
-  await adapter.writeAllGroups(toWorkspaceId, destGroups);
+  await adapter.writeAllGroups(toWorkspaceId, toStorageKey, destGroups);
 
   return { added, skipped };
 }
 
-/** Convenience: "Move" = copy + optional delete from source (checkbox). */
+/**
+ * Move groups or bookmarks between workspaces by copying them and optionally deleting from the source.
+ *
+ * @param opts Copy configuration plus a `deleteFromSource` flag.
+ * @param opts.deleteFromSource When true, remove the copied entities from the source workspace after success.
+ * @returns Totals for added and skipped bookmarks.
+ */
 export async function moveItems(opts: CopyOptions & { deleteFromSource: boolean }): Promise<CopyResult> {
   const { deleteFromSource, ...copyOpts } = opts;
   const res = await copyItems(copyOpts);

@@ -178,28 +178,20 @@ export const LocalAdapter: Required<StorageAdapter> = {
   },
 
     /** Return all groups for a workspace (no caching side-effects). */
-  async readAllGroups(workspaceId: string): Promise<BookmarkGroupType[]> {
+  async readAllGroups(fullStorageKey: string): Promise<BookmarkGroupType[]> {
     // Read from the canonical local store:
-    const raw = localStorage.getItem(`mindful_${workspaceId}_bookmarks_snapshot_v1`);
-    if (!raw) return [];
+    const obj = await chrome.storage.local.get(fullStorageKey);
     try {
-      const snap = JSON.parse(raw);
-      return Array.isArray(snap?.data?.groups) ? snap.data.groups as BookmarkGroupType[] : [];
+      const snap = obj?.[fullStorageKey];
+      return Array.isArray(snap) ? (snap as BookmarkGroupType[]) : [];
     } catch {
       return [];
     }
   },
 
   /** Overwrite all groups for a workspace. No mutation beyond this workspace. */
-  async writeAllGroups(workspaceId: string, groups: BookmarkGroupType[]): Promise<void> {
-    const payload = {
-      data: { groups },
-      at: Date.now(),
-    };
-    localStorage.setItem(
-      `mindful_${workspaceId}_bookmarks_snapshot_v1`,
-      JSON.stringify(payload)
-    );
+  async writeAllGroups(workspaceId: WorkspaceIdType, fullStorageKey: string, groups: BookmarkGroupType[]): Promise<void> {
+    await chrome.storage.local.set({ [fullStorageKey]: groups});
     // update the session mirror 
     writeGroupsIndexSession?.(workspaceId, deriveIndex(groups));
   },

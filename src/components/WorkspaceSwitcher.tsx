@@ -14,6 +14,9 @@ import {
   writeGroupsIndexSession,
 } from '@/scripts/caching/bookmarkCache';
 
+/* Events */
+import { openCopyTo } from "@/scripts/events/copyToBridge";
+
 /* Types */
 import type { WorkspaceType } from '@/core/constants/workspaces';
 
@@ -237,6 +240,16 @@ export const WorkspaceSwitcher: React.FC = () => {
                   aria-label={`Archive ${w.name}`}
                 >
                   Archive
+                </button>
+                <button
+                  onClick={() => openCopyTo({ kind: "workspace", fromWorkspaceId: w.id })}
+                  className="text-[11px] px-2 py-1 rounded-lg border cursor-pointer 
+                            border-neutral-300 dark:border-neutral-700 
+                            text-neutral-800 dark:text-neutral-200 
+                            hover:bg-neutral-200 dark:hover:bg-neutral-800"
+                  aria-label={`Copy ${w.name} to…`}
+                >
+                  Copy to…
                 </button>
               </div>
             </div>

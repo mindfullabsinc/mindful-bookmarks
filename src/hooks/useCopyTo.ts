@@ -18,7 +18,12 @@ type UseCopyToArgs = {
 /* ---------------------------------------------------------- */
 
 /* -------------------- Helper functions -------------------- */
-// --- type guard to narrow optional methods ---
+/**
+ * Assert that a storage adapter exposes group read/write helpers.
+ *
+ * @param a Storage adapter instance to inspect.
+ * @returns True when the adapter supports reading and writing all bookmark groups.
+ */
 function hasGroupRW(
   a: StorageAdapter | null | undefined
 ): a is StorageAdapter & {
@@ -27,34 +32,17 @@ function hasGroupRW(
 } {
   return !!a && typeof a.readAllGroups === "function" && typeof a.writeAllGroups === "function";
 }
-
-/** Create or find an "Imported" group in destination. */
-async function ensureImportedGroup(workspaceId: WorkspaceIdType): Promise<string> {
-  const adapter = getAdapter(StorageMode.LOCAL);
-  if (!hasGroupRW(adapter)) {
-    throw new Error("Local adapter unavailable or missing read/write methods");
-  }
-
-  const groups = await adapter.readAllGroups(workspaceId);
-
-  let g = groups.find(
-    (x: BookmarkGroupType) => x.groupName?.toLowerCase?.() === "imported"
-  );
-
-  if (!g) {
-    const id =
-      globalThis.crypto?.randomUUID?.() ??
-      `id_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-    g = { id, groupName: "Imported", bookmarks: [] as BookmarkType[] };
-    groups.push(g);
-    await adapter.writeAllGroups(workspaceId, groups);
-  }
-
-  return g.id;
-}
 /* ---------------------------------------------------------- */
 
 /* -------------------- Public functions -------------------- */
+/**
+ * Provide helpers for copying or moving bookmark groups or individual bookmarks to another workspace.
+ *
+ * @param options Hook options used to track the current workspace and surface toast feedback.
+ * @param options.currentWorkspaceId Workspace identifier serving as the source for copy/move operations.
+ * @param options.toast Callback for presenting user feedback messages.
+ * @returns Object exposing modal state and copy handlers.
+ */
 export function useCopyTo({ currentWorkspaceId, toast }: UseCopyToArgs) {
   const [open, setOpen] = useState(false);
   const pendingAction = useRef<null | {
@@ -74,6 +62,12 @@ export function useCopyTo({ currentWorkspaceId, toast }: UseCopyToArgs) {
     setOpen(true);
   }, []);
 
+  /**
+   * Finalize a copy or move initiated by the hook by invoking the proper adapter routine.
+   *
+   * @param destWorkspaceId Workspace identifier chosen as the destination.
+   * @param move When true, remove items from the source after writing them into the destination.
+   */
   const onConfirm = useCallback(async (destWorkspaceId: WorkspaceIdType, move: boolean) => {
     setOpen(false);
     const action = pendingAction.current;
@@ -113,5 +107,36 @@ export function useCopyTo({ currentWorkspaceId, toast }: UseCopyToArgs) {
   }, [currentWorkspaceId, toast]);
 
   return { open, setOpen, beginCopyGroup, beginCopyBookmarks, onConfirm };
+}
+
+/**
+ * Create or locate an "Imported" group in the destination workspace so ad-hoc bookmark copies have a landing spot.
+ *
+ * @param workspaceId Workspace identifier that should contain the imported group.
+ * @returns Identifier of the ensured "Imported" group.
+ * @throws When the local storage adapter lacks group read/write capabilities.
+ */
+export async function ensureImportedGroup(workspaceId: WorkspaceIdType): Promise<string> {
+  const adapter = getAdapter(StorageMode.LOCAL);
+  if (!hasGroupRW(adapter)) {
+    throw new Error("Local adapter unavailable or missing read/write methods");
+  }
+
+  const groups = await adapter.readAllGroups(workspaceId);
+
+  let g = groups.find(
+    (x: BookmarkGroupType) => x.groupName?.toLowerCase?.() === "imported"
+  );
+
+  if (!g) {
+    const id =
+      globalThis.crypto?.randomUUID?.() ??
+      `id_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    g = { id, groupName: "Imported", bookmarks: [] as BookmarkType[] };
+    groups.push(g);
+    await adapter.writeAllGroups(workspaceId, groups);
+  }
+
+  return g.id;
 }
 /* ---------------------------------------------------------- */

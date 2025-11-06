@@ -52,6 +52,9 @@ async function removeLocal(...keys: string[]): Promise<void> {
 /* -------------------- Type guards & helpers -------------------- */
 /**
  * Type guard that verifies a value conforms to the Workspace shape.
+ *
+ * @param x Candidate value to inspect.
+ * @returns True when the object looks like a workspace.
  */
 function isWorkspace(x: any): x is WorkspaceType {
   return x && typeof x === "object" && typeof x.id === "string" && typeof x.name === "string";
@@ -59,6 +62,9 @@ function isWorkspace(x: any): x is WorkspaceType {
 }
 /**
  * Check whether a value appears to be a workspace items map.
+ *
+ * @param x Candidate value to inspect.
+ * @returns True when the object contains at least one workspace-like entry.
  */
 function looksLikeItemsMap(x: any): x is Record<WorkspaceIdType, WorkspaceType> {
   if (!x || typeof x !== "object") return false;
@@ -66,6 +72,9 @@ function looksLikeItemsMap(x: any): x is Record<WorkspaceIdType, WorkspaceType> 
 }
 /**
  * Validate that a value resembles a WorkspaceRegistry object.
+ *
+ * @param x Candidate value to inspect.
+ * @returns True when the object matches the registry shape/version.
  */
 function isRegistryObject(x: any): x is WorkspaceRegistryType {
   return x && typeof x === "object" && x.version === 1 && x.items && x.activeId;
@@ -243,7 +252,8 @@ export async function initializeLocalWorkspaceRegistry(): Promise<void> {
  *
  * Sorted by createdAt ascending to keep default at the top.
  *
- * @param opts Optional filters (e.g., include archived entries).
+ * @param opts Optional filters that affect the result set.
+ * @param opts.includeArchived When true, include archived workspaces in the result.
  * @returns Sorted array of workspaces.
  */
 export async function listLocalWorkspaces(opts?: {
