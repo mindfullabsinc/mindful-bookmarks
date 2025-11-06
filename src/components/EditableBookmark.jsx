@@ -219,7 +219,7 @@ export function EditableBookmark(props) {
         aria-label="Edit bookmark"
         title="Edit bookmark"
       >
-        <i className="far fa-edit text-sm" />
+        <i className="fa fa-pencil text-xsm" />
       </button>
       <button 
         className='modify-link-button' 
@@ -227,7 +227,7 @@ export function EditableBookmark(props) {
         aria-label="Copy/Move bookmark"
         title="Copy/Move bookmark"
       >
-        <i className="far fa-copy text-sm" />
+        <i className="far fa-copy text-xs" />
       </button>
       <button
         className='modify-link-button' 
@@ -235,7 +235,7 @@ export function EditableBookmark(props) {
         aria-label="Delete bookmark"
         title="Delete bookmark"
       >
-        <i className="fas fa-xmark text-sm" />
+        <i className="fa fa-xmark text-xs" />
       </button>
     </div>
   );

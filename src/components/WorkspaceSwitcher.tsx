@@ -188,14 +188,13 @@ export const WorkspaceSwitcher: React.FC = () => {
           </h2>
           <button
             onClick={() => setPanelOpen(false)}
-            className="text-xs px-2 py-1 rounded-lg border
-                      border-neutral-300 dark:border-neutral-700 
+            className="text-xs px-2 py-1 rounded-lg 
                       text-neutral-800 dark:text-neutral-200 
                       hover:bg-neutral-200 dark:hover:bg-neutral-800
                       cursor-pointer"
             aria-label="Close workspace panel"
           >
-            Close
+            <i className="fas fa-xmark text-sm" />
           </button>
         </header>
 
@@ -223,33 +222,30 @@ export const WorkspaceSwitcher: React.FC = () => {
               <div className="flex gap-1 opacity-80">
                 <button
                   onClick={() => onRename(w.id)}
-                  className="text-[11px] px-2 py-1 rounded-lg border cursor-pointer 
-                           border-neutral-300 dark:border-neutral-700 
+                  className="text-[11px] px-2 py-1 rounded-lg cursor-pointer 
                            text-neutral-800 dark:text-neutral-200 
                            hover:bg-neutral-200 dark:hover:bg-neutral-800"
                   aria-label={`Rename ${w.name}`}
                 >
-                  Rename
+                  <i className="fa fa-pencil text-xs" />
                 </button>
                 <button
                   onClick={() => onArchive(w.id)}
-                  className="text-[11px] px-2 py-1 rounded-lg border cursor-pointer
-                           border-neutral-300 dark:border-neutral-700 
+                  className="text-[11px] px-2 py-1 rounded-lg cursor-pointer
                            text-neutral-800 dark:text-neutral-200 
                            hover:bg-neutral-200 dark:hover:bg-neutral-800"
                   aria-label={`Archive ${w.name}`}
                 >
-                  Archive
+                  <i className="fa fa-archive text-xs" />
                 </button>
                 <button
                   onClick={() => openCopyTo({ kind: "workspace", fromWorkspaceId: w.id })}
-                  className="text-[11px] px-2 py-1 rounded-lg border cursor-pointer 
-                            border-neutral-300 dark:border-neutral-700 
+                  className="text-[11px] px-2 py-1 rounded-lg cursor-pointer 
                             text-neutral-800 dark:text-neutral-200 
                             hover:bg-neutral-200 dark:hover:bg-neutral-800"
                   aria-label={`Copy ${w.name} to…`}
                 >
-                  Copy to…
+                  <i className="far fa-copy text-xs" />
                 </button>
               </div>
             </div>
