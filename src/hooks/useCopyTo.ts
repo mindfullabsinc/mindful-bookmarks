@@ -56,11 +56,21 @@ export function useCopyTo({ currentWorkspaceId, toast }: UseCopyToArgs) {
     bookmarkIds?: string[];
   }>(null);
 
+  /**
+   * Stage a group copy/move request and open the modal.
+   *
+   * @param groupId Identifier of the group being copied.
+   */
   const beginCopyGroup = useCallback((groupId: string) => {
     pendingAction.current = { kind: "group", groupId };
     setOpen(true);
   }, []);
 
+  /**
+   * Stage a bookmark copy/move request and open the modal.
+   *
+   * @param bookmarkIds List of bookmark ids selected for copying.
+   */
   const beginCopyBookmarks = useCallback((bookmarkIds: string[]) => {
     pendingAction.current = { kind: "bookmark", bookmarkIds };
     setOpen(true);
@@ -73,7 +83,7 @@ export function useCopyTo({ currentWorkspaceId, toast }: UseCopyToArgs) {
  * Create or locate an "Imported" group in the destination workspace so ad-hoc bookmark copies have a landing spot.
  *
  * @param workspaceId Workspace identifier that should contain the imported group.
- * @param storageKey The full WS_<id>_<key> in the Chrome canonical storage
+ * @param storageKey Fully qualified chrome.storage.local key (`WS_<id>__groups`) used by the adapter.
  * @returns Identifier of the ensured "Imported" group.
  * @throws When the local storage adapter lacks group read/write capabilities.
  */

@@ -3,18 +3,38 @@ import type { WorkspaceIdType } from "@/core/constants/workspaces";
 import type { BookmarkSnapshot } from "@/scripts/caching/bookmarkCache";
 
 export interface StorageAdapter {
-  /** Phase 1a: synchronous seed snapshot for first paint (or null if none) */
+  /**
+   * Provide a synchronous snapshot used to seed the UI before async hydration.
+   *
+   * @param workspaceId Workspace identifier whose cache should be read.
+   * @returns Bookmark list or null when no snapshot exists.
+   */
   readPhase1aSnapshot(workspaceId: WorkspaceIdType): BookmarkGroupType[] | null;
 
-  /** Phase 1b: async warm snapshot for session (or null if none) */
+  /**
+   * Provide an asynchronous session snapshot with timestamp metadata.
+   *
+   * @param workspaceId Workspace identifier whose session cache should be read.
+   * @returns Bookmark snapshot or null when none exists.
+   */
   readPhase1bSessionSnapshot(workspaceId: WorkspaceIdType): Promise<BookmarkSnapshot | null>;
 
-  /** Fast tiny groups index */
+  /**
+   * Return a compact groups index suitable for lightweight UI rendering.
+   *
+   * @param workspaceId Workspace identifier whose index should be read.
+   * @returns Array of group id/name pairs.
+   */
   readGroupsIndexFast(
     workspaceId: WorkspaceIdType
   ): Promise<Array<{ id: string; groupName: string }>>;
 
-  /** Persist small index + caches only when data is non-empty */
+  /**
+   * Persist first-paint caches and indexes only when bookmark data is non-empty.
+   *
+   * @param workspaceId Workspace identifier whose caches should be updated.
+   * @param groups Bookmark dataset used to seed caches.
+   */
   persistCachesIfNonEmpty(
     workspaceId: WorkspaceIdType,
     groups: BookmarkGroupType[]

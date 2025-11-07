@@ -46,6 +46,9 @@ export const WorkspaceSwitcher: React.FC = () => {
   /* ---------------------------------------------------------- */
 
   /* -------------------- Effects -------------------- */
+  /**
+   * Hydrate the local list and active workspace id when the component mounts.
+   */
   useEffect(() => {
     (async () => {
       const [list, active] = await Promise.all([
@@ -57,7 +60,9 @@ export const WorkspaceSwitcher: React.FC = () => {
     })();
   }, []);
 
-  // Close on ESC and restore focus
+  /**
+   * Close the panel via Escape and return focus to the launcher button for accessibility.
+   */
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') {
@@ -76,6 +81,9 @@ export const WorkspaceSwitcher: React.FC = () => {
     [workspaces, activeId]
   );
 
+  /**
+   * Refresh the registry snapshot in state after mutations.
+   */
   const refresh = async () => {
     const [list, active] = await Promise.all([
       listLocalWorkspaces(),
@@ -85,6 +93,11 @@ export const WorkspaceSwitcher: React.FC = () => {
     setActiveId(active);
   };
 
+  /**
+   * Switch to another workspace, ensuring session mirrors stay aligned and focus returns to the opener.
+   *
+   * @param workspace_id Target workspace identifier selected by the user.
+   */
   async function handleSwitch(workspace_id: string) {
     if (!workspace_id || workspace_id === activeId || workspace_id === ctxActiveId) {
       setPanelOpen(false);
@@ -104,6 +117,9 @@ export const WorkspaceSwitcher: React.FC = () => {
     requestAnimationFrame(() => openerRef.current?.focus());
   }
 
+  /**
+   * Create a fresh local workspace and activate it immediately.
+   */
   async function handleCreate() {
     const ws = await createLocalWorkspace('Local Workspace');
     await (setActiveWorkspaceId as any)(ws.id);
@@ -112,6 +128,11 @@ export const WorkspaceSwitcher: React.FC = () => {
     await refresh();
   }
 
+  /**
+   * Prompt for a new workspace name and persist it.
+   *
+   * @param id Workspace identifier to rename.
+   */
   async function onRename(id: string) {
     const current = workspaces.find((w) => w.id === id);
     const name = prompt('Rename workspace', current?.name ?? 'Local Workspace');
@@ -120,6 +141,11 @@ export const WorkspaceSwitcher: React.FC = () => {
     await refresh();
   }
 
+  /**
+   * Soft-archive a workspace and ensure an active workspace remains available.
+   *
+   * @param id Workspace identifier to archive.
+   */
   async function onArchive(id: string) {
     if (!confirm('Archive this workspace? You can restore it later.')) return;
     await archiveWorkspace(id);

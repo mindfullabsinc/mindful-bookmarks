@@ -11,6 +11,16 @@ type Props = {
   title?: string; 
 };
 
+/**
+ * Modal that lets users pick another workspace to copy/move bookmark payloads into.
+ *
+ * @param props Component props.
+ * @param props.open Whether the modal is currently displayed.
+ * @param props.onClose Callback invoked when the user dismisses the modal.
+ * @param props.onConfirm Handler invoked with the destination workspace and move flag.
+ * @param props.currentWorkspaceId Workspace identifier to exclude from the destination list.
+ * @param props.title Optional heading for the modal.
+ */
 export default function CopyToModal({
   open,
   onClose,
@@ -26,7 +36,9 @@ export default function CopyToModal({
   const panelRef = useRef<HTMLDivElement | null>(null);
   const selectRef = useRef<HTMLSelectElement | null>(null);
 
-  // Load choices whenever opened
+  /**
+   * Fetch workspace choices every time the modal opens so the list stays fresh.
+   */
   useEffect(() => {
     if (!open) return;
     (async () => {
@@ -38,7 +50,9 @@ export default function CopyToModal({
     })();
   }, [open, currentWorkspaceId]);
 
-  // Esc to close
+  /**
+   * Listen for Escape/Enter key presses while the modal is open to support quick dismissal/confirm.
+   */
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -52,7 +66,9 @@ export default function CopyToModal({
     return () => document.removeEventListener("keydown", onKey);
   }, [open, dest, move, onClose, onConfirm]);
 
-  // Autofocus the select when open
+  /**
+   * Focus the destination select input as soon as the modal becomes visible.
+   */
   useEffect(() => {
     if (open) {
       queueMicrotask(() => selectRef.current?.focus());

@@ -42,6 +42,22 @@ export interface BookmarkGroupProps {
 }
 /* ---------------------------------------------------------- */
 
+/**
+ * Render a draggable bookmark group with inline editing, copy/move shortcuts, and quick-add controls.
+ *
+ * @param props Bookmark group render props.
+ * @param props.bookmarkGroup Bookmark group data to display.
+ * @param props.groupIndex Position of the group inside the parent list.
+ * @param props.handleDeleteBookmarkGroup Handler invoked when deleting the group.
+ * @param props.isTitleEditing Flag that toggles the heading into edit mode.
+ * @param props.titleInputRef Ref forwarded to the editable heading input.
+ * @param props.onCommitTitle Callback invoked after the heading commits edits.
+ * @param props.onCancelTitleEdit Callback invoked when heading edit mode is cancelled.
+ * @param props.autoAddLink Whether to focus the inline add-link form automatically.
+ * @param props.addLinkInputRef Ref forwarded to the inline add-link input.
+ * @param props.onAddLinkDone Callback fired when the inline add-link form completes.
+ * @param props.autofillFromClipboard Enable onboarding-specific clipboard autofill behaviour.
+ */
 export const BookmarkGroup: React.FC<BookmarkGroupProps> = ({
   bookmarkGroup,
   groupIndex,
@@ -83,8 +99,18 @@ export const BookmarkGroup: React.FC<BookmarkGroupProps> = ({
   /* ---------------------------------------------------------- */
 
   /* -------------------- Helper functions -------------------- */
+  /**
+   * Prevent pointer events from bubbling into the drag handles.
+   *
+   * @param e Pointer event emitted within the group container.
+   */
   const stopPropagation = (e: ReactPointerEvent<HTMLElement>) => e.stopPropagation();
 
+  /**
+   * Open the copy-to modal preloaded with this group's metadata.
+   *
+   * @param e Click event from the copy button.
+   */
   const onCopyGroup = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!activeWorkspaceId) return;
