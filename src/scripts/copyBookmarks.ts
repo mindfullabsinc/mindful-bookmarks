@@ -200,9 +200,20 @@ export async function moveItems(opts: CopyOptions): Promise<CopyResult> {
   const srcGroups = await adapter.readAllGroups(fromStorageKey);
 
   if (target.kind === "group") {
+    // Handle __ALL__ (move entire workspace)
+    if (target.groupId === "__ALL__") {
+      // If you want to retain a placeholder, do it here; otherwise clear:
+      const remaining: BookmarkGroupType[] = [];
+      await adapter.writeAllGroups(fromWorkspaceId, fromStorageKey, remaining);
+      return res;
+    }
+
+    // Otherwise delete an individual group
     const toDelete = new Set(target.groupId.split(","));
     const remaining = srcGroups.filter(g => !toDelete.has(g.id));
     await adapter.writeAllGroups(fromWorkspaceId, fromStorageKey, remaining);
+  
+  // Delete an individual bookmark
   } else {
     const ids = new Set(target.bookmarkIds);
     for (const g of srcGroups) {
