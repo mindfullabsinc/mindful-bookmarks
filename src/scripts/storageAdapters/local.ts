@@ -195,12 +195,12 @@ export const LocalAdapter: Required<StorageAdapter> = {
    * @returns Bookmark groups stored for the workspace.
    */
   async readAllGroups(fullStorageKey: string): Promise<BookmarkGroupType[]> {
-    // Read from the canonical local store:
-    const obj = await chrome.storage.local.get(fullStorageKey);
     try {
+      const obj = await chrome.storage.local.get(fullStorageKey);
       const snap = obj?.[fullStorageKey];
       return Array.isArray(snap) ? (snap as BookmarkGroupType[]) : [];
     } catch {
+      // If chrome.storage.local.get rejects, return empty array
       return [];
     }
   },

@@ -93,6 +93,13 @@ describe('deriveIndex', () => {
       { id: 'g2', groupName: 'Home' },
     ]);
   });
+
+  it('deriveIndex coerces id/groupName to strings', () => {
+    const weird = [
+      { id: 123, groupName: 456, bookmarks: [] },
+    ] as unknown as BookmarkGroupType[];
+    expect(deriveIndex(weird)).toEqual([{ id: '123', groupName: '456' }]);
+  });
 });
 
 describe('LocalAdapter.readPhase1aSnapshot', () => {
@@ -173,6 +180,18 @@ describe('LocalAdapter.readGroupsIndexFast', () => {
     expect(readFpIndexLocalSync).toHaveBeenCalledWith(WID);
     expect(result).toEqual(fpIdx);
   });
+
+  it('falls back to FP index when session mirror is an empty array', async () => {
+    readGroupsIndexSession.mockResolvedValueOnce([]); // empty mirror
+    const fpIdx = [{ id: 'g3', groupName: 'Zeta' }];
+    readFpIndexLocalSync.mockReturnValueOnce(fpIdx);
+
+    const result = await LocalAdapter.readGroupsIndexFast(WID);
+
+    expect(readGroupsIndexSession).toHaveBeenCalledWith(WID);
+    expect(readFpIndexLocalSync).toHaveBeenCalledWith(WID);
+    expect(result).toEqual(fpIdx);
+  });
 });
 
 describe('LocalAdapter.persistCachesIfNonEmpty', () => {
@@ -195,6 +214,19 @@ describe('LocalAdapter.persistCachesIfNonEmpty', () => {
     expect(writeFpIndexLocalSync).not.toHaveBeenCalled();
     expect(writeFpGroupsLocalSync).not.toHaveBeenCalled();
     expect(writeGroupsIndexSession).not.toHaveBeenCalled();
+  });
+
+  it('swallows errors from FP writers and still tries the others', async () => {
+    writeFpIndexLocalSync.mockImplementationOnce(() => { throw new Error('idx fail'); });
+    writeFpGroupsLocalSync.mockImplementationOnce(() => { throw new Error('groups fail'); });
+    writeGroupsIndexSession.mockResolvedValueOnce(undefined);
+
+    await expect(LocalAdapter.persistCachesIfNonEmpty(WID, GROUPS)).resolves.toBeUndefined();
+
+    expect(writeGroupsIndexSession).toHaveBeenCalledWith(WID, [
+      { id: 'g1', groupName: 'Work' },
+      { id: 'g2', groupName: 'Home' },
+    ]);
   });
 });
 
@@ -235,6 +267,21 @@ describe('LocalAdapter generic get/set/remove (workspace-scoped)', () => {
     expect(wsKeyMock).toHaveBeenCalledWith(WID, KEY);
     expect(chromeRemove).toHaveBeenCalledWith(FULL);
   });
+
+  it('propagates errors from set()', async () => {
+    chromeSet.mockRejectedValueOnce(new Error('boom'));
+    await expect(LocalAdapter.set(WID, 'k', ['v'])).rejects.toThrow('boom');
+  });
+
+  it('propagates errors from get()', async () => {
+    chromeGet.mockRejectedValueOnce(new Error('nope'));
+    await expect(LocalAdapter.get(WID, 'k')).rejects.toThrow('nope');
+  });
+
+  it('propagates errors from remove()', async () => {
+    chromeRemove.mockRejectedValueOnce(new Error('x'));
+    await expect(LocalAdapter.remove(WID, 'k')).rejects.toThrow('x');
+  });
 });
 
 describe('LocalAdapter.readAllGroups', () => {
@@ -258,6 +305,12 @@ describe('LocalAdapter.readAllGroups', () => {
     expect(chromeGet).toHaveBeenCalledWith(FULL_STORAGE_KEY);
     expect(result).toEqual(GROUPS);
   });
+
+  it('returns [] when chrome.storage.local.get rejects', async () => {
+    chromeGet.mockRejectedValueOnce(new Error('boom'));
+    const result = await LocalAdapter.readAllGroups(FULL_STORAGE_KEY);
+    expect(result).toEqual([]);
+  });
 });
 
 describe('LocalAdapter.writeAllGroups', () => {
@@ -271,5 +324,20 @@ describe('LocalAdapter.writeAllGroups', () => {
       { id: 'g1', groupName: 'Work' },
       { id: 'g2', groupName: 'Home' },
     ]);
+  });
+
+  it('does not throw if writeGroupsIndexSession is undefined', async () => {
+    // Temporarily make the mock undefined for this call
+    const original = writeGroupsIndexSession;
+    // @ts-ignore – force undefined to verify optional chaining
+    global.writeGroupsIndexSession = undefined;
+
+    chromeSet.mockResolvedValueOnce(undefined);
+    await expect(LocalAdapter.writeAllGroups(WID, FULL_STORAGE_KEY, GROUPS)).resolves.toBeUndefined();
+    expect(chromeSet).toHaveBeenCalledWith({ [FULL_STORAGE_KEY]: GROUPS });
+
+    // Restore
+    // @ts-ignore
+    global.writeGroupsIndexSession = original;
   });
 });
