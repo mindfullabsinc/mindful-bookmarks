@@ -38,6 +38,11 @@ function circleColorFor(host) {
   return `hsl(${h % 360} 60% 45%)`;
 }
 
+/**
+ * Provide a deterministic single-letter circle avatar fallback when favicons cannot be fetched.
+ *
+ * @param {{ host: string; size: number; className?: string }} props Visual configuration for the fallback.
+ */
 function DomainLetter({ host, size, className }) {
   const letter = host.replace(/^www\./, '')[0]?.toUpperCase() ?? '?';
   const style = {
@@ -62,6 +67,12 @@ function DomainLetter({ host, size, className }) {
 /**
  * Fault-tolerant favicon loader.
  * Tries multiple sources, caches the first success per hostname, and falls back gracefully.
+ */
+/**
+ * Fault-tolerant favicon loader that tries multiple providers, memoizes successes, and falls back to a letter avatar.
+ *
+ * @param {{ url: string; size?: number; className?: string; fallback?: 'letter' | 'blank' }} props Rendering options.
+ * @returns {JSX.Element | null}
  */
 function Favicon({ url, size = 16, className, fallback = 'letter' /* 'letter' | 'blank' */ }) {
   const host = useMemo(() => toHostname(url), [url]);
@@ -137,6 +148,14 @@ export function EditableBookmark(props) {
   /* ---------------------------------------------------------- */
 
   /* -------------------- Helper functions -------------------- */
+  /**
+   * Turn the bookmark label into a transient contentEditable field and persist changes on blur/Enter.
+   *
+   * @param {React.MouseEvent} event Original click event from the edit control.
+   * @param {number} groupIndex Index of the bookmark's parent group.
+   * @param {number} bookmarkIndex Index of the bookmark within its group.
+   * @param {{ current: HTMLElement | null }} aRef Ref pointing to the anchor element displaying the name.
+   */
   function handleBookmarkNameEdit(event, groupIndex, bookmarkIndex, aRef) {
     // Make the <a> element's content editable
     const aElement = aRef.current;
@@ -170,6 +189,13 @@ export function EditableBookmark(props) {
     aElement.addEventListener('blur', onBlur);
   }
 
+  /**
+   * Confirm and remove a bookmark from its group.
+   *
+   * @param {React.MouseEvent} event Click event from the delete button.
+   * @param {number} groupIndex Index of the group that owns the bookmark.
+   * @param {number} bookmarkIndex Index of the bookmark inside that group.
+   */
   async function handleBookmarkDelete(event, groupIndex, bookmarkIndex) {
     const bookmarkGroup = bookmarkGroups[groupIndex];
     const bookmark = bookmarkGroup.bookmarks[bookmarkIndex];
@@ -181,8 +207,12 @@ export function EditableBookmark(props) {
     }
   }
 
+  /**
+   * Trigger the copy-to modal for a single bookmark within the active workspace.
+   *
+   * @param {React.MouseEvent} event Click event from the copy button.
+   */
   function handleBookmarkCopy(event) {
-    console.log("[EditableBookmark.jsx]: In handleBookmarkCopy()");
     event.stopPropagation(); // don’t start a drag
     if (!activeWorkspaceId) return;
     openCopyTo({
