@@ -78,6 +78,7 @@ afterEach(() => {
 
 // ---- Test data ----
 const WID = 'workspace-1' as WorkspaceIdType;
+const FULL_STORAGE_KEY = 'ws:workspace-1:bookmarks_snapshot_v1';
 
 const GROUPS: BookmarkGroupType[] = [
   { id: 'g1', groupName: 'Work', bookmarks: [] },
@@ -237,47 +238,35 @@ describe('LocalAdapter generic get/set/remove (workspace-scoped)', () => {
 });
 
 describe('LocalAdapter.readAllGroups', () => {
-  const LS_KEY = (wid: string) => `mindful_${wid}_bookmarks_snapshot_v1`;
-
-  it('returns [] when no snapshot exists', async () => {
-    expect(localStorage.getItem(LS_KEY(WID))).toBeNull();
-    const result = await LocalAdapter.readAllGroups(WID);
+  it('returns [] when no groups exist at the key', async () => {
+    chromeGet.mockResolvedValueOnce({}); // nothing stored for FULL_STORAGE_KEY
+    const result = await LocalAdapter.readAllGroups(FULL_STORAGE_KEY);
+    expect(chromeGet).toHaveBeenCalledWith(FULL_STORAGE_KEY);
     expect(result).toEqual([]);
   });
 
-  it('returns [] when JSON is malformed or not an array at data.groups', async () => {
-    localStorage.setItem(LS_KEY(WID), '{not-json');
-    expect(await LocalAdapter.readAllGroups(WID)).toEqual([]);
-
-    localStorage.setItem(LS_KEY(WID), JSON.stringify({ data: { groups: 'nope' } }));
-    expect(await LocalAdapter.readAllGroups(WID)).toEqual([]);
+  it('returns [] when value at key is not an array', async () => {
+    chromeGet.mockResolvedValueOnce({ [FULL_STORAGE_KEY]: { data: { groups: 'nope' } } });
+    const result = await LocalAdapter.readAllGroups(FULL_STORAGE_KEY);
+    expect(chromeGet).toHaveBeenCalledWith(FULL_STORAGE_KEY);
+    expect(result).toEqual([]);
   });
 
   it('returns the groups array when present', async () => {
-    const payload = { data: { groups: GROUPS }, at: 111 };
-    localStorage.setItem(LS_KEY(WID), JSON.stringify(payload));
-
-    const result = await LocalAdapter.readAllGroups(WID);
+    chromeGet.mockResolvedValueOnce({ [FULL_STORAGE_KEY]: GROUPS });
+    const result = await LocalAdapter.readAllGroups(FULL_STORAGE_KEY);
+    expect(chromeGet).toHaveBeenCalledWith(FULL_STORAGE_KEY);
     expect(result).toEqual(GROUPS);
   });
 });
 
 describe('LocalAdapter.writeAllGroups', () => {
-  const LS_KEY = (wid: string) => `mindful_${wid}_bookmarks_snapshot_v1`;
+  it('writes groups to chrome.storage.local and updates session mirror', async () => {
+    chromeSet.mockResolvedValueOnce(undefined);
 
-  it('writes snapshot payload and updates session mirror', async () => {
-    await LocalAdapter.writeAllGroups(WID, GROUPS);
+    await LocalAdapter.writeAllGroups(WID, FULL_STORAGE_KEY, GROUPS);
 
-    const raw = localStorage.getItem(LS_KEY(WID));
-    expect(raw).not.toBeNull();
-
-    const parsed = JSON.parse(String(raw));
-    expect(parsed).toEqual({
-      data: { groups: GROUPS },
-      at: FIXED_NOW,
-    });
-
-    // session mirror should be written with id/name pairs
+    expect(chromeSet).toHaveBeenCalledWith({ [FULL_STORAGE_KEY]: GROUPS });
     expect(writeGroupsIndexSession).toHaveBeenCalledWith(WID, [
       { id: 'g1', groupName: 'Work' },
       { id: 'g2', groupName: 'Home' },

@@ -158,6 +158,10 @@ export const LocalAdapter: Required<StorageAdapter> = {
   /* -------------------- Generic WS-scoped storage (new in PR-3) -------------------- */
   /**
    * Read a workspace-scoped value from chrome.storage.local.
+   *
+   * @param workspaceId Workspace identifier used to namespace the key.
+   * @param key Logical key within the workspace namespace.
+   * @returns Stored value when present.
    */
   async get<T = unknown>(workspaceId: WorkspaceIdType, key: string): Promise<T | undefined> {
     return getLocal<T>(workspaceId, key);
@@ -165,6 +169,10 @@ export const LocalAdapter: Required<StorageAdapter> = {
 
   /**
    * Persist a workspace-scoped value into chrome.storage.local.
+   *
+   * @param workspaceId Workspace identifier used to namespace the key.
+   * @param key Logical key within the workspace namespace.
+   * @param value Serializable value to store.
    */
   async set<T = unknown>(workspaceId: WorkspaceIdType, key: string, value: T): Promise<void> {
     await setLocal(workspaceId, key, value);
@@ -172,12 +180,20 @@ export const LocalAdapter: Required<StorageAdapter> = {
 
   /**
    * Remove a workspace-scoped value from chrome.storage.local.
+   *
+   * @param workspaceId Workspace identifier used to namespace the key.
+   * @param key Logical key within the workspace namespace.
    */
   async remove(workspaceId: WorkspaceIdType, key: string): Promise<void> {
     await removeLocal(workspaceId, key);
   },
 
-    /** Return all groups for a workspace (no caching side-effects). */
+  /**
+   * Return all groups for a workspace (no caching side-effects).
+   *
+   * @param fullStorageKey Fully qualified chrome.storage.local key to read.
+   * @returns Bookmark groups stored for the workspace.
+   */
   async readAllGroups(fullStorageKey: string): Promise<BookmarkGroupType[]> {
     // Read from the canonical local store:
     const obj = await chrome.storage.local.get(fullStorageKey);
@@ -189,7 +205,13 @@ export const LocalAdapter: Required<StorageAdapter> = {
     }
   },
 
-  /** Overwrite all groups for a workspace. No mutation beyond this workspace. */
+  /**
+   * Overwrite all groups for a workspace while refreshing the session mirror.
+   *
+   * @param workspaceId Workspace identifier whose dataset is being replaced.
+   * @param fullStorageKey Fully qualified chrome.storage.local key to write.
+   * @param groups New bookmark groups collection.
+   */
   async writeAllGroups(workspaceId: WorkspaceIdType, fullStorageKey: string, groups: BookmarkGroupType[]): Promise<void> {
     await chrome.storage.local.set({ [fullStorageKey]: groups});
     // update the session mirror 
