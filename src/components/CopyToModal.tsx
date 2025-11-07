@@ -1,65 +1,209 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { WorkspaceIdType } from "@/core/constants/workspaces";
-import { listLocalWorkspaces } from "@/workspaces/registry"; // you already have this from earlier tests
+import { listLocalWorkspaces } from "@/workspaces/registry";
 
 type Props = {
   open: boolean;
   onClose: () => void;
   onConfirm: (destWorkspaceId: WorkspaceIdType, move: boolean) => void;
   currentWorkspaceId: WorkspaceIdType;
-  title?: string; // e.g. "Copy to…"
+  title?: string; 
 };
 
-export default function CopyToModal({ open, onClose, onConfirm, currentWorkspaceId, title = "Copy to…" }: Props) {
-  const [workspaces, setWorkspaces] = useState<Array<{ id: WorkspaceIdType; name: string }>>([]);
+export default function CopyToModal({
+  open,
+  onClose,
+  onConfirm,
+  currentWorkspaceId,
+  title = "Copy to …",
+}: Props) {
+  const [workspaces, setWorkspaces] =
+    useState<Array<{ id: WorkspaceIdType; name: string }>>([]);
   const [dest, setDest] = useState<WorkspaceIdType | null>(null);
   const [move, setMove] = useState(false);
 
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const selectRef = useRef<HTMLSelectElement | null>(null);
+
+  // Load choices whenever opened
   useEffect(() => {
     if (!open) return;
     (async () => {
       const all = await listLocalWorkspaces();
-      const filtered = all.filter(w => w.id !== currentWorkspaceId);
+      const filtered = all.filter((w) => w.id !== currentWorkspaceId);
       setWorkspaces(filtered);
       setDest(filtered[0]?.id ?? null);
       setMove(false);
     })();
   }, [open, currentWorkspaceId]);
 
+  // Esc to close
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose?.();
+      if (e.key === "Enter" && dest) {
+        e.preventDefault();
+        onConfirm(dest, move);
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open, dest, move, onClose, onConfirm]);
+
+  // Autofocus the select when open
+  useEffect(() => {
+    if (open) {
+      queueMicrotask(() => selectRef.current?.focus());
+    }
+  }, [open]);
+
   if (!open) return null;
 
-  return (
-    <div role="dialog" aria-label="copy to" className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-4 shadow-xl">
-        <h2 className="text-lg font-semibold mb-3">{title}</h2>
+  const body = (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        onClick={() => onClose?.()}
+      />
 
-        <label className="block text-sm mb-1">Destination workspace</label>
-        <select
-          className="w-full rounded-lg border px-3 py-2"
-          value={dest ?? ""}
-          onChange={e => setDest(e.target.value as WorkspaceIdType)}
-        >
-          {workspaces.map(w => (
-            <option key={w.id} value={w.id}>{w.name}</option>
-          ))}
-        </select>
+      {/* Panel */}
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="copyto-title"
+        className="relative z-10 w-[min(96vw,560px)] rounded-2xl border border-neutral-200 bg-white shadow-2xl
+                   dark:border-neutral-800 dark:bg-neutral-950
+                   max-h-[85vh] overflow-hidden"
+      >
+        <div className="grid max-h-[85vh] grid-rows-[auto,1fr,auto]">
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-neutral-200 px-5 py-4 dark:border-neutral-800">
+            <h2
+              id="copyto-title"
+              className="text-lg font-semibold text-neutral-900 dark:text-neutral-100"
+            >
+              {title}
+            </h2>
+            <button
+              onClick={() => onClose?.()}
+              aria-label="Close"
+              className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl
+                         text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800
+                         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70
+                         dark:text-neutral-400 dark:hover:bg-neutral-900 dark:hover:text-neutral-200"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                className="h-5 w-5"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 1 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </button>
+          </div>
 
-        <label className="mt-3 flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={move} onChange={e => setMove(e.target.checked)} />
-          Move (copy then delete from source)
-        </label>
+          {/* Body */}
+          <div className="overflow-y-auto px-5 py-4">
+            <div className="space-y-4">
+              <div>
+                <label
+                  htmlFor="copyto-dest"
+                  className="mb-1 block text-sm font-medium text-neutral-800 dark:text-neutral-200"
+                >
+                  Destination workspace
+                </label>
 
-        <div className="mt-4 flex justify-end gap-2">
-          <button className="rounded-lg px-3 py-2 border" onClick={onClose}>Cancel</button>
-          <button
-            className="rounded-lg px-3 py-2 bg-black text-white disabled:opacity-50"
-            disabled={!dest}
-            onClick={() => { if (dest) onConfirm(dest, move); }}
-          >
-            Confirm
-          </button>
+                <div className="relative">
+                  <select
+                    id="copyto-dest"
+                    ref={selectRef}
+                    value={dest ?? ""}
+                    onChange={(e) =>
+                      setDest(e.target.value as WorkspaceIdType)
+                    }
+                    className="block w-full appearance-none rounded-xl border border-neutral-300 bg-white px-3 py-2.5 text-sm
+                               text-neutral-900 shadow-sm transition
+                               hover:border-neutral-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20
+                               dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:border-neutral-600
+                               dark:focus:border-blue-500"
+                  >
+                    {workspaces.map((w) => (
+                      <option key={w.id} value={w.id}>
+                        {w.name}
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* chevron */}
+                  <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4 text-neutral-400"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 10.94l3.71-3.71a.75.75 0 1 1 1.06 1.06l-4.24 4.24a.75.75 0 0 1-1.06 0L5.21 8.29a.75.75 0 0 1 .02-1.08Z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              
+              <div className="rounded-xl border border-neutral-200 p-3 transition hover:border-neutral-300 dark:border-neutral-800">
+                <label className="inline-flex items-center text-sm text-neutral-800 dark:text-neutral-200">
+                  <input
+                    type="checkbox"
+                    checked={move}
+                    onChange={(e) => setMove(e.target.checked)}
+                    className="h-4 w-4 cursor-pointer accent-blue-600 mr-2 align-middle"
+                  />
+                  <span className="text-sm leading-tight">Move (copy then delete from source)</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="flex items-center justify-end gap-2 border-t border-neutral-200 px-5 py-4 dark:border-neutral-800">
+            <button
+              onClick={() => onClose?.()}
+              className="inline-flex cursor-pointer items-center justify-center rounded-xl border px-4 py-2 text-sm
+                       bg-white dark:bg-neutral-900
+                       hover:bg-neutral-50 dark:hover:bg-neutral-800
+                       border-neutral-300 dark:border-neutral-700
+                       text-neutral-800 dark:text-neutral-100
+                         shadow-sm transition 
+                         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => dest && onConfirm(dest, move)}
+              disabled={!dest}
+              className="inline-flex cursor-pointer items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm
+                         transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60
+                         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70"
+            >
+              Confirm
+            </button>
+          </div>
         </div>
       </div>
     </div>
   );
+
+  return createPortal(body, document.body);
 }

@@ -182,6 +182,7 @@ export function EditableBookmark(props) {
   }
 
   function handleBookmarkCopy(event) {
+    console.log("[EditableBookmark.jsx]: In handleBookmarkCopy()");
     event.stopPropagation(); // don’t start a drag
     if (!activeWorkspaceId) return;
     openCopyTo({

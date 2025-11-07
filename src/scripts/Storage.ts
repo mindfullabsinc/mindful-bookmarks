@@ -39,8 +39,6 @@ const chromeStorageStrategy: StorageStrategy = {
    */
   async save(data: BookmarkGroupType[], userId: string, workspaceId: WorkspaceIdType): Promise<void> {
     const userStorageKey = getUserStorageKey(userId, workspaceId);
-    console.log('[Storage] Key being saved: ', userStorageKey);
-    console.log('[Storage] Bookmarks being saved: ', data);
     await chrome.storage.local.set({ [userStorageKey]: data });
   },
   /**
@@ -52,8 +50,6 @@ const chromeStorageStrategy: StorageStrategy = {
   async delete(userId: string, workspaceId: WorkspaceIdType): Promise<void> {
     const userStorageKey = getUserStorageKey(userId, workspaceId);
     await chrome.storage.local.remove(userStorageKey);
-    console.log('[Storage] Deleted local bookmarks for user:', userId);
-    console.log('[Storage] Deleted bookmarks for key: ', userStorageKey);
   },
 };
 

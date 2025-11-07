@@ -113,30 +113,39 @@ export function useCopyTo({ currentWorkspaceId, toast }: UseCopyToArgs) {
  * Create or locate an "Imported" group in the destination workspace so ad-hoc bookmark copies have a landing spot.
  *
  * @param workspaceId Workspace identifier that should contain the imported group.
+ * @param storageKey The full WS_<id>_<key> in the Chrome canonical storage
  * @returns Identifier of the ensured "Imported" group.
  * @throws When the local storage adapter lacks group read/write capabilities.
  */
-export async function ensureImportedGroup(workspaceId: WorkspaceIdType): Promise<string> {
+export async function ensureImportedGroup(workspaceId: WorkspaceIdType, storageKey: string): Promise<string> {
   const adapter = getAdapter(StorageMode.LOCAL);
   if (!hasGroupRW(adapter)) {
     throw new Error("Local adapter unavailable or missing read/write methods");
   }
 
-  const groups = await adapter.readAllGroups(workspaceId);
+  console.log("[useCopyTo.ts] workspaceId: ", workspaceId);
+  const groups = await adapter.readAllGroups(storageKey);
+  console.log("[useCopyTo.ts] initial groups: ", groups);
 
   let g = groups.find(
     (x: BookmarkGroupType) => x.groupName?.toLowerCase?.() === "imported"
   );
+  console.log("[useCopyTo.ts] initial g value: ", g);
 
   if (!g) {
-    const id =
+    const id = 
       globalThis.crypto?.randomUUID?.() ??
       `id_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    console.log("[useCopyTo.ts] group id: ", id);
     g = { id, groupName: "Imported", bookmarks: [] as BookmarkType[] };
+    console.log("[useCopyTo.ts] g: ", g);
     groups.push(g);
-    await adapter.writeAllGroups(workspaceId, groups);
+    console.log("[useCopyTo.ts] later groups: ", groups);
+    await adapter.writeAllGroups(workspaceId, storageKey, groups);
+    console.log("[useCopyTo.ts] Finished adapter.writeAllGroups()");
   }
 
+  console.log("[useCopyTo.ts] g.id: ", g.id);
   return g.id;
 }
 /* ---------------------------------------------------------- */
