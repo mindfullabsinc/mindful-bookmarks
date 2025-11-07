@@ -7,7 +7,6 @@ import type { BookmarkGroupType, BookmarkType } from "@/core/types/bookmarks";
 import type { StorageAdapter } from "@/core/types/storageAdapter";
 
 /* Scripts */ 
-import { copyItems, moveItems, type CopyResult } from "@/scripts/copyBookmarks";
 import { getAdapter } from "@/scripts/storageAdapters";
 
 /* -------------------- Local types -------------------- */
@@ -15,6 +14,11 @@ type UseCopyToArgs = {
   currentWorkspaceId: WorkspaceIdType;
   toast: (msg: string) => void; // your existing toast/banner helper
 };
+
+export type CopyPayload =
+  | { kind: "workspace"; fromWorkspaceId: WorkspaceIdType }
+  | { kind: "group"; fromWorkspaceId: WorkspaceIdType; groupId: string }
+  | { kind: "bookmark"; fromWorkspaceId: WorkspaceIdType; bookmarkIds: string[] };
 /* ---------------------------------------------------------- */
 
 /* -------------------- Helper functions -------------------- */
@@ -62,51 +66,7 @@ export function useCopyTo({ currentWorkspaceId, toast }: UseCopyToArgs) {
     setOpen(true);
   }, []);
 
-  /**
-   * Finalize a copy or move initiated by the hook by invoking the proper adapter routine.
-   *
-   * @param destWorkspaceId Workspace identifier chosen as the destination.
-   * @param move When true, remove items from the source after writing them into the destination.
-   */
-  const onConfirm = useCallback(async (destWorkspaceId: WorkspaceIdType, move: boolean) => {
-    setOpen(false);
-    const action = pendingAction.current;
-    pendingAction.current = null;
-    if (!action) return;
-
-    let res: CopyResult = { added: 0, skipped: 0 };
-    try {
-      if (action.kind === "group") {
-        const fn = move ? moveItems : copyItems;
-        res = await fn({
-          fromWorkspaceId: currentWorkspaceId,
-          toWorkspaceId: destWorkspaceId,
-          target: { kind: "group", groupId: action.groupId! },
-          dedupeByUrl: true,
-          chunkSize: 150,
-        } as any);
-      } else {
-        // For bookmark → we need a destination group to drop into.
-        // MVP: create/find a default "Imported" group in destination?
-        // Simpler: ask caller to pass the dest group id; but for this hook,
-        // we'll create/use "Imported".
-        const intoGroupId = await ensureImportedGroup(destWorkspaceId);
-        const fn = move ? moveItems : copyItems;
-        res = await fn({
-          fromWorkspaceId: currentWorkspaceId,
-          toWorkspaceId: destWorkspaceId,
-          target: { kind: "bookmark", bookmarkIds: action.bookmarkIds!, intoGroupId },
-          dedupeByUrl: true,
-          chunkSize: 200,
-        } as any);
-      }
-      toast(`${res.added} added • ${res.skipped} skipped`);
-    } catch (err: any) {
-      toast(`Copy failed: ${err?.message ?? String(err)}`);
-    }
-  }, [currentWorkspaceId, toast]);
-
-  return { open, setOpen, beginCopyGroup, beginCopyBookmarks, onConfirm };
+  return { open, setOpen, beginCopyGroup, beginCopyBookmarks };
 }
 
 /**
@@ -123,29 +83,21 @@ export async function ensureImportedGroup(workspaceId: WorkspaceIdType, storageK
     throw new Error("Local adapter unavailable or missing read/write methods");
   }
 
-  console.log("[useCopyTo.ts] workspaceId: ", workspaceId);
   const groups = await adapter.readAllGroups(storageKey);
-  console.log("[useCopyTo.ts] initial groups: ", groups);
 
   let g = groups.find(
     (x: BookmarkGroupType) => x.groupName?.toLowerCase?.() === "imported"
   );
-  console.log("[useCopyTo.ts] initial g value: ", g);
 
   if (!g) {
     const id = 
       globalThis.crypto?.randomUUID?.() ??
       `id_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-    console.log("[useCopyTo.ts] group id: ", id);
     g = { id, groupName: "Imported", bookmarks: [] as BookmarkType[] };
-    console.log("[useCopyTo.ts] g: ", g);
     groups.push(g);
-    console.log("[useCopyTo.ts] later groups: ", groups);
     await adapter.writeAllGroups(workspaceId, storageKey, groups);
-    console.log("[useCopyTo.ts] Finished adapter.writeAllGroups()");
   }
 
-  console.log("[useCopyTo.ts] g.id: ", g.id);
   return g.id;
 }
 /* ---------------------------------------------------------- */

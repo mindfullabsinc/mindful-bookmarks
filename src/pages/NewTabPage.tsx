@@ -264,11 +264,12 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
    * @param move When true, perform a move (transfer) instead of a copy.
    */
   const handleCopyConfirm = useCallback(async (destWorkspaceId: WorkspaceIdType, move: boolean) => {
+    console.log("[NewTabPage.tsx] In handleCopyConfirm()");
+    console.log("[NewTabPage.tsx] move: ", move); 
     const payload = pendingCopyRef.current;
     setCopyOpen(false);
     pendingCopyRef.current = null;
     if (!payload) return;
-    console.log("[NewTabPage] payload: ", payload);
 
     try {
       const moveOrCopyFunction = move ? moveItems : copyItems;
@@ -279,8 +280,6 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
       }
       const fromStorageKey = getUserStorageKey(userId, payload.fromWorkspaceId);
       const toStorageKey = getUserStorageKey(userId, destWorkspaceId);
-      console.log("fromStorageKey: ", fromStorageKey);
-      console.log("toStorageKey: ", toStorageKey); 
 
       if (payload.kind === "workspace") {
         // Copy *all groups* from source workspace → dest
@@ -312,9 +311,7 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
       }
 
       // bookmark → dest “Imported” group
-      console.log("[NewTabPage.tsx] Type of copy element is a bookmark");
       const intoGroupId = await ensureImportedGroup(destWorkspaceId, toStorageKey);
-      console.log("[NewTabPage.tsx] intoGroupId: ", intoGroupId);
       const res = await moveOrCopyFunction({
         fromWorkspaceId: payload.fromWorkspaceId,
         toWorkspaceId: destWorkspaceId,

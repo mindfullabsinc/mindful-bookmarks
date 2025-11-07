@@ -183,28 +183,26 @@ export async function copyItems(opts: CopyOptions): Promise<CopyResult> {
 }
 
 /**
- * Move groups or bookmarks between workspaces by copying them and optionally deleting from the source.
+ * Move groups or bookmarks between workspaces by copying them and deleting from the source.
  *
- * @param opts Copy configuration plus a `deleteFromSource` flag.
- * @param opts.deleteFromSource When true, remove the copied entities from the source workspace after success.
+ * @param opts Copy configuration 
  * @returns Totals for added and skipped bookmarks.
  */
-export async function moveItems(opts: CopyOptions & { deleteFromSource: boolean }): Promise<CopyResult> {
-  const { deleteFromSource, ...copyOpts } = opts;
-  const res = await copyItems(copyOpts);
-  if (!deleteFromSource || res.added === 0) return res;
+export async function moveItems(opts: CopyOptions): Promise<CopyResult> {
+  const { fromWorkspaceId, fromStorageKey, target } = opts;
+  const res = await copyItems(opts);
+  if (res.added === 0) return res;
 
   // Delete from source AFTER copy succeeds.
   const adapter = getAdapter(StorageMode.LOCAL);
   if (!adapter?.readAllGroups || !adapter?.writeAllGroups) return res;
 
-  const { fromWorkspaceId, target } = copyOpts;
-  const srcGroups = await adapter.readAllGroups(fromWorkspaceId);
+  const srcGroups = await adapter.readAllGroups(fromStorageKey);
 
   if (target.kind === "group") {
     const toDelete = new Set(target.groupId.split(","));
     const remaining = srcGroups.filter(g => !toDelete.has(g.id));
-    await adapter.writeAllGroups(fromWorkspaceId, remaining);
+    await adapter.writeAllGroups(fromWorkspaceId, fromStorageKey, remaining);
   } else {
     const ids = new Set(target.bookmarkIds);
     for (const g of srcGroups) {
@@ -215,7 +213,7 @@ export async function moveItems(opts: CopyOptions & { deleteFromSource: boolean 
         // shrink set by those we removed (optional micro-optimization)
       }
     }
-    await adapter.writeAllGroups(fromWorkspaceId, srcGroups);
+    await adapter.writeAllGroups(fromWorkspaceId, fromStorageKey, srcGroups);
   }
 
   return res;
