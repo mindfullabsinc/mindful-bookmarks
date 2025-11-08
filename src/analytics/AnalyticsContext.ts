@@ -2,14 +2,14 @@
 import React, { createContext, useContext } from "react";
 
 type CaptureProps = Record<string, any>;
-export type AnalyticsCtx = {
+export type AnalyticsCtxType = {
   capture: (event: string, props?: CaptureProps) => void;
   optOut: boolean;
   setOptOut: (v: boolean) => void;
   userId: string | null;
 };
 
-export type Analytics = {
+export type AnalyticsType = {
   capture: (event: string, props?: Record<string, unknown>) => void;
   identify: (id: string, traits?: Record<string, unknown>) => void;
   optOut: boolean;
@@ -17,7 +17,7 @@ export type Analytics = {
   userId?: string;
 };
 
-const fallback: Analytics = {
+const fallback: AnalyticsType = {
   capture: () => {},
   identify: () => {},
   optOut: false,
@@ -25,9 +25,9 @@ const fallback: Analytics = {
   userId: undefined,
 };
 
-export const AnalyticsContext = React.createContext<Analytics | null>(null);
+export const AnalyticsContext = React.createContext<AnalyticsType | null>(null);
 
-export function useAnalytics(): Analytics {
+export function useAnalytics(): AnalyticsType {
   const ctx = React.useContext(AnalyticsContext);
   return ctx ?? fallback; // <— never throws in tests
 }
