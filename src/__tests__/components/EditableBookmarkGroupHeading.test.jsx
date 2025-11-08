@@ -6,6 +6,7 @@ import { EditableBookmarkGroupHeading } from '@/components/EditableBookmarkGroup
 import { AppContext } from '@/scripts/AppContextProvider';
 import { useBookmarkManager } from '@/hooks/useBookmarkManager';
 import { EMPTY_GROUP_IDENTIFIER } from "@/core/constants/constants";
+import { broadcastLastSelectedGroup, writeLastSelectedGroup } from '@/core/utils/lastSelectedGroup';
 
 // Mock the CSS import
 jest.mock('@/styles/EditableBookmarkGroupHeading.css', () => ({}));
@@ -33,7 +34,8 @@ describe('EditableBookmarkGroupHeading', () => {
   // --- Setup before each test ---
   beforeEach(() => {
     // Reset mocks before each test
-    mockEditBookmarkGroupHeading = jest.fn();
+    // make mockEditBookmarkGroupHeading async so the component's `await` behaves as in real life
+    mockEditBookmarkGroupHeading = jest.fn(() => Promise.resolve());
     mockSetBookmarkGroups = jest.fn();
     
     // Provide a default mock implementation for the hook
@@ -167,5 +169,193 @@ describe('EditableBookmarkGroupHeading', () => {
     expect(mockEditBookmarkGroupHeading).not.toHaveBeenCalled();
     // It should exit edit mode
     expect(heading).not.toHaveAttribute('contentEditable', 'true');
+  });
+
+  test('broadcasts name immediately on commit', async () => {
+    const { container } = renderComponent({ bookmarkGroup: mockBookmarkGroups[1], groupIndex: 1 });
+    const heading = screen.getByText(NEW_GROUP_NAME_PLACEHOLDER);
+
+    // Enter edit mode and type new name
+    fireEvent.click(heading);
+    heading.textContent = 'Reading List';
+
+    // Commit via blur
+    fireEvent.blur(heading);
+
+    await waitFor(() => {
+      // edit hook called with new name
+      expect(mockEditBookmarkGroupHeading).toHaveBeenCalledWith(1, 'Reading List');
+      // persisted & broadcast (legacy name path)
+      expect(writeLastSelectedGroup).toHaveBeenCalledWith('test-last-key', 'Reading List');
+      expect(broadcastLastSelectedGroup).toHaveBeenCalledWith({
+        workspaceId: 'ws-a',
+        groupName: 'Reading List',
+      });
+    });
+  });
+
+  test('upgrades broadcast from name to id after groups hydrate', async () => {
+    jest.useFakeTimers();
+
+    // Start from placeholder → rename to a real group
+    renderComponent({ bookmarkGroup: mockBookmarkGroups[1], groupIndex: 1 });
+    const heading = screen.getByText(NEW_GROUP_NAME_PLACEHOLDER);
+
+    fireEvent.click(heading);
+    heading.textContent = 'Projects';
+    fireEvent.blur(heading);
+
+    // name broadcast happens first
+    await waitFor(() => {
+      expect(broadcastLastSelectedGroup).toHaveBeenCalledWith({
+        workspaceId: 'ws-a',
+        groupName: 'Projects',
+      });
+    });
+
+    // Now "hydrate" context by adding an id-bearing group with that name
+    // (the component's polling calls getLatestGroups() repeatedly)
+    mockBookmarkGroups.splice(1, 1, { id: 'g-proj', groupName: 'Projects', bookmarks: [] });
+
+    // Let the poller run a few cycles (50ms each by default)
+    jest.advanceTimersByTime(300);
+
+    await waitFor(() => {
+      expect(writeLastSelectedGroup).toHaveBeenCalledWith('test-last-key', 'g-proj');
+      expect(broadcastLastSelectedGroup).toHaveBeenCalledWith({
+        workspaceId: 'ws-a',
+        groupId: 'g-proj',
+      });
+    });
+
+    jest.useRealTimers();
+  });
+
+  test('persists legacy name first, then id to same key', async () => {
+    renderComponent({ bookmarkGroup: mockBookmarkGroups[1], groupIndex: 1 });
+    const heading = screen.getByText(NEW_GROUP_NAME_PLACEHOLDER);
+
+    fireEvent.click(heading);
+    heading.textContent = 'Inbox';
+    fireEvent.blur(heading);
+
+    await waitFor(() => {
+      // first write is the name
+      expect(writeLastSelectedGroup).toHaveBeenCalledWith('test-last-key', 'Inbox');
+    });
+
+    // hydrate with id and let the polling resolve
+    mockBookmarkGroups.splice(1, 1, { id: 'g-inbox', groupName: 'Inbox', bookmarks: [] });
+    await waitFor(() => {
+      expect(writeLastSelectedGroup).toHaveBeenCalledWith('test-last-key', 'g-inbox');
+    });
+  });
+
+  test('uses external onCommit when provided (does not call edit hook)', async () => {
+    const onCommit = jest.fn();
+    renderComponent({ bookmarkGroup: mockBookmarkGroups[1], groupIndex: 1, onCommit });
+
+    const heading = screen.getByText(NEW_GROUP_NAME_PLACEHOLDER);
+    fireEvent.click(heading);
+    heading.textContent = 'Reading';
+    fireEvent.blur(heading);
+
+    await waitFor(() => {
+      expect(onCommit).toHaveBeenCalledWith('Reading');
+      expect(mockEditBookmarkGroupHeading).not.toHaveBeenCalled();
+      expect(broadcastLastSelectedGroup).toHaveBeenCalledWith({
+        workspaceId: 'ws-a',
+        groupName: 'Reading',
+      });
+    });
+  });
+
+  test('empty on blur triggers external onCancel (no commit/broadcast/persist)', () => {
+    const onCancel = jest.fn();
+    renderComponent({ bookmarkGroup: mockBookmarkGroups[1], groupIndex: 1, onCancel });
+
+    const heading = screen.getByText(NEW_GROUP_NAME_PLACEHOLDER);
+    fireEvent.click(heading);
+    heading.textContent = '   ';
+    fireEvent.blur(heading);
+
+    expect(onCancel).toHaveBeenCalled();
+    expect(mockEditBookmarkGroupHeading).not.toHaveBeenCalled();
+    expect(writeLastSelectedGroup).not.toHaveBeenCalled();
+    expect(broadcastLastSelectedGroup).not.toHaveBeenCalled();
+  });
+
+  test('selects all text on focus in edit mode', async () => {
+    jest.useFakeTimers();
+
+    renderComponent({ bookmarkGroup: mockBookmarkGroups[0], groupIndex: 0 });
+    const heading = screen.getByText('Work');
+
+    fireEvent.click(heading); // enter edit mode
+
+    // Let the setTimeout(0) inside the component run
+    jest.advanceTimersByTime(0);
+
+    await waitFor(() => {
+      const sel = window.getSelection();
+      expect(sel && sel.toString()).toBe('Work');
+    });
+
+    jest.useRealTimers();
+  });
+
+  test('stops pointerdown propagation (does not trigger parent)', () => {
+    const parentSpy = jest.fn();
+
+    render(
+      <div onPointerDown={parentSpy}>
+        <AppContext.Provider
+          value={{
+            bookmarkGroups: mockBookmarkGroups,
+            groupsIndex: mockBookmarkGroups,
+            setBookmarkGroups: mockSetBookmarkGroups,
+            userId: 'test-user-123',
+            storageMode: 'local',
+            activeWorkspaceId: 'ws-a',
+          }}
+        >
+          <EditableBookmarkGroupHeading bookmarkGroup={mockBookmarkGroups[0]} groupIndex={0} />
+        </AppContext.Provider>
+      </div>
+    );
+
+    const heading = screen.getByText('Work');
+    fireEvent.pointerDown(heading);
+    expect(parentSpy).not.toHaveBeenCalled();
+  });
+
+  test('Enter commits from placeholder and prevents newline', async () => {
+    renderComponent({ bookmarkGroup: mockBookmarkGroups[1], groupIndex: 1 });
+    const heading = screen.getByText(NEW_GROUP_NAME_PLACEHOLDER);
+
+    // enter edit mode
+    fireEvent.click(heading);
+
+    // allow the focus/selection effect to run
+    await new Promise(r => setTimeout(r, 0));
+
+    // JSDOM can be picky: explicitly focus the contentEditable node
+    heading.focus();
+
+    // type the new name
+    heading.textContent = 'Quick Notes';
+
+    // press Enter (ensure key fields are present)
+    fireEvent.keyDown(heading, { key: 'Enter', code: 'Enter', keyCode: 13, charCode: 13 });
+    fireEvent.blur(heading); // just in case JSDOM didn’t blur
+
+    // the blur is triggered inside the handler; wait for the async commit
+    await waitFor(() =>
+      expect(mockEditBookmarkGroupHeading).toHaveBeenCalledWith(1, 'Quick Notes')
+    );
+   
+    // assert we exited edit mode on the same element (allow a tick)
+    await new Promise(r => setTimeout(r, 0));
+    await waitFor(() => expect(heading).toHaveAttribute('contentEditable', 'false'));
   });
 });

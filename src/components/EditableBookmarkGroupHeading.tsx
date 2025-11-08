@@ -131,17 +131,20 @@ export function EditableBookmarkGroupHeading({
       // 2) Commit the rename (or creation) to the store
       if (onCommit) await onCommit(name);
       else await editBookmarkGroupHeading(groupIndex, name);
-
-      // 3) Try to resolve an **id** and upgrade storage + rebroadcast with id
-      //    (use index first—same group instance—then fallback by name)
-      let resolvedId = getLatestGroups()[groupIndex]?.id || '';
-      if (!resolvedId) resolvedId = await findGroupIdByName(name, 10, 100);
-      if (resolvedId) {
-        writeLastSelectedGroup(key, resolvedId);
-        broadcastLastSelectedGroup({ workspaceId: wsId, groupId: resolvedId });
-      }
-
+      
+      // Exit edit mode immediately after commit so the UI is responsive
       if (externalIsEditing === undefined) setInternalIsEditing(false);
+      
+      // 3) Resolve **id** and upgrade storage + rebroadcast with id (don’t block UI)
+      (async () => {
+        // use index first—same group instance—then fallback by name
+        let resolvedId = getLatestGroups()[groupIndex]?.id || '';
+        if (!resolvedId) resolvedId = await findGroupIdByName(name, 10, 100);
+        if (resolvedId) {
+          writeLastSelectedGroup(key, resolvedId);
+          broadcastLastSelectedGroup({ workspaceId: wsId, groupId: resolvedId });
+        }
+      })(); 
     };
 
     if (newGroupName === '') {
