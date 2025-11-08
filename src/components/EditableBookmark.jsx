@@ -3,9 +3,16 @@ import React, { useState, useRef, useContext, useMemo } from 'react';
 /* CSS styles */
 import '@/styles/NewTab.css';
 
-/* Hooks and Utilities */
+/* Hooks */
 import { useBookmarkManager } from '@/hooks/useBookmarkManager';
+
+/* Scripts */
 import { AppContext } from '@/scripts/AppContextProvider';
+
+/* Events */
+import { openCopyTo } from '@/scripts/events/copyToBridge';
+
+/* Utilities */
 import { createUniqueID } from "@/core/utils/utilities";
 
 /* -----------------------------
@@ -31,6 +38,11 @@ function circleColorFor(host) {
   return `hsl(${h % 360} 60% 45%)`;
 }
 
+/**
+ * Provide a deterministic single-letter circle avatar fallback when favicons cannot be fetched.
+ *
+ * @param {{ host: string; size: number; className?: string }} props Visual configuration for the fallback.
+ */
 function DomainLetter({ host, size, className }) {
   const letter = host.replace(/^www\./, '')[0]?.toUpperCase() ?? '?';
   const style = {
@@ -55,6 +67,12 @@ function DomainLetter({ host, size, className }) {
 /**
  * Fault-tolerant favicon loader.
  * Tries multiple sources, caches the first success per hostname, and falls back gracefully.
+ */
+/**
+ * Fault-tolerant favicon loader that tries multiple providers, memoizes successes, and falls back to a letter avatar.
+ *
+ * @param {{ url: string; size?: number; className?: string; fallback?: 'letter' | 'blank' }} props Rendering options.
+ * @returns {JSX.Element | null}
  */
 function Favicon({ url, size = 16, className, fallback = 'letter' /* 'letter' | 'blank' */ }) {
   const host = useMemo(() => toHostname(url), [url]);
@@ -113,13 +131,9 @@ function Favicon({ url, size = 16, className, fallback = 'letter' /* 'letter' | 
   );
 }
 
-/* -----------------------------
-   Your component, updated
-   ----------------------------- */
-
-function EditableBookmark(props) {
-  // Consume state from the context 
-  const { bookmarkGroups } = useContext(AppContext);
+export function EditableBookmark(props) {
+  /* -------------------- Context / state -------------------- */
+  const { bookmarkGroups, activeWorkspaceId } = useContext(AppContext);
 
   // Get all actions from the custom bookmarks hook
   const { 
@@ -130,6 +144,18 @@ function EditableBookmark(props) {
   const [text, setText] = useState(props.bookmark.name);
   const [url, setUrl] = useState(props.bookmark.url);
 
+  const aRef = useRef(null);
+  /* ---------------------------------------------------------- */
+
+  /* -------------------- Helper functions -------------------- */
+  /**
+   * Turn the bookmark label into a transient contentEditable field and persist changes on blur/Enter.
+   *
+   * @param {React.MouseEvent} event Original click event from the edit control.
+   * @param {number} groupIndex Index of the bookmark's parent group.
+   * @param {number} bookmarkIndex Index of the bookmark within its group.
+   * @param {{ current: HTMLElement | null }} aRef Ref pointing to the anchor element displaying the name.
+   */
   function handleBookmarkNameEdit(event, groupIndex, bookmarkIndex, aRef) {
     // Make the <a> element's content editable
     const aElement = aRef.current;
@@ -163,6 +189,13 @@ function EditableBookmark(props) {
     aElement.addEventListener('blur', onBlur);
   }
 
+  /**
+   * Confirm and remove a bookmark from its group.
+   *
+   * @param {React.MouseEvent} event Click event from the delete button.
+   * @param {number} groupIndex Index of the group that owns the bookmark.
+   * @param {number} bookmarkIndex Index of the bookmark inside that group.
+   */
   async function handleBookmarkDelete(event, groupIndex, bookmarkIndex) {
     const bookmarkGroup = bookmarkGroups[groupIndex];
     const bookmark = bookmarkGroup.bookmarks[bookmarkIndex];
@@ -174,7 +207,23 @@ function EditableBookmark(props) {
     }
   }
 
-  const aRef = useRef(null);
+  /**
+   * Trigger the copy-to modal for a single bookmark within the active workspace.
+   *
+   * @param {React.MouseEvent} event Click event from the copy button.
+   */
+  function handleBookmarkCopy(event) {
+    event.stopPropagation(); // don’t start a drag
+    if (!activeWorkspaceId) return;
+    openCopyTo({
+      kind: 'bookmark',
+      fromWorkspaceId: activeWorkspaceId,
+      bookmarkIds: [props.bookmark.id], // single-bookmark copy; we can extend to multiselect later
+    });
+  }
+  /* ---------------------------------------------------------- */
+
+  /* -------------------- Component UI -------------------- */
   return (
     <div key={createUniqueID()} className="bookmark-container">
       {/* Replaces the raw <img> with a resilient favicon */}
@@ -195,30 +244,31 @@ function EditableBookmark(props) {
         {text}
       </a>
 
-      <ModifyBookmarkButton 
-        imagePath="assets/edit-icon.svg" 
+      <button
+        className='modify-link-button' 
         onClick={(event) => handleBookmarkNameEdit(event, props.groupIndex, props.bookmarkIndex, aRef)} 
         aria-label="Edit bookmark"
-      />
-      <ModifyBookmarkButton 
-        imagePath="assets/delete-icon.svg" 
+        title="Edit bookmark"
+      >
+        <i className="fa fa-pencil text-xsm" />
+      </button>
+      <button 
+        className='modify-link-button' 
+        onClick={handleBookmarkCopy}
+        aria-label="Copy/Move bookmark"
+        title="Copy/Move bookmark"
+      >
+        <i className="far fa-copy text-xs" />
+      </button>
+      <button
+        className='modify-link-button' 
         onClick={(event) => handleBookmarkDelete(event, props.groupIndex, props.bookmarkIndex)}  
         aria-label="Delete bookmark"
-      />
+        title="Delete bookmark"
+      >
+        <i className="fa fa-xmark text-xs" />
+      </button>
     </div>
   );
+  /* ---------------------------------------------------------- */
 }
-
-function ModifyBookmarkButton(props) {
-  return (
-    <button 
-      className='modify-link-button' 
-      onClick={props.onClick}
-      aria-label={props['aria-label']}
-    >
-      <img src={props.imagePath} className='modify-link-button-img' />
-    </button>
-  );
-}
-
-export { EditableBookmark };

@@ -62,6 +62,34 @@ async function removeLocal(workspaceId: WorkspaceIdType, key: string): Promise<v
   const full = ns(workspaceId, key);
   await chrome.storage.local.remove(full);
 }
+
+/**
+ * Derive a lightweight "groups index" from a full workspace groups array.
+ *
+ * This is used to populate the fast session mirror (`chrome.storage.session`)
+ * for quick reopen and workspace switching without loading full bookmark data.
+ * Each entry contains only the group’s `id` and `groupName`, which are enough
+ * for listing and selection in the UI.
+ *
+ * @param {BookmarkGroupType[]} groups
+ *   Full array of bookmark groups belonging to a workspace.
+ *
+ * @returns {{ id: string; groupName: string }[]}
+ *   A compact array of objects containing each group's identifier and name,
+ *   suitable for storage in `chrome.storage.session`.
+ *
+ * @example
+ * deriveIndex([
+ *   { id: "g1", groupName: "Work", bookmarks: [...] },
+ *   { id: "g2", groupName: "Personal", bookmarks: [...] }
+ * ]);
+ * // → [ { id: "g1", groupName: "Work" }, { id: "g2", groupName: "Personal" } ]
+ */
+export const deriveIndex = (groups: BookmarkGroupType[]) =>
+  groups.map(g => ({
+    id: String(g.id),
+    groupName: String(g.groupName),
+  }));
 /* ---------------------------------------------------------- */
 
 /* -------------------- Adapter -------------------- */
@@ -130,6 +158,10 @@ export const LocalAdapter: Required<StorageAdapter> = {
   /* -------------------- Generic WS-scoped storage (new in PR-3) -------------------- */
   /**
    * Read a workspace-scoped value from chrome.storage.local.
+   *
+   * @param workspaceId Workspace identifier used to namespace the key.
+   * @param key Logical key within the workspace namespace.
+   * @returns Stored value when present.
    */
   async get<T = unknown>(workspaceId: WorkspaceIdType, key: string): Promise<T | undefined> {
     return getLocal<T>(workspaceId, key);
@@ -137,6 +169,10 @@ export const LocalAdapter: Required<StorageAdapter> = {
 
   /**
    * Persist a workspace-scoped value into chrome.storage.local.
+   *
+   * @param workspaceId Workspace identifier used to namespace the key.
+   * @param key Logical key within the workspace namespace.
+   * @param value Serializable value to store.
    */
   async set<T = unknown>(workspaceId: WorkspaceIdType, key: string, value: T): Promise<void> {
     await setLocal(workspaceId, key, value);
@@ -144,9 +180,42 @@ export const LocalAdapter: Required<StorageAdapter> = {
 
   /**
    * Remove a workspace-scoped value from chrome.storage.local.
+   *
+   * @param workspaceId Workspace identifier used to namespace the key.
+   * @param key Logical key within the workspace namespace.
    */
   async remove(workspaceId: WorkspaceIdType, key: string): Promise<void> {
     await removeLocal(workspaceId, key);
+  },
+
+  /**
+   * Return all groups for a workspace (no caching side-effects).
+   *
+   * @param fullStorageKey Fully qualified chrome.storage.local key to read.
+   * @returns Bookmark groups stored for the workspace.
+   */
+  async readAllGroups(fullStorageKey: string): Promise<BookmarkGroupType[]> {
+    try {
+      const obj = await chrome.storage.local.get(fullStorageKey);
+      const snap = obj?.[fullStorageKey];
+      return Array.isArray(snap) ? (snap as BookmarkGroupType[]) : [];
+    } catch {
+      // If chrome.storage.local.get rejects, return empty array
+      return [];
+    }
+  },
+
+  /**
+   * Overwrite all groups for a workspace while refreshing the session mirror.
+   *
+   * @param workspaceId Workspace identifier whose dataset is being replaced.
+   * @param fullStorageKey Fully qualified chrome.storage.local key to write.
+   * @param groups New bookmark groups collection.
+   */
+  async writeAllGroups(workspaceId: WorkspaceIdType, fullStorageKey: string, groups: BookmarkGroupType[]): Promise<void> {
+    await chrome.storage.local.set({ [fullStorageKey]: groups});
+    // update the session mirror 
+    writeGroupsIndexSession?.(workspaceId, deriveIndex(groups));
   },
   /* ---------------------------------------------------------- */
 };

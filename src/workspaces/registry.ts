@@ -1,5 +1,5 @@
 import { StorageMode } from "@/core/constants/storageMode";
-import type { WorkspaceIdType, Workspace, WorkspaceRegistry } from "@/core/constants/workspaces";
+import type { WorkspaceIdType, WorkspaceType, WorkspaceRegistryType } from "@/core/constants/workspaces";
 import { createUniqueID } from "@/core/utils/utilities";
 import { 
   DEFAULT_LOCAL_WORKSPACE_ID, 
@@ -52,22 +52,31 @@ async function removeLocal(...keys: string[]): Promise<void> {
 /* -------------------- Type guards & helpers -------------------- */
 /**
  * Type guard that verifies a value conforms to the Workspace shape.
+ *
+ * @param x Candidate value to inspect.
+ * @returns True when the object looks like a workspace.
  */
-function isWorkspace(x: any): x is Workspace {
+function isWorkspace(x: any): x is WorkspaceType {
   return x && typeof x === "object" && typeof x.id === "string" && typeof x.name === "string";
   // archived is optional; no strict check needed
 }
 /**
  * Check whether a value appears to be a workspace items map.
+ *
+ * @param x Candidate value to inspect.
+ * @returns True when the object contains at least one workspace-like entry.
  */
-function looksLikeItemsMap(x: any): x is Record<WorkspaceIdType, Workspace> {
+function looksLikeItemsMap(x: any): x is Record<WorkspaceIdType, WorkspaceType> {
   if (!x || typeof x !== "object") return false;
   return Object.values(x).some(isWorkspace);
 }
 /**
  * Validate that a value resembles a WorkspaceRegistry object.
+ *
+ * @param x Candidate value to inspect.
+ * @returns True when the object matches the registry shape/version.
  */
-function isRegistryObject(x: any): x is WorkspaceRegistry {
+function isRegistryObject(x: any): x is WorkspaceRegistryType {
   return x && typeof x === "object" && x.version === 1 && x.items && x.activeId;
 }
 
@@ -77,7 +86,7 @@ function isRegistryObject(x: any): x is WorkspaceRegistry {
  * @param id Optional workspace identifier override (auto-generated when omitted).
  * @returns Workspace payload with sensible defaults.
  */
-function makeDefaultLocalWorkspace(id?: WorkspaceIdType): Workspace {
+function makeDefaultLocalWorkspace(id?: WorkspaceIdType): WorkspaceType {
   const now = Date.now();
   return {
     id: id ?? `local-${createUniqueID()}`,
@@ -97,8 +106,8 @@ function makeDefaultLocalWorkspace(id?: WorkspaceIdType): Workspace {
  *
  * @returns Promise resolving to a normalized registry or undefined when nothing was migrated.
  */
-async function coerceRegistryFromLegacy(): Promise<WorkspaceRegistry | undefined> {
-  const legacyItems = await readLocal<Record<WorkspaceIdType, Workspace>>(LEGACY_WORKSPACES_KEY);
+async function coerceRegistryFromLegacy(): Promise<WorkspaceRegistryType | undefined> {
+  const legacyItems = await readLocal<Record<WorkspaceIdType, WorkspaceType>>(LEGACY_WORKSPACES_KEY);
   const legacyActive = await readLocal<WorkspaceIdType>(LEGACY_ACTIVE_KEY);
   const rawReg = await readLocal<any>(WORKSPACE_REGISTRY_KEY);
 
@@ -107,7 +116,7 @@ async function coerceRegistryFromLegacy(): Promise<WorkspaceRegistry | undefined
     const activeId =
       (legacyActive && legacyItems[legacyActive]) ? legacyActive
       : Object.keys(legacyItems)[0] || DEFAULT_LOCAL_WORKSPACE_ID;
-    const reg: WorkspaceRegistry = {
+    const reg: WorkspaceRegistryType = {
       version: 1,
       activeId,
       items: legacyItems,
@@ -121,7 +130,7 @@ async function coerceRegistryFromLegacy(): Promise<WorkspaceRegistry | undefined
   // B) Registry key contains just a string (activeId)
   if (typeof rawReg === "string") {
     const id = rawReg as WorkspaceIdType;
-    let items: Record<WorkspaceIdType, Workspace> | undefined = undefined;
+    let items: Record<WorkspaceIdType, WorkspaceType> | undefined = undefined;
 
     if (legacyItems && looksLikeItemsMap(legacyItems)) {
       items = legacyItems;
@@ -130,7 +139,7 @@ async function coerceRegistryFromLegacy(): Promise<WorkspaceRegistry | undefined
       items = { [ws.id]: ws };
     }
 
-    const reg: WorkspaceRegistry = {
+    const reg: WorkspaceRegistryType = {
       version: 1,
       activeId: id,
       items,
@@ -144,7 +153,7 @@ async function coerceRegistryFromLegacy(): Promise<WorkspaceRegistry | undefined
   // C) Registry key contains a raw items map (no version wrapper)
   if (rawReg && looksLikeItemsMap(rawReg)) {
     const first = Object.keys(rawReg)[0] || DEFAULT_LOCAL_WORKSPACE_ID;
-    const reg: WorkspaceRegistry = {
+    const reg: WorkspaceRegistryType = {
       version: 1,
       activeId: first,
       items: rawReg,
@@ -166,15 +175,15 @@ async function coerceRegistryFromLegacy(): Promise<WorkspaceRegistry | undefined
  *
  * @returns Promise resolving to the registry or undefined when not found.
  */
-export async function loadRegistry(): Promise<WorkspaceRegistry | undefined> {
-  return await readLocal<WorkspaceRegistry>(WORKSPACE_REGISTRY_KEY);
+export async function loadRegistry(): Promise<WorkspaceRegistryType | undefined> {
+  return await readLocal<WorkspaceRegistryType>(WORKSPACE_REGISTRY_KEY);
 }
 /**
  * Persist the workspace registry object to chrome.storage.local.
  *
  * @param registry Registry payload to store.
  */
-export async function saveRegistry(registry: WorkspaceRegistry): Promise<void> {
+export async function saveRegistry(registry: WorkspaceRegistryType): Promise<void> {
   await writeLocal(WORKSPACE_REGISTRY_KEY, registry);
 }
 /**
@@ -182,7 +191,7 @@ export async function saveRegistry(registry: WorkspaceRegistry): Promise<void> {
  *
  * @returns Promise resolving to the active workspace metadata.
  */
-export async function getActiveWorkspace(): Promise<Workspace> {
+export async function getActiveWorkspace(): Promise<WorkspaceType> {
   const reg = await ensureRegistry();
   return reg.items[reg.activeId];
 }
@@ -243,12 +252,13 @@ export async function initializeLocalWorkspaceRegistry(): Promise<void> {
  *
  * Sorted by createdAt ascending to keep default at the top.
  *
- * @param opts Optional filters (e.g., include archived entries).
+ * @param opts Optional filters that affect the result set.
+ * @param opts.includeArchived When true, include archived workspaces in the result.
  * @returns Sorted array of workspaces.
  */
 export async function listLocalWorkspaces(opts?: {
   includeArchived?: boolean;
-}): Promise<Workspace[]> {
+}): Promise<WorkspaceType[]> {
   const reg = await ensureRegistry();
   const all = Object.values(reg.items).sort((a, b) => a.createdAt - b.createdAt);
   return opts?.includeArchived ? all : all.filter(w => !w.archived);
@@ -292,12 +302,12 @@ export async function ensureDefaultWorkspace(): Promise<void> {
  * @param name Display name to use for the new workspace.
  * @returns Newly created workspace metadata.
  */
-export async function createLocalWorkspace(name = "Local Workspace"): Promise<Workspace> {
+export async function createLocalWorkspace(name = "Local Workspace"): Promise<WorkspaceType> {
   const reg = await ensureRegistry();
 
   const id: WorkspaceIdType = `local-${createUniqueID()}`; // reuses your canonical helper
   const now = Date.now();
-  const ws: Workspace = {
+  const ws: WorkspaceType = {
     id,
     name,
     storageMode: StorageMode.LOCAL,
@@ -369,7 +379,7 @@ export async function archiveWorkspace(id: WorkspaceIdType): Promise<void> {
  *
  * @returns Promise resolving to a valid workspace registry.
  */
-async function ensureRegistry(): Promise<WorkspaceRegistry> {
+async function ensureRegistry(): Promise<WorkspaceRegistryType> {
   let reg = await loadRegistry();
   if (!reg || !isRegistryObject(reg)) {
     await initializeLocalWorkspaceRegistry();

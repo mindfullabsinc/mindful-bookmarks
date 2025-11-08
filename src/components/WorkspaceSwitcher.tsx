@@ -1,4 +1,6 @@
 import React, { useMemo, useState, useContext, useEffect, useRef } from 'react';
+
+/* Scripts and hooks */
 import {
   getActiveWorkspaceId,
   listLocalWorkspaces,
@@ -11,34 +13,42 @@ import {
   clearSessionGroupsIndexExcept,
   writeGroupsIndexSession,
 } from '@/scripts/caching/bookmarkCache';
-import type { Workspace } from '@/core/constants/workspaces';
+
+/* Events */
+import { openCopyTo } from "@/scripts/events/copyToBridge";
+
+/* Types */
+import type { WorkspaceType } from '@/core/constants/workspaces';
 
 /**
  * WorkspaceSwitcher (Left Tab Popout)
  *
  * A compact, always-available left-edge tab that slides out a panel.
- * - Keeps Mindful's dark zinc theme
+ * - Keeps Mindful's dark neutral theme
  * - Keyboard accessible (Tab/Shift+Tab, ESC closes)
  * - Click outside closes
  * - Works with existing registry + AppContext flow
  */
 export const WorkspaceSwitcher: React.FC = () => {
-  // Context
+  /* -------------------- Context / state -------------------- */
   const { setActiveWorkspaceId, activeWorkspaceId: ctxActiveId } = useContext(AppContext) as {
     setActiveWorkspaceId: (id: string) => Promise<void> | void;
     activeWorkspaceId: string | null;
   };
 
-  // Local state
   const [panelOpen, setPanelOpen] = useState(false);
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  const [workspaces, setWorkspaces] = useState<WorkspaceType[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
 
   // Refs for click-outside and focus handling
   const panelRef = useRef<HTMLDivElement | null>(null);
   const openerRef = useRef<HTMLButtonElement | null>(null);
+  /* ---------------------------------------------------------- */
 
-  // Bootstrap
+  /* -------------------- Effects -------------------- */
+  /**
+   * Hydrate the local list and active workspace id when the component mounts.
+   */
   useEffect(() => {
     (async () => {
       const [list, active] = await Promise.all([
@@ -50,11 +60,30 @@ export const WorkspaceSwitcher: React.FC = () => {
     })();
   }, []);
 
+  /**
+   * Close the panel via Escape and return focus to the launcher button for accessibility.
+   */
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setPanelOpen(false);
+        requestAnimationFrame(() => openerRef.current?.focus());
+      }
+    }
+    if (panelOpen) document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [panelOpen]);
+  /* ---------------------------------------------------------- */
+
+  /* -------------------- Handlers -------------------- */ 
   const activeName = useMemo(
     () => workspaces.find((w) => w.id === activeId)?.name ?? 'Workspace',
     [workspaces, activeId]
   );
 
+  /**
+   * Refresh the registry snapshot in state after mutations.
+   */
   const refresh = async () => {
     const [list, active] = await Promise.all([
       listLocalWorkspaces(),
@@ -64,6 +93,11 @@ export const WorkspaceSwitcher: React.FC = () => {
     setActiveId(active);
   };
 
+  /**
+   * Switch to another workspace, ensuring session mirrors stay aligned and focus returns to the opener.
+   *
+   * @param workspace_id Target workspace identifier selected by the user.
+   */
   async function handleSwitch(workspace_id: string) {
     if (!workspace_id || workspace_id === activeId || workspace_id === ctxActiveId) {
       setPanelOpen(false);
@@ -83,6 +117,9 @@ export const WorkspaceSwitcher: React.FC = () => {
     requestAnimationFrame(() => openerRef.current?.focus());
   }
 
+  /**
+   * Create a fresh local workspace and activate it immediately.
+   */
   async function handleCreate() {
     const ws = await createLocalWorkspace('Local Workspace');
     await (setActiveWorkspaceId as any)(ws.id);
@@ -91,6 +128,11 @@ export const WorkspaceSwitcher: React.FC = () => {
     await refresh();
   }
 
+  /**
+   * Prompt for a new workspace name and persist it.
+   *
+   * @param id Workspace identifier to rename.
+   */
   async function onRename(id: string) {
     const current = workspaces.find((w) => w.id === id);
     const name = prompt('Rename workspace', current?.name ?? 'Local Workspace');
@@ -99,6 +141,11 @@ export const WorkspaceSwitcher: React.FC = () => {
     await refresh();
   }
 
+  /**
+   * Soft-archive a workspace and ensure an active workspace remains available.
+   *
+   * @param id Workspace identifier to archive.
+   */
   async function onArchive(id: string) {
     if (!confirm('Archive this workspace? You can restore it later.')) return;
     await archiveWorkspace(id);
@@ -111,19 +158,9 @@ export const WorkspaceSwitcher: React.FC = () => {
 
     await refresh();
   }
+  /* ---------------------------------------------------------- */
 
-  // Close on ESC and restore focus
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') {
-        setPanelOpen(false);
-        requestAnimationFrame(() => openerRef.current?.focus());
-      }
-    }
-    if (panelOpen) document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [panelOpen]);
-
+  /* -------------------- Component UI -------------------- */
   return (
     <>
       {/* Backdrop when open */}
@@ -177,14 +214,13 @@ export const WorkspaceSwitcher: React.FC = () => {
           </h2>
           <button
             onClick={() => setPanelOpen(false)}
-            className="text-xs px-2 py-1 rounded-lg border
-                      border-neutral-300 dark:border-neutral-700 
+            className="text-xs px-2 py-1 rounded-lg 
                       text-neutral-800 dark:text-neutral-200 
                       hover:bg-neutral-200 dark:hover:bg-neutral-800
                       cursor-pointer"
             aria-label="Close workspace panel"
           >
-            Close
+            <i className="fas fa-xmark text-sm" />
           </button>
         </header>
 
@@ -212,23 +248,30 @@ export const WorkspaceSwitcher: React.FC = () => {
               <div className="flex gap-1 opacity-80">
                 <button
                   onClick={() => onRename(w.id)}
-                  className="text-[11px] px-2 py-1 rounded-lg border cursor-pointer 
-                           border-neutral-300 dark:border-neutral-700 
+                  className="text-[11px] px-2 py-1 rounded-lg cursor-pointer 
                            text-neutral-800 dark:text-neutral-200 
                            hover:bg-neutral-200 dark:hover:bg-neutral-800"
                   aria-label={`Rename ${w.name}`}
                 >
-                  Rename
+                  <i className="fa fa-pencil text-xs" />
                 </button>
                 <button
                   onClick={() => onArchive(w.id)}
-                  className="text-[11px] px-2 py-1 rounded-lg border cursor-pointer
-                           border-neutral-300 dark:border-neutral-700 
+                  className="text-[11px] px-2 py-1 rounded-lg cursor-pointer
                            text-neutral-800 dark:text-neutral-200 
                            hover:bg-neutral-200 dark:hover:bg-neutral-800"
                   aria-label={`Archive ${w.name}`}
                 >
-                  Archive
+                  <i className="fa fa-archive text-xs" />
+                </button>
+                <button
+                  onClick={() => openCopyTo({ kind: "workspace", fromWorkspaceId: w.id })}
+                  className="text-[11px] px-2 py-1 rounded-lg cursor-pointer 
+                            text-neutral-800 dark:text-neutral-200 
+                            hover:bg-neutral-200 dark:hover:bg-neutral-800"
+                  aria-label={`Copy ${w.name} to…`}
+                >
+                  <i className="far fa-copy text-xs" />
                 </button>
               </div>
             </div>
@@ -249,4 +292,5 @@ export const WorkspaceSwitcher: React.FC = () => {
       </div>
     </>
   );
+  /* ---------------------------------------------------------- */
 };

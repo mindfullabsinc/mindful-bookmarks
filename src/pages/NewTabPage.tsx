@@ -1,5 +1,5 @@
 /* -------------------- Imports -------------------- */
-import React, { useContext, useEffect, useRef } from "react";
+import React, { useContext, useEffect, useRef, useState, useCallback } from "react";
 import type { ReactElement } from 'react';
 
 /* CSS styles */
@@ -17,17 +17,28 @@ import {
 import type { WorkspaceIdType } from "@/core/constants/workspaces";
 import type { BookmarkGroupType, BookmarkType } from "@/core/types/bookmarks";
 
-/* Hooks and Utilities */
-import { getUserStorageKey } from '@/core/utils/utilities';
+/* Hooks */
 import { useBookmarkManager } from '@/hooks/useBookmarkManager';
+import { ensureImportedGroup } from "@/hooks/useCopyTo"; 
+
+/* Utilities */
+import { getUserStorageKey } from '@/core/utils/utilities';
+
+/* Scripts */
 import { loadInitialBookmarks } from '@/scripts/bookmarksData';
 import { AppContext } from "@/scripts/AppContextProvider";
+import { copyItems, moveItems } from "@/scripts/copyBookmarks";
 
 /* Components */
 import TopBanner from "@/components/TopBanner";
 import DraggableGrid, { GridHandle } from '@/components/DraggableGrid';
 import EmptyBookmarksState from '@/components/EmptyBookmarksState';
 import { WorkspaceSwitcher } from "@/components/WorkspaceSwitcher";
+import CopyToModal from "@/components/CopyToModal";
+import { Toast } from "@/components/ui/Toast";
+
+/* Events */
+import { openCopyTo, type CopyPayload } from "@/scripts/events/copyToBridge";
 /* ---------------------------------------------------------- */
 
 /* -------------------- Local types and interfaces -------------------- */
@@ -110,6 +121,12 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
     importBookmarksFromJSON,
     changeStorageMode,
   } = useBookmarkManager();
+
+  // Copy modal state + pending request
+  const [copyOpen, setCopyOpen] = useState(false);
+  const pendingCopyRef = useRef<CopyPayload | null>(null);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const toast = (msg: string) => setToastMsg(msg);
   /* ---------------------------------------------------------- */
 
   /* -------------------- Helper functions -------------------- */
@@ -239,6 +256,76 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
     clearAuthHash();
     try { window.location.reload(); } catch {}
   };
+
+  /**
+   * Execute a confirmed copy or move request emitted by the modal, then surface the result via toast.
+   *
+   * @param destWorkspaceId Workspace identifier that should receive the copied data.
+   * @param move When true, perform a move (transfer) instead of a copy.
+   */
+  const handleCopyConfirm = useCallback(async (destWorkspaceId: WorkspaceIdType, move: boolean) => {
+    console.log("[NewTabPage.tsx] In handleCopyConfirm()");
+    console.log("[NewTabPage.tsx] move: ", move); 
+    const payload = pendingCopyRef.current;
+    setCopyOpen(false);
+    pendingCopyRef.current = null;
+    if (!payload) return;
+
+    try {
+      const moveOrCopyFunction = move ? moveItems : copyItems;
+
+      if (!userId) {
+        // TODO: throw error
+        return;
+      }
+      const fromStorageKey = getUserStorageKey(userId, payload.fromWorkspaceId);
+      const toStorageKey = getUserStorageKey(userId, destWorkspaceId);
+
+      if (payload.kind === "workspace") {
+        // Copy *all groups* from source workspace → dest
+        const res = await moveOrCopyFunction({
+          fromWorkspaceId: payload.fromWorkspaceId,
+          toWorkspaceId: destWorkspaceId,
+          fromStorageKey: fromStorageKey,
+          toStorageKey: toStorageKey,
+          target: { kind: "group", groupId: "__ALL__" } as any, // handled below
+          dedupeByUrl: true,
+          chunkSize: 200,
+        } as any);
+        toast(`${res.added} links added • ${res.skipped} links skipped`);
+        return;
+      }
+
+      if (payload.kind === "group") {
+        const res = await moveOrCopyFunction({
+          fromWorkspaceId: payload.fromWorkspaceId,
+          toWorkspaceId: destWorkspaceId,
+          fromStorageKey: fromStorageKey,
+          toStorageKey: toStorageKey,
+          target: { kind: "group", groupId: payload.groupId },
+          dedupeByUrl: true,
+          chunkSize: 200,
+        } as any);
+        toast(`${res.added} links added • ${res.skipped} links skipped`);
+        return;
+      }
+
+      // bookmark → dest “Imported” group
+      const intoGroupId = await ensureImportedGroup(destWorkspaceId, toStorageKey);
+      const res = await moveOrCopyFunction({
+        fromWorkspaceId: payload.fromWorkspaceId,
+        toWorkspaceId: destWorkspaceId,
+        fromStorageKey: fromStorageKey,
+        toStorageKey: toStorageKey,
+        target: { kind: "bookmark", bookmarkIds: payload.bookmarkIds, intoGroupId },
+        dedupeByUrl: true,
+        chunkSize: 200,
+      } as any)
+      toast(`${res.added} links added • ${res.skipped} links skipped`);
+    } catch (err: any) {
+      toast(`Copy failed: ${err?.message ?? String(err)}`);
+    }
+  }, [toast, userId]);
   /* ---------------------------------------------------------- */
 
   /* -------------------- Effects -------------------- */
@@ -361,6 +448,19 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
     try { storageEvents.addListener(onStorageAuth); } catch {}
     return () => { try { storageEvents.removeListener(onStorageAuth); } catch {} };
   }, []);
+
+  /**
+   * Register a window-level listener for copy-to modal open events so other surfaces can trigger the modal.
+   */
+  useEffect(() => {
+    const onOpen = (e: Event) => {
+      const ev = e as CustomEvent<CopyPayload>;
+      pendingCopyRef.current = ev.detail ?? null;
+      setCopyOpen(!!ev.detail);
+    };
+    window.addEventListener("mindful:copyto:open", onOpen as EventListener);
+    return () => window.removeEventListener("mindful:copyto:open", onOpen as EventListener);
+  }, []);
   /* ---------------------------------------------------------- */
 
   // Ensure every group has a bookmarks array, as required by DraggableGrid's type
@@ -393,6 +493,13 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
             onCreateGroup={() => gridRef.current?.startCreateGroup?.({ prefill: ONBOARDING_NEW_GROUP_PREFILL, select: 'all' })}
             onImport={handleLoadBookmarks}
           />
+          <CopyToModal
+            open={copyOpen}
+            onClose={() => { setCopyOpen(false); pendingCopyRef.current = null; }}
+            onConfirm={handleCopyConfirm}
+            currentWorkspaceId={activeWorkspaceId as WorkspaceIdType}
+          />
+          <Toast message={toastMsg} />
         </>
       )}
     </div>

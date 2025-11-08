@@ -38,7 +38,7 @@ import {
 import type { BookmarkSnapshot } from '@/scripts/caching/bookmarkCache';
 
 /* Workspaces */
-import { Workspace, WorkspaceIdType } from '@/core/constants/workspaces';
+import { WorkspaceType, WorkspaceIdType } from '@/core/constants/workspaces';
 import { 
   loadRegistry, 
   initializeLocalWorkspaceRegistry, 
@@ -80,7 +80,7 @@ type AppContextProviderUser = {
 
 export interface AppContextValue {
   /* Workspaces */
-  workspaces: Record<WorkspaceIdType, Workspace>;
+  workspaces: Record<WorkspaceIdType, WorkspaceType>;
   activeWorkspaceId: WorkspaceIdType | null;  // allow null during boot
   setActiveWorkspaceId: (id: WorkspaceIdType) => void; 
 
@@ -129,7 +129,7 @@ export function AppContextProvider({
   const [userAttributes, setUserAttributes] = useState<UserAttributes | null>(null);
 
   // Workspaces
-  const [workspaces, setWorkspaces] = useState<Record<WorkspaceIdType, Workspace>>({});
+  const [workspaces, setWorkspaces] = useState<Record<WorkspaceIdType, WorkspaceType>>({});
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<WorkspaceIdType | null>(null);
 
   const [bookmarkGroups, setBookmarkGroups] = useState<BookmarkGroupType[]>([]);

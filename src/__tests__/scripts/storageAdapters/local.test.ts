@@ -1,8 +1,3 @@
-/**
- * @file local.test.ts
- * Tests for the LOCAL storage adapter (workspace-scoped, chrome.storage.local).
- */
-
 import type { WorkspaceIdType } from '@/core/constants/workspaces';
 import type { BookmarkGroupType } from '@/core/types/bookmarks';
 
@@ -19,6 +14,15 @@ jest.mock('@/scripts/caching/bookmarkCacheLocalFirstPaint', () => ({
   writeFpGroupsLocalSync: (...args: unknown[]) => writeFpGroupsLocalSync(...args),
 }));
 
+// ---- Mocks for tiny session mirror (groups index) ----
+const readGroupsIndexSession = jest.fn();
+const writeGroupsIndexSession = jest.fn();
+
+jest.mock('@/scripts/caching/bookmarkCache', () => ({
+  readGroupsIndexSession: (...args: unknown[]) => readGroupsIndexSession(...args),
+  writeGroupsIndexSession: (...args: unknown[]) => writeGroupsIndexSession(...args),
+}));
+
 // ---- Mock for wsKey (namespacing) ----
 const wsKeyMock = jest.fn((wid: string, key: string) => `ws:${wid}:${key}`);
 jest.mock('@/core/constants/workspaces', () => {
@@ -30,7 +34,7 @@ jest.mock('@/core/constants/workspaces', () => {
 });
 
 // SUT
-import { LocalAdapter } from '@/scripts/storageAdapters/local';
+import { LocalAdapter, deriveIndex } from '@/scripts/storageAdapters/local';
 
 const chromeGet = jest.fn();
 const chromeSet = jest.fn();
@@ -59,6 +63,7 @@ beforeAll(() => {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  localStorage.clear();
 });
 
 // Stable clock for snapshot "at" values
@@ -73,11 +78,29 @@ afterEach(() => {
 
 // ---- Test data ----
 const WID = 'workspace-1' as WorkspaceIdType;
+const FULL_STORAGE_KEY = 'ws:workspace-1:bookmarks_snapshot_v1';
 
 const GROUPS: BookmarkGroupType[] = [
   { id: 'g1', groupName: 'Work', bookmarks: [] },
   { id: 'g2', groupName: 'Home', bookmarks: [{ id: 'b1', name: 'Site', url: 'https://example.com' }] },
 ];
+
+describe('deriveIndex', () => {
+  it('maps groups to id/groupName string pairs', () => {
+    const result = deriveIndex(GROUPS);
+    expect(result).toEqual([
+      { id: 'g1', groupName: 'Work' },
+      { id: 'g2', groupName: 'Home' },
+    ]);
+  });
+
+  it('deriveIndex coerces id/groupName to strings', () => {
+    const weird = [
+      { id: 123, groupName: 456, bookmarks: [] },
+    ] as unknown as BookmarkGroupType[];
+    expect(deriveIndex(weird)).toEqual([{ id: '123', groupName: '456' }]);
+  });
+});
 
 describe('LocalAdapter.readPhase1aSnapshot', () => {
   it('returns the FP groups when non-empty', () => {
@@ -117,31 +140,93 @@ describe('LocalAdapter.readPhase1bSessionSnapshot', () => {
 });
 
 describe('LocalAdapter.readGroupsIndexFast', () => {
-  it('returns the FP index passthrough', async () => {
+  it('returns the FP index passthrough when session mirror is absent', async () => {
+    readGroupsIndexSession.mockResolvedValueOnce(undefined);
     const index = [
       { id: 'g1', groupName: 'Work' },
       { id: 'g2', groupName: 'Home' },
     ];
     readFpIndexLocalSync.mockReturnValueOnce(index);
+
     const result = await LocalAdapter.readGroupsIndexFast(WID);
+
+    expect(readGroupsIndexSession).toHaveBeenCalledWith(WID);
     expect(readFpIndexLocalSync).toHaveBeenCalledWith(WID);
     expect(result).toEqual(index);
+  });
+
+  it('returns the tiny session mirror when present (fast path)', async () => {
+    const mirror = [
+      { id: 'g10', groupName: 'Alpha' },
+      { id: 'g20', groupName: 'Beta' },
+    ];
+    readGroupsIndexSession.mockResolvedValueOnce(mirror);
+
+    const result = await LocalAdapter.readGroupsIndexFast(WID);
+
+    expect(readGroupsIndexSession).toHaveBeenCalledWith(WID);
+    expect(readFpIndexLocalSync).not.toHaveBeenCalled();
+    expect(result).toEqual(mirror);
+  });
+
+  it('falls back to FP index when session read throws', async () => {
+    readGroupsIndexSession.mockRejectedValueOnce(new Error('boom'));
+    const fpIdx = [{ id: 'g3', groupName: 'Zeta' }];
+    readFpIndexLocalSync.mockReturnValueOnce(fpIdx);
+
+    const result = await LocalAdapter.readGroupsIndexFast(WID);
+
+    expect(readGroupsIndexSession).toHaveBeenCalledWith(WID);
+    expect(readFpIndexLocalSync).toHaveBeenCalledWith(WID);
+    expect(result).toEqual(fpIdx);
+  });
+
+  it('falls back to FP index when session mirror is an empty array', async () => {
+    readGroupsIndexSession.mockResolvedValueOnce([]); // empty mirror
+    const fpIdx = [{ id: 'g3', groupName: 'Zeta' }];
+    readFpIndexLocalSync.mockReturnValueOnce(fpIdx);
+
+    const result = await LocalAdapter.readGroupsIndexFast(WID);
+
+    expect(readGroupsIndexSession).toHaveBeenCalledWith(WID);
+    expect(readFpIndexLocalSync).toHaveBeenCalledWith(WID);
+    expect(result).toEqual(fpIdx);
   });
 });
 
 describe('LocalAdapter.persistCachesIfNonEmpty', () => {
-  it('writes both index and groups when non-empty', async () => {
+  it('writes index, groups, and session mirror when non-empty', async () => {
     await LocalAdapter.persistCachesIfNonEmpty(WID, GROUPS);
+
     expect(writeFpIndexLocalSync).toHaveBeenCalledWith(WID, GROUPS);
     expect(writeFpGroupsLocalSync).toHaveBeenCalledWith(WID, GROUPS);
+    expect(writeGroupsIndexSession).toHaveBeenCalledWith(WID, [
+      { id: 'g1', groupName: 'Work' },
+      { id: 'g2', groupName: 'Home' },
+    ]);
   });
 
   it('does nothing when groups is empty or not an array', async () => {
     await LocalAdapter.persistCachesIfNonEmpty(WID, []);
     await LocalAdapter.persistCachesIfNonEmpty(WID, undefined as unknown as BookmarkGroupType[]);
     await LocalAdapter.persistCachesIfNonEmpty(WID, null as unknown as BookmarkGroupType[]);
+
     expect(writeFpIndexLocalSync).not.toHaveBeenCalled();
     expect(writeFpGroupsLocalSync).not.toHaveBeenCalled();
+    expect(writeGroupsIndexSession).not.toHaveBeenCalled();
+  });
+
+  it('swallows errors from FP writers and still tries the others', async () => {
+    writeFpIndexLocalSync.mockImplementationOnce(() => { throw new Error('idx fail'); });
+    writeFpGroupsLocalSync.mockImplementationOnce(() => { throw new Error('groups fail'); });
+    writeGroupsIndexSession.mockResolvedValueOnce(undefined);
+
+    await expect(LocalAdapter.persistCachesIfNonEmpty(WID, GROUPS)).resolves.toBeUndefined();
+
+    expect(writeGroupsIndexSession).toHaveBeenCalledWith(WID, [
+      { id: 'g1', groupName: 'Work' },
+      { id: 'g2', groupName: 'Home' },
+    ]);
   });
 });
 
@@ -181,5 +266,78 @@ describe('LocalAdapter generic get/set/remove (workspace-scoped)', () => {
 
     expect(wsKeyMock).toHaveBeenCalledWith(WID, KEY);
     expect(chromeRemove).toHaveBeenCalledWith(FULL);
+  });
+
+  it('propagates errors from set()', async () => {
+    chromeSet.mockRejectedValueOnce(new Error('boom'));
+    await expect(LocalAdapter.set(WID, 'k', ['v'])).rejects.toThrow('boom');
+  });
+
+  it('propagates errors from get()', async () => {
+    chromeGet.mockRejectedValueOnce(new Error('nope'));
+    await expect(LocalAdapter.get(WID, 'k')).rejects.toThrow('nope');
+  });
+
+  it('propagates errors from remove()', async () => {
+    chromeRemove.mockRejectedValueOnce(new Error('x'));
+    await expect(LocalAdapter.remove(WID, 'k')).rejects.toThrow('x');
+  });
+});
+
+describe('LocalAdapter.readAllGroups', () => {
+  it('returns [] when no groups exist at the key', async () => {
+    chromeGet.mockResolvedValueOnce({}); // nothing stored for FULL_STORAGE_KEY
+    const result = await LocalAdapter.readAllGroups(FULL_STORAGE_KEY);
+    expect(chromeGet).toHaveBeenCalledWith(FULL_STORAGE_KEY);
+    expect(result).toEqual([]);
+  });
+
+  it('returns [] when value at key is not an array', async () => {
+    chromeGet.mockResolvedValueOnce({ [FULL_STORAGE_KEY]: { data: { groups: 'nope' } } });
+    const result = await LocalAdapter.readAllGroups(FULL_STORAGE_KEY);
+    expect(chromeGet).toHaveBeenCalledWith(FULL_STORAGE_KEY);
+    expect(result).toEqual([]);
+  });
+
+  it('returns the groups array when present', async () => {
+    chromeGet.mockResolvedValueOnce({ [FULL_STORAGE_KEY]: GROUPS });
+    const result = await LocalAdapter.readAllGroups(FULL_STORAGE_KEY);
+    expect(chromeGet).toHaveBeenCalledWith(FULL_STORAGE_KEY);
+    expect(result).toEqual(GROUPS);
+  });
+
+  it('returns [] when chrome.storage.local.get rejects', async () => {
+    chromeGet.mockRejectedValueOnce(new Error('boom'));
+    const result = await LocalAdapter.readAllGroups(FULL_STORAGE_KEY);
+    expect(result).toEqual([]);
+  });
+});
+
+describe('LocalAdapter.writeAllGroups', () => {
+  it('writes groups to chrome.storage.local and updates session mirror', async () => {
+    chromeSet.mockResolvedValueOnce(undefined);
+
+    await LocalAdapter.writeAllGroups(WID, FULL_STORAGE_KEY, GROUPS);
+
+    expect(chromeSet).toHaveBeenCalledWith({ [FULL_STORAGE_KEY]: GROUPS });
+    expect(writeGroupsIndexSession).toHaveBeenCalledWith(WID, [
+      { id: 'g1', groupName: 'Work' },
+      { id: 'g2', groupName: 'Home' },
+    ]);
+  });
+
+  it('does not throw if writeGroupsIndexSession is undefined', async () => {
+    // Temporarily make the mock undefined for this call
+    const original = writeGroupsIndexSession;
+    // @ts-ignore – force undefined to verify optional chaining
+    global.writeGroupsIndexSession = undefined;
+
+    chromeSet.mockResolvedValueOnce(undefined);
+    await expect(LocalAdapter.writeAllGroups(WID, FULL_STORAGE_KEY, GROUPS)).resolves.toBeUndefined();
+    expect(chromeSet).toHaveBeenCalledWith({ [FULL_STORAGE_KEY]: GROUPS });
+
+    // Restore
+    // @ts-ignore
+    global.writeGroupsIndexSession = original;
   });
 });
