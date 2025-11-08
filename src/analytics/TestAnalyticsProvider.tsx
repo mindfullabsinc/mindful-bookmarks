@@ -1,7 +1,7 @@
 import React from "react";
-import { AnalyticsContext, type Analytics } from "@/analytics/AnalyticsContext"; 
+import { AnalyticsContext, type AnalyticsType } from "@/analytics/AnalyticsContext"; 
 
-const stub: Analytics = {
+const stub: AnalyticsType = {
   capture: () => {},
   identify: () => {},
   optOut: false,

@@ -3,6 +3,14 @@ import { WorkspaceIdType } from "../constants/workspaces";
 // src/core/utils/lastSelectedGroup.ts
 export const SELECT_NEW = '__NEW_GROUP__';
 
+/**
+ * Generate the localStorage key that tracks the last-selected group for a user/workspace combo.
+ *
+ * @param userId Cognito or local user id.
+ * @param storageMode Active storage mode (`local` or `remote`).
+ * @param workspaceId Workspace identifier.
+ * @returns Scoped persistence key.
+ */
 export const lastGroupKey = (
   userId?: string | null,
   storageMode?: string | null,
@@ -29,20 +37,23 @@ export function readLastSelectedGroup(key: string) {
   try { return localStorage.getItem(key) || ''; } catch { return ''; }
 }
 
-/** Broadcast to all extension contexts. */
+/**
+ * Broadcast last-selected group changes to all extension contexts.
+ *
+ * @param payload Workspace identifier and optional group metadata to sync.
+ */
 export function broadcastLastSelectedGroup(payload: {
-  workspaceId: WorkspaceIdType;
-  groupId: string;
+  workspaceId: string;
+  groupId?: string;     // now optional
+  groupName?: string;   // new optional fallback
 }) {
   try {
-    // BroadcastChannel (same-origin pages)
     const chan = new BroadcastChannel('MINDFUL_UI');
     chan.postMessage({ type: 'MINDFUL_LAST_GROUP_CHANGED', ...payload });
     chan.close?.();
   } catch {}
 
   try {
-    // chrome.runtime messaging (other extension contexts)
     if (chrome?.runtime?.id) {
       chrome.runtime.sendMessage({
         type: 'MINDFUL_LAST_GROUP_CHANGED',

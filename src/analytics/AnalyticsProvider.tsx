@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { phCapture, phIdentify, phReset } from "@/analytics/phLite";
 import { useAuthenticator } from "@aws-amplify/ui-react";
 import { fetchAuthSession } from "aws-amplify/auth";
-import { AnalyticsContext, type Analytics } from "@/analytics/AnalyticsContext";
+import { AnalyticsContext, type AnalyticsType } from "@/analytics/AnalyticsContext";
 
 const HEARTBEAT_MS = 60_000;
 const OPT_OUT_KEY = "mindful_ph_opt_out";
@@ -108,7 +108,7 @@ export default function AnalyticsProvider({ children }: { children: React.ReactN
     phIdentify(id, traits as Record<string, any> | undefined);
   }, [optOut]);
 
-  const value = useMemo<Analytics>(() => ({
+  const value = useMemo<AnalyticsType>(() => ({
     capture,
     identify,
     optOut,

@@ -17,7 +17,7 @@ import { lastGroupKey, writeLastSelectedGroup, broadcastLastSelectedGroup } from
 
 /* Analytics */
 import { useAnalytics } from "@/analytics/AnalyticsContext";
-import { AnalyticsContext, AnalyticsType } from "@/analytics/AnalyticsContext"; 
+import { AnalyticsContext, type AnalyticsType } from "@/analytics/AnalyticsContext"; 
 /* ---------------------------------------------------------- */
 
 type AddBookmarkInlineProps = {
