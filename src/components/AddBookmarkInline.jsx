@@ -10,6 +10,7 @@ import { URL_PATTERN } from '@/core/constants/constants';
 import { useBookmarkManager } from '@/hooks/useBookmarkManager';
 import { AppContext } from '@/scripts/AppContextProvider';
 import { constructValidURL } from "@/core/utils/utilities";
+import { lastGroupKey, writeLastSelectedGroup, broadcastLastSelectedGroup } from '@/core/utils/lastSelectedGroup';
 
 /* Analytics */
 import { useAnalytics } from "@/analytics/AnalyticsContext";
@@ -23,7 +24,11 @@ const AnalyticsProviderLazy = React.lazy(async () => {
   return { default: Provider };
 });
 
-/** No-op provider for anonymous mode so useAnalytics() won't throw */
+/**
+ * No-op analytics provider so useAnalytics() won't throw in anonymous mode.
+ *
+ * @param {{ children: React.ReactNode }} props Component children to render.
+ */
 function NullAnalyticsProvider({ children }) {
   const { userId } = useContext(AppContext) || {};
   const value = useMemo(
@@ -39,10 +44,9 @@ function NullAnalyticsProvider({ children }) {
 }
 
 /**
- * Gate that ensures a provider exists:
- * - If a provider is already above, do nothing.
- * - If signed in, lazy-load the real provider.
- * - If signed out, use a no-op provider.
+ * Ensure an analytics provider exists by lazily loading the real provider or falling back to the null variant.
+ *
+ * @param {{ children: React.ReactNode }} props Component children that need analytics context.
  */
 function AnalyticsGate({ children }) {
   const existing = useContext(AnalyticsContext);
@@ -59,6 +63,11 @@ function AnalyticsGate({ children }) {
   return <NullAnalyticsProvider>{children}</NullAnalyticsProvider>;
 }
 
+/**
+ * Inline entry point for adding bookmarks within a group, providing onboarding-friendly focus/autofill behavior.
+ *
+ * @param props Component props controlling focus, prefills, and callbacks.
+ */
 function AddBookmarkInline(props) {
   const {
     groupIndex,
@@ -76,7 +85,9 @@ function AddBookmarkInline(props) {
   const [linkBeingEdited, setLinkBeingEdited] = useState(false);
   const bookmarkGroupName = bookmarkGroups[groupIndex]?.groupName;
 
-  // Auto-open when requested
+  /**
+   * Auto-open the inline editor when `autoFocus` is requested.
+   */
   useEffect(() => {
     if (autoFocus) setLinkBeingEdited(true);
   }, [autoFocus]);
@@ -120,6 +131,11 @@ function AddLinkButton({ onClick }) {
   );
 }
 
+/**
+ * Form body that captures bookmark metadata, persists it, and updates the last-selected group.
+ *
+ * @param props Form configuration values and callbacks.
+ */
 function CreateNewBookmark(props) {
   const { capture } = useAnalytics();
 
@@ -137,6 +153,9 @@ function CreateNewBookmark(props) {
 
   // Context & actions
   const { addNamedBookmark } = useBookmarkManager();
+  const { userId, storageMode, activeWorkspaceId, currentWorkspaceId, workspaceId, bookmarkGroups, groupsIndex } =
+    useContext(AppContext);
+  const wsId = activeWorkspaceId || currentWorkspaceId || workspaceId || 'default';
 
   // Local form state
   const [bookmarkName, setBookmarkName] = useState('');
@@ -158,7 +177,9 @@ function CreateNewBookmark(props) {
     [inputRef, focusField]
   );
 
-  // Focus the chosen input on open
+  /**
+   * Focus the selected input when the form mounts or the focus target changes.
+   */
   useEffect(() => {
     if (!autoFocus) return;
     const el = (focusField === 'name' ? nameInputRef.current : urlInputRef.current)
@@ -172,7 +193,9 @@ function CreateNewBookmark(props) {
     return () => clearTimeout(t);
   }, [autoFocus, focusField]);
 
-  // 🔽🔽 AUTOFILL LOGIC (props first, clipboard fallback) 🔽🔽
+  /**
+   * Attempt to seed the form with explicit prefills, then fall back to clipboard contents.
+   */
   useEffect(() => {
     if (!autoFocus) return;
 
@@ -236,6 +259,17 @@ function CreateNewBookmark(props) {
     const urlWithProtocol = constructValidURL(bookmarkUrl);
     capture("bookmark_added", { surface: "newtab" });
     await addNamedBookmark(bookmarkName, urlWithProtocol, groupName);
+
+    // Find this group's id (prefer hydrated, fallback to index)
+    const candidates = (bookmarkGroups?.length ? bookmarkGroups : groupsIndex) || [];
+    const grp = candidates.find(g => g.groupName === groupName);
+    const groupId = grp?.id;
+    
+    if (groupId) {
+      const key = lastGroupKey(userId, storageMode, wsId);
+      writeLastSelectedGroup(key, groupId);
+      broadcastLastSelectedGroup({ workspaceId: wsId, groupId });
+    }
 
     setBookmarkName('');
     setBookmarkUrl('');

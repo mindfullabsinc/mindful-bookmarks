@@ -1,25 +1,22 @@
-// PopUpComponent.jsx
+/* -------------------- Imports -------------------- */
 import React, { useContext, useState, useEffect, useMemo, useRef } from 'react';
 
 /* Hooks and Utilities */
 import { AppContext } from "@/scripts/AppContextProvider";
+import type { AppContextValue } from "@/scripts/AppContextProvider";
 import { constructValidURL } from '@/core/utils/utilities';
 import { useBookmarkManager } from '@/hooks/useBookmarkManager';
+import { SELECT_NEW, lastGroupKey, writeLastSelectedGroup, broadcastLastSelectedGroup } from '@/core/utils/lastSelectedGroup';
 
 /* Constants */
 import { URL_PATTERN, EMPTY_GROUP_IDENTIFIER } from '@/core/constants/constants';
+/* ---------------------------------------------------------- */
 
-/* ----------------------- Helpers ----------------------- */
-const SELECT_NEW = '__NEW_GROUP__';
-
-/** Build a per-user/per-storage/per-workspace key so scopes don't collide. */
-const lastGroupKey = (userId, storageMode, workspaceId) =>
-  `mindful:lastSelectedGroup:${userId || 'local'}:${storageMode || 'local'}:${workspaceId || 'default'}`;
-
-const safeRead = (key) => {
+/* ----------------------- Class-level helper functions ----------------------- */
+const safeRead = (key: string): string => {
   try { return localStorage.getItem(key) || ''; } catch { return ''; }
 };
-const safeWrite = (key, v) => {
+const safeWrite = (key: string, v: string) => {
   try { localStorage.setItem(key, v || ''); } catch {}
 };
 
@@ -27,98 +24,62 @@ const safeWrite = (key, v) => {
  *  - Prefers direct id match
  *  - Falls back to legacy "stored name" match (for migration)
  */
-function resolveStoredToGroupId(storedValue, groups) {
+function resolveStoredToGroupId(
+  storedValue: string,
+  groups: Array<{ id: string; groupName: string }>
+): string {
   if (!storedValue) return '';
   const byId = groups.find(g => g.id === storedValue);
   if (byId) return byId.id;
   const byName = groups.find(g => g.groupName === storedValue); // legacy path
   return byName ? byName.id : '';
 }
+/* ---------------------------------------------------------- */
 
 export default function PopUpComponent() {
+  /* -------------------- Context / state -------------------- */
   // Pull the fast index and the hydrated groups from context
-  const { groupsIndex, bookmarkGroups, userId, storageMode, activeWorkspaceId, currentWorkspaceId, workspaceId } =
-    useContext(AppContext);
-
-  // Prefer whatever your context calls it; fall back sanely
-  const wsId = activeWorkspaceId || currentWorkspaceId || workspaceId || 'default';
+  const { groupsIndex, bookmarkGroups, userId, storageMode, activeWorkspaceId } =
+    useContext(AppContext) as AppContextValue;
 
   // Actions
   const { addNamedBookmark } = useBookmarkManager();
 
   // Selection state (store **id**; not name)
-  const [selectedGroupId, setSelectedGroupId] = useState(SELECT_NEW);
+  const [selectedGroupId, setSelectedGroupId] = useState<string>(SELECT_NEW);
   const [newGroupInput, setNewGroupInput] = useState('');
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
 
   // Only choose a default once per scope (userId+storageMode+workspaceId)
   const choseInitialRef = useRef(false);
-  const scopeKey = `${userId || 'local'}::${storageMode || 'local'}::${wsId}`;
+  const scopeKey = `${userId || 'local'}::${storageMode || 'local'}::${activeWorkspaceId}`;
 
   // Resolve available groups quickly (use the small index immediately; hydrate later)
-  const availableGroups = useMemo(() => {
-    const base = (groupsIndex?.length ? groupsIndex : bookmarkGroups) || [];
+  const availableGroups = useMemo<Array<{ id: string; groupName: string }>>(() => {
+    const base = ((groupsIndex?.length ? groupsIndex : bookmarkGroups) ?? []) as Array<{
+      id: string;
+      groupName: string;
+    }>;
     return base.filter((g) => g.groupName !== EMPTY_GROUP_IDENTIFIER);
   }, [groupsIndex, bookmarkGroups]);
+  /* ---------------------------------------------------------- */
 
-  // Reset when scope changes
-  useEffect(() => {
-    choseInitialRef.current = false;
-  }, [scopeKey]);
-
-  // Pick a stable initial selection exactly once per scope:
-  // 1) If stored id/name exists and is still valid, keep it.
-  // 2) Else choose the first available group's **id**.
-  // 3) Else wait (do not lock to "new").
-  useEffect(() => {
-    if (choseInitialRef.current) return;
-    if (!storageMode) return; // wait until scope is known
-
-    const key = lastGroupKey(userId, storageMode, wsId);
-    const storedRaw = safeRead(key);
-    const resolvedId = resolveStoredToGroupId(storedRaw, availableGroups);
-
-    if (resolvedId) {
-      setSelectedGroupId(resolvedId);
-      safeWrite(key, resolvedId); // migrate legacy "name" to "id"
-      choseInitialRef.current = true;
-      return;
-    }
-
-    if (availableGroups.length > 0) {
-      const firstId = availableGroups[0].id;
-      setSelectedGroupId(firstId);
-      safeWrite(key, firstId);
-      choseInitialRef.current = true;
-    }
-    // else: wait for groups to load
-  }, [availableGroups, userId, storageMode, wsId]);
-
+  /* -------------------- Local helper functions -------------------- */
   // Keep the selection stable and persisted on user changes (store **id**)
-  const onGroupChange = (e) => {
+  const onGroupChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value; // id or SELECT_NEW
     setSelectedGroupId(val);
-    const key = lastGroupKey(userId, storageMode, wsId);
-    if (val !== SELECT_NEW) safeWrite(key, val);
+    const key = lastGroupKey(userId, storageMode, activeWorkspaceId);
+    if (val !== SELECT_NEW) {
+      safeWrite(key, val);
+      writeLastSelectedGroup(key, val);
+      broadcastLastSelectedGroup({ workspaceId: activeWorkspaceId, groupId: val });
+    }
     choseInitialRef.current = true;
   };
 
-  // Prefill current tab URL and Title
-  useEffect(() => {
-    try {
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        const t = tabs?.[0];
-        if (!t) return;
-        if (t.url) setUrl(t.url);
-        if (t.title) setName(t.title);
-      });
-    } catch {
-      /* noop in non-extension environments */
-    }
-  }, []);
-
-  const handleSubmit = async (event) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     let groupNameToUse = '';
@@ -140,7 +101,7 @@ export default function PopUpComponent() {
     const urlWithProtocol = constructValidURL(url);
 
     // Persist the user's last choice (id) so next popup opens with it selected
-    const key = lastGroupKey(userId, storageMode, wsId);
+    const key = lastGroupKey(userId, storageMode, activeWorkspaceId);
     if (selectedGroupId !== SELECT_NEW) safeWrite(key, selectedGroupId);
 
     await addNamedBookmark(name.trim(), urlWithProtocol, groupNameToUse);
@@ -150,7 +111,7 @@ export default function PopUpComponent() {
   };
 
   // Build options from whichever list is currently available (value = **id**)
-  const groupOptions = useMemo(
+  const groupOptions = useMemo<React.ReactElement[]>(
     () =>
       availableGroups.map((g) => (
         <option key={g.id} value={g.id}>
@@ -159,7 +120,104 @@ export default function PopUpComponent() {
       )),
     [availableGroups]
   );
+  /* ---------------------------------------------------------- */
 
+  /* -------------------- Effects -------------------- */
+  // Reset when scope changes
+  useEffect(() => {
+    choseInitialRef.current = false;
+  }, [scopeKey]);
+
+  // Pick a stable initial selection exactly once per scope:
+  // 1) If stored id/name exists and is still valid, keep it.
+  // 2) Else choose the first available group's **id**.
+  // 3) Else wait (do not lock to "new").
+  useEffect(() => {
+    if (choseInitialRef.current) return;
+    if (!storageMode) return; // wait until scope is known
+
+    const key = lastGroupKey(userId, storageMode, activeWorkspaceId);
+    const storedRaw = safeRead(key);
+    const resolvedId = resolveStoredToGroupId(storedRaw, availableGroups);
+
+    if (resolvedId) {
+      setSelectedGroupId(resolvedId);
+      safeWrite(key, resolvedId); // migrate legacy "name" to "id"
+      choseInitialRef.current = true;
+      return;
+    }
+
+    if (availableGroups.length > 0) {
+      const firstId = availableGroups[0].id;
+      setSelectedGroupId(firstId);
+      safeWrite(key, firstId);
+      choseInitialRef.current = true;
+    }
+    // else: wait for groups to load
+  }, [availableGroups, userId, storageMode, activeWorkspaceId]);
+
+  // Prefill current tab URL and Title
+  useEffect(() => {
+    try {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const t = tabs?.[0];
+        if (!t) return;
+        if (t.url) setUrl(t.url);
+        if (t.title) setName(t.title);
+      });
+    } catch {
+      /* noop in non-extension environments */
+    }
+  }, []);
+
+  // Live react to broadcasts from other contexts (NewTab / other Popups)
+  useEffect(() => {
+    let chan: BroadcastChannel | null = null;
+
+    try {
+      chan = new BroadcastChannel('MINDFUL_UI');
+      chan.onmessage = (ev) => {
+        const msg = ev?.data;
+        if (!msg || msg.type !== 'MINDFUL_LAST_GROUP_CHANGED') return;
+        if (msg.workspaceId !== activeWorkspaceId) return;
+  
+        const incomingId: string | undefined = msg.groupId;
+        if (!incomingId) return;
+        const exists = availableGroups.some(g => g.id === incomingId);
+        if (!exists) return;
+  
+        // Update localStorage and local state
+        const key = lastGroupKey(userId, storageMode, activeWorkspaceId);
+        writeLastSelectedGroup(key, incomingId);
+        setSelectedGroupId(incomingId);
+        // After we accept a remote selection once, treat as chosen
+        choseInitialRef.current = true;
+      };
+    } catch {}
+
+    // Also listen via chrome.runtime in case other contexts can't see BroadcastChannel
+    function onRuntimeMsg(msg: { type?: string; workspaceId?: string; groupId?: string }) {
+      if (!msg || msg.type !== 'MINDFUL_LAST_GROUP_CHANGED') return;
+      if (msg.workspaceId !== activeWorkspaceId) return;
+      const incomingId = msg.groupId;
+      if (!incomingId) return;
+      const exists = availableGroups.some(g => g.id === incomingId);
+      if (!exists) return;
+      const key = lastGroupKey(userId, storageMode, activeWorkspaceId);
+      writeLastSelectedGroup(key, incomingId);
+      setSelectedGroupId(incomingId);
+      choseInitialRef.current = true;
+    }
+    try { chrome?.runtime?.onMessage?.addListener?.(onRuntimeMsg); } catch {}
+  
+    return () => {
+      try { chrome?.runtime?.onMessage?.removeListener?.(onRuntimeMsg); } catch {}
+      try { chan?.close?.(); } catch {}
+    };
+  }, [availableGroups, userId, storageMode, activeWorkspaceId]);
+  /* ---------------------------------------------------------- */
+
+  /* ----------------------- Main component UI ----------------------- */
   return (
     <div className="space-y-4">
       <form
@@ -260,4 +318,5 @@ export default function PopUpComponent() {
       </form>
     </div>
   );
+  /* ---------------------------------------------------------- */
 }
