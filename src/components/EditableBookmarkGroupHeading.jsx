@@ -1,3 +1,4 @@
+/* -------------------- Imports -------------------- */
 import React, { useContext, useState, useRef, useEffect } from 'react';
 
 /* CSS styles */
@@ -5,18 +6,27 @@ import '@/styles/EditableBookmarkGroupHeading.css';
 
 /* Constants */
 import { EMPTY_GROUP_IDENTIFIER } from "@/core/constants/constants";
+import { DEFAULT_LOCAL_WORKSPACE_ID } from '@/core/constants/workspaces';
 
 /* Hooks and Utilities */
 import { useBookmarkManager } from '@/hooks/useBookmarkManager';
+import { AppContext } from '@/scripts/AppContextProvider';
+import {
+  lastGroupKey,
+  writeLastSelectedGroup,
+  broadcastLastSelectedGroup,
+} from '@/core/utils/lastSelectedGroup';
+/* ---------------------------------------------------------- */
 
+/* -------------------- Constants -------------------- */
 const NEW_GROUP_NAME = "+ Add a group";
+/* ---------------------------------------------------------- */
 
-function EditableBookmarkGroupHeading(props) {
+export function EditableBookmarkGroupHeading(props) {
+  /* -------------------- Context / state -------------------- */
   const {
     bookmarkGroup,
     groupIndex,
-
-    // NEW: optional external controls
     isEditing: externalIsEditing,
     inputRef: externalInputRef,
     onCommit,
@@ -24,6 +34,8 @@ function EditableBookmarkGroupHeading(props) {
   } = props;
 
   const { editBookmarkGroupHeading } = useBookmarkManager();
+  const { userId, storageMode, activeWorkspaceId, groupsIndex, bookmarkGroups } =
+    useContext(AppContext) || {};
 
   const hasTitle =
     bookmarkGroup &&
@@ -47,31 +59,9 @@ function EditableBookmarkGroupHeading(props) {
       externalInputRef.current = node;
     }
   };
+  /* ---------------------------------------------------------- */
 
-  // Focus + select all text when editing starts
-  useEffect(() => {
-    if (!editing || !headingRef.current) return;
-
-    // Focus first
-    headingRef.current.focus();
-
-    // Select all text (so typing replaces "+ Add a group")
-    // Defer to the next tick so contentEditable is fully ready.
-    const t = setTimeout(() => {
-      const el = headingRef.current;
-      if (!el) return;
-      const selection = window.getSelection && window.getSelection();
-      if (!selection) return;
-
-      const range = document.createRange();
-      range.selectNodeContents(el);
-      selection.removeAllRanges();
-      selection.addRange(range);
-    }, 0);
-
-    return () => clearTimeout(t);
-  }, [editing]);
-
+  /* -------------------- Local helper functions -------------------- */
   // Handle blur -> commit or revert
   async function handleBlur(event) {
     const newGroupName = event.target.textContent.trim();
@@ -88,11 +78,25 @@ function EditableBookmarkGroupHeading(props) {
 
     const doCommit = async (name) => {
       setIsPlaceholder(false);
-      if (onCommit) {
-        onCommit(name);
-      } else {
-        await editBookmarkGroupHeading(groupIndex, name);
+      // 1) Immediately persist & broadcast by **name** (fallback)
+      const wsId = activeWorkspaceId ?? DEFAULT_LOCAL_WORKSPACE_ID;
+      const key = lastGroupKey(userId, storageMode, wsId);
+      writeLastSelectedGroup(key, name);                // legacy name fallback
+      broadcastLastSelectedGroup({ workspaceId: wsId, groupName: name });
+
+      // 2) Commit the rename (or creation) to the store
+      if (onCommit) await onCommit(name);
+      else await editBookmarkGroupHeading(groupIndex, name);
+
+      // 3) Try to resolve an **id** and upgrade storage + rebroadcast with id
+      //    (use index first—same group instance—then fallback by name)
+      let resolvedId = getLatestGroups()[groupIndex]?.id || '';
+      if (!resolvedId) resolvedId = await findGroupIdByName(name, 10, 100);
+      if (resolvedId) {
+        writeLastSelectedGroup(key, resolvedId);
+        broadcastLastSelectedGroup({ workspaceId: wsId, groupId: resolvedId });
       }
+
       if (externalIsEditing === undefined) setInternalIsEditing(false);
     };
 
@@ -138,6 +142,53 @@ function EditableBookmarkGroupHeading(props) {
     }
   };
 
+  // Always get latest groups (prefer hydrated)
+  const getLatestGroups = () => {
+    const base = (Array.isArray(bookmarkGroups) && bookmarkGroups.length
+      ? bookmarkGroups
+      : (groupsIndex || []));
+    return base.filter(g => g.groupName !== EMPTY_GROUP_IDENTIFIER);
+  };
+  
+  async function findGroupIdByName(name, attempts = 8, delayMs = 50) {
+    for (let i = 0; i < attempts; i++) {
+      const hit = getLatestGroups().find(g => g.groupName === name);
+      if (hit?.id) return hit.id;
+      // slight backoff to let state hydrate
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise(r => setTimeout(r, delayMs));
+    }
+    return '';
+  }
+  /* ---------------------------------------------------------- */
+
+  /* -------------------- Effects -------------------- */
+  // Focus + select all text when editing starts
+  useEffect(() => {
+    if (!editing || !headingRef.current) return;
+
+    // Focus first
+    headingRef.current.focus();
+
+    // Select all text (so typing replaces "+ Add a group")
+    // Defer to the next tick so contentEditable is fully ready.
+    const t = setTimeout(() => {
+      const el = headingRef.current;
+      if (!el) return;
+      const selection = window.getSelection && window.getSelection();
+      if (!selection) return;
+
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }, 0);
+
+    return () => clearTimeout(t);
+  }, [editing]);
+  /* ---------------------------------------------------------- */
+
+  /* -------------------- Main component UI -------------------- */
   return (
     <h2
       ref={setMergedRef}                        // ⬅️ forward the ref to parent
@@ -153,6 +204,5 @@ function EditableBookmarkGroupHeading(props) {
       {hasTitle ? bookmarkGroup.groupName : NEW_GROUP_NAME}
     </h2>
   );
+  /* ---------------------------------------------------------- */
 }
-
-export { EditableBookmarkGroupHeading };
