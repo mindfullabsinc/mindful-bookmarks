@@ -180,14 +180,14 @@ export default function EmptyBookmarksState({
         Welcome to Mindful
       </h2>
       <p className="mx-auto mt-3 max-w-prose text-center text-sm sm:text-left text-neutral-600 dark:text-neutral-400">
-        Organize your links into groups. Create your first group to get
-        started. Add unlimited bookmarks and switch between{" "}
+        Create your first group to get started and add unlimited bookmarks. 
+        {/* and switch between{" "}
         <span className="font-medium text-neutral-800 dark:text-neutral-200">
           {StorageLabel[storageMode]}
         </span>
         {" "}and{" "} 
         {storageMode === StorageMode.LOCAL ? StorageLabel[StorageMode.REMOTE] : StorageLabel[StorageMode.LOCAL]}
-        {" "}storage modes.
+        {" "}storage modes. */}
       </p>
 
       {/* Primary actions */}
@@ -227,7 +227,7 @@ export default function EmptyBookmarksState({
         <div className="flex flex-col gap-2">
           <Step id="createdGroup" label="Create a group" />
           <Step id="addedBookmark" label="Add a link" />
-          <Step id="triedStorage" label="Try Local ↔︎ Sync" />
+          {/* <Step id="triedStorage" label="Try Local ↔︎ Sync" /> */}
         </div>
       </div>
 
