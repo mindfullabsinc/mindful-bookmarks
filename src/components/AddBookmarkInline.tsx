@@ -20,10 +20,11 @@ import { useAnalytics } from "@/analytics/AnalyticsContext";
 import { AnalyticsContext, type AnalyticsType } from "@/analytics/AnalyticsContext"; 
 /* ---------------------------------------------------------- */
 
+/* -------------------- Local types -------------------- */
 type AddBookmarkInlineProps = {
   groupIndex: number;
   autoFocus?: boolean;
-  inputRef?: React.Ref<HTMLInputElement | null>;
+  inputRef?: React.Ref<HTMLInputElement>; 
   focusField?: 'name' | 'url';
   onDone?: () => void;
   prefillUrl?: string;
@@ -35,7 +36,7 @@ type CreateNewBookmarkProps = {
   groupName: string;
   setLinkBeingEdited: React.Dispatch<React.SetStateAction<boolean>>;
   autoFocus?: boolean;
-  inputRef?: React.Ref<HTMLInputElement | null>;
+  inputRef?: React.Ref<HTMLInputElement>; 
   focusField?: 'name' | 'url';
   onDone?: () => void;
   prefillUrl?: string;
@@ -46,6 +47,7 @@ type CreateNewBookmarkProps = {
 type AddLinkButtonProps = {
   onClick: () => void;
 };
+/* ---------------------------------------------------------- */
 
 /* -------------------- Class-level helper functions -------------------- */
 // Lazy-load the REAL AnalyticsProvider 
@@ -135,6 +137,11 @@ function capitalizeWords(s = ''): string {
 /* ---------------------------------------------------------- */
 
 /* -------------------- Sub components -------------------- */
+/**
+ * Lightweight trigger that opens the inline bookmark form.
+ *
+ * @param onClick Click handler invoked to reveal the form.
+ */
 function AddLinkButton({ onClick }: AddLinkButtonProps) {
   return (
     <div>
@@ -193,14 +200,29 @@ function CreateNewBookmark({
   /* ---------------------------------------------------------- */
 
   /* -------------------- Local helper functions -------------------- */
+  /**
+   * Update the pending bookmark name as the user types.
+   *
+   * @param e Input change event from the name field.
+   */
   function handleBookmarkNameChange(e: React.ChangeEvent<HTMLInputElement>) {
     setBookmarkName(e.target.value);
   }
 
+  /**
+   * Update the pending bookmark URL as the user types.
+   *
+   * @param e Input change event from the URL field.
+   */
   function handleBookmarkUrlChange(e: React.ChangeEvent<HTMLInputElement>) {
     setBookmarkUrl(e.target.value);
   }
 
+  /**
+   * Treat Enter key presses as submit triggers inside the inline form.
+   *
+   * @param e Keyboard event emitted from the form.
+   */
   function handleKeyDown(e: React.KeyboardEvent<HTMLFormElement>) {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -208,6 +230,11 @@ function CreateNewBookmark({
     }
   }
 
+  /**
+   * Persist the new bookmark, update last-selected metadata, and close the inline form.
+   *
+   * @param e Synthetic event from the submit button or form.
+   */
   async function handleSubmit(e: React.SyntheticEvent) {
     e.preventDefault();
     const urlWithProtocol = constructValidURL(bookmarkUrl);
@@ -235,6 +262,9 @@ function CreateNewBookmark({
     onDone?.();
   }
 
+  /**
+   * Close the inline editor without saving.
+   */
   function closeForm() {
     setLinkBeingEdited(false);
     onDone?.();
@@ -373,6 +403,9 @@ export function AddBookmarkInline(props: AddBookmarkInlineProps) {
   /* ---------------------------------------------------------- */
 
   /* -------------------- Local helper functions -------------------- */
+  /**
+   * Open the inline editor when the user taps the add link button.
+   */
   function handleAddLinkClicked() {
     setLinkBeingEdited(true);
   }
