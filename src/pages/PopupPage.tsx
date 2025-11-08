@@ -29,6 +29,18 @@ async function openAuthTab(
 }
 
 /**
+ * Open the full Mindful app in a new tab.
+ */
+function openMindfulTab() {
+  const url = chrome.runtime.getURL('newtab.html');
+  chrome.tabs.create({ url }, () => {
+    const err = chrome.runtime.lastError;
+    if (err) console.warn('[openMindfulTab] tabs.create error:', err);
+    window.close();
+  });
+}
+
+/**
  * Reload the currently active tab if it is showing the Mindful new-tab experience.
  */
 function reloadActiveTabIfNewTab() {
@@ -291,8 +303,29 @@ export default function PopupPage(): ReactElement | null {
     <div className="popup-root mindful-auth p-4">
       <PopupAutosize selector=".popup-root" maxH={600} />
 
+      {/* Open Mindful button */}
+      <div className="flex justify-end mb-1">
+        <button
+          onClick={openMindfulTab}
+          type="button"
+          className="flex items-center gap-2 rounded-lg border cursor-pointer px-3 py-2
+                   bg-white dark:bg-neutral-900
+                    text-neutral-700 dark:text-neutral-300
+                   border-neutral-300 dark:border-neutral-700
+                   hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+        >
+          <img
+            src="/assets/icon-no-bg-128.png"
+            alt="Mindful logo"
+            className="h-[20px] w-[20px] object-contain"
+          />
+          <span className="text-sm font-medium">Open Mindful</span>
+        </button>
+      </div>
+
       {/* Mode switcher stays in both modes; handlers lazy-load auth only when needed */}
-      <ModeSwitcher
+      {/* TODO: Re-enable mode switcher after remote mode is supported again */}
+      {/* <ModeSwitcher
         mode={mode}
         onSwitch={async (next) => {
           if (next === AuthMode.AUTH) {
@@ -312,7 +345,7 @@ export default function PopupPage(): ReactElement | null {
             refreshNewTabPagesBestEffort();
           }
         }}
-      />
+      /> */}
 
       {mode === AuthMode.ANON ? (
         // —— ANON: no Amplify/UI; pure local AppContext ——

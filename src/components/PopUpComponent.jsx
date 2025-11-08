@@ -135,7 +135,7 @@ export default function PopUpComponent() {
         <select
           id="group-dropdown"
           className="w-full rounded-2xl border px-3 py-2 outline-none
-                    bg-neutral-100 dark:bg-neutral-900
+                    bg-white dark:bg-neutral-900
                     border-neutral-200 dark:border-neutral-800
                     text-neutral-700 dark:text-neutral-300
                     focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
@@ -157,7 +157,7 @@ export default function PopUpComponent() {
             <input
               id="new-group-input"
               className="w-full rounded-2xl border px-3 py-2 outline-none
-                        bg-neutral-100 dark:bg-neutral-900
+                        bg-white dark:bg-neutral-900
                         border-neutral-200 dark:border-neutral-800
                         text-neutral-900 dark:text-neutral-100
                         focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
@@ -178,7 +178,7 @@ export default function PopUpComponent() {
           <input
             id="bookmark-name"
             className="w-full rounded-2xl border px-3 py-2 outline-none
-                      bg-neutral-100 dark:bg-neutral-900
+                      bg-white dark:bg-neutral-900
                       border-neutral-200 dark:border-neutral-800
                       text-neutral-900 dark:text-neutral-100
                       focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
@@ -199,7 +199,7 @@ export default function PopUpComponent() {
             id="bookmark-url"
             pattern={URL_PATTERN}
             className="w-full rounded-2xl border px-3 py-2 outline-none
-                      bg-neutral-100 dark:bg-neutral-900
+                      bg-white dark:bg-neutral-900
                       border-neutral-200 dark:border-neutral-800
                       text-neutral-900 dark:text-neutral-100
                       focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
