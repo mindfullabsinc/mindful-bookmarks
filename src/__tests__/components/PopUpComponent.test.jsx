@@ -1,14 +1,24 @@
- // src/__tests__/components/PopUpComponent.test.jsx
- import React from 'react';
- import { render, screen, waitFor } from '@testing-library/react';
- import userEvent from '@testing-library/user-event';
+import React from 'react';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 
- /* Component & context */
- import PopUpComponent from '@/components/PopUpComponent';
- import { AppContext } from '@/scripts/AppContextProvider';
+/* Component & context */
+import PopUpComponent from '@/components/PopUpComponent';
+import { AppContext } from '@/scripts/AppContextProvider';
 
- /* Constants */
- import { EMPTY_GROUP_IDENTIFIER } from '@/core/constants/constants';
+/* Constants */
+import { EMPTY_GROUP_IDENTIFIER } from '@/core/constants/constants';
+import { SELECT_NEW } from '@/core/utils/lastSelectedGroup';
+
+import { within } from '@testing-library/dom';
+
+// Make lastSelectedGroup helpers no-ops to avoid BroadcastChannel/poll delays
+jest.mock('@/core/utils/lastSelectedGroup', () => ({
+  SELECT_NEW: '__NEW_GROUP__',
+  lastGroupKey: jest.fn(() => 'test-last-key'),
+  writeLastSelectedGroup: jest.fn(),
+  broadcastLastSelectedGroup: jest.fn(),
+}));
 
 // --- Mock chrome.tabs.query ---
 beforeAll(() => {
@@ -58,6 +68,7 @@ function renderWithContext(groups, opts = {}) {
     // ensure scope is known so the default selection logic runs
     userId: opts.userId ?? 'u_test',
     storageMode: opts.storageMode ?? 'local',
+    activeWorkspaceId: opts.activeWorkspaceId ?? 'ws-a',
   };
   return render(
     <AppContext.Provider value={ctxValue}>
@@ -82,9 +93,12 @@ describe('PopUpComponent', () => {
     );
     expect(screen.getByLabelText(/URL/i)).toHaveValue('example.com');
 
-    // Dropdown should default to "Work"
+    // Dropdown should default to the first *non-empty* group (id value), label "Work"
     const groupSelect = screen.getByRole('combobox', { name: /^Group$/i });
-    expect(groupSelect).toHaveValue('Work');
+    expect(groupSelect).toHaveValue('g1'); // value is id
+    // also assert the visible label of the selected option
+    const selected = within(groupSelect).getByRole('option', { selected: true });
+    expect(selected).toHaveTextContent('Work');
 
     // Submit without changing anything
     await userEvent.click(screen.getByRole('button', { name: /add bookmark/i }));
@@ -115,9 +129,11 @@ describe('PopUpComponent', () => {
     const form = screen.getByRole('form', { name: /add bookmark/i });
     form.noValidate = true; // equivalent to adding `novalidate`
 
-    // It should default to "New Group"
+    // It should default to "New Group" (value is SELECT_NEW; label is "New Group")
     const groupSelect = screen.getByRole('combobox', { name: /^Group$/i });
-    expect(groupSelect).toHaveValue('New Group');
+    expect(groupSelect).toHaveValue(SELECT_NEW);
+    const selected = within(groupSelect).getByRole('option', { selected: true });
+    expect(selected).toHaveTextContent('New Group');
 
     // "New Group Name" input should be visible
     const newGroupInput = screen.getByLabelText(/New Group Name/i);
@@ -149,6 +165,7 @@ describe('PopUpComponent', () => {
       'http://news.ycombinator.com',
       'Reading List'
     );
-    expect(closeSpy).toHaveBeenCalled();
+    // Close happens after async id-upgrade path; wait for it
+    await waitFor(() => expect(closeSpy).toHaveBeenCalled(), { timeout: 2000 });
   });
 });

@@ -15,6 +15,13 @@ jest.mock('@/hooks/useBookmarkManager', () => ({
   useBookmarkManager: jest.fn(),
 }));
 
+// Mock broadcast/persistence utils used inside the component (no-ops)
+jest.mock('@/core/utils/lastSelectedGroup', () => ({
+  lastGroupKey: jest.fn(() => 'test-last-key'),
+  writeLastSelectedGroup: jest.fn(),
+  broadcastLastSelectedGroup: jest.fn(),
+}));
+
 const NEW_GROUP_NAME_PLACEHOLDER = "+ Add a group";
 
 // --- Test Suite ---
@@ -35,16 +42,25 @@ describe('EditableBookmarkGroupHeading', () => {
     });
 
     mockBookmarkGroups = [
-      { groupName: 'Work', bookmarks: [] },
-      { groupName: EMPTY_GROUP_IDENTIFIER, bookmarks: [] },
+      { id: 'g-work', groupName: 'Work', bookmarks: [] },
+      { id: 'g-empty', groupName: EMPTY_GROUP_IDENTIFIER, bookmarks: [] },
     ];
   });
 
   // --- Helper function to render the component with context ---
   const renderComponent = (props) => {
     return render(
-      <AppContext.Provider value={{ bookmarkGroups: mockBookmarkGroups, setBookmarkGroups: mockSetBookmarkGroups, userId: 'test-user-123' }}>
-        <EditableBookmarkGroupHeading {...props} />
+      <AppContext.Provider
+        value={{
+          bookmarkGroups: mockBookmarkGroups,
+          groupsIndex: mockBookmarkGroups, // allow either path
+          setBookmarkGroups: mockSetBookmarkGroups,
+          userId: 'test-user-123',
+          storageMode: 'local',
+          activeWorkspaceId: 'ws-a',
+        }}
+      >
+      <EditableBookmarkGroupHeading {...props} />
       </AppContext.Provider>
     );
   };
@@ -94,8 +110,10 @@ describe('EditableBookmarkGroupHeading', () => {
       expect(mockEditBookmarkGroupHeading).toHaveBeenCalledWith(0, 'Personal');
     });
 
-    // Check if it exits edit mode
-    expect(heading).not.toHaveAttribute('contentEditable', 'true');
+    // Check if it exits edit mode (allow a tick for state to settle)
+    await waitFor(() =>
+      expect(heading).not.toHaveAttribute('contentEditable', 'true')
+    );
   });
 
   test('reverts to placeholder if heading is empty on blur', () => {
@@ -127,8 +145,10 @@ describe('EditableBookmarkGroupHeading', () => {
       expect(mockEditBookmarkGroupHeading).toHaveBeenCalledWith(0, 'Updated Work');
     });
     
-    // It should exit edit mode
-    expect(heading).not.toHaveAttribute('contentEditable', 'true');
+    // It should exit edit mode (after async commit completes)
+    await waitFor(() =>
+      expect(heading).not.toHaveAttribute('contentEditable', 'true')
+    );
   });
 
   test('cancels edit and reverts text when Escape key is pressed', () => {
