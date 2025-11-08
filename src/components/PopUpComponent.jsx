@@ -1,3 +1,4 @@
+// PopUpComponent.jsx
 import React, { useContext, useState, useEffect, useMemo, useRef } from 'react';
 
 /* Hooks and Utilities */
@@ -8,33 +9,52 @@ import { useBookmarkManager } from '@/hooks/useBookmarkManager';
 /* Constants */
 import { URL_PATTERN, EMPTY_GROUP_IDENTIFIER } from '@/core/constants/constants';
 
-/** Build a per-user/per-storage key so anon/local doesn't collide with auth/remote. */
-const lastGroupKey = (userId, storageMode) =>
-  `mindful:lastSelectedGroup:${userId || 'local'}:${storageMode || 'local'}`;
+/* ----------------------- Helpers ----------------------- */
+const SELECT_NEW = '__NEW_GROUP__';
 
-const readStoredGroup = (userId, storageMode) => {
-  try { return localStorage.getItem(lastGroupKey(userId, storageMode)) || ''; } catch { return ''; }
+/** Build a per-user/per-storage/per-workspace key so scopes don't collide. */
+const lastGroupKey = (userId, storageMode, workspaceId) =>
+  `mindful:lastSelectedGroup:${userId || 'local'}:${storageMode || 'local'}:${workspaceId || 'default'}`;
+
+const safeRead = (key) => {
+  try { return localStorage.getItem(key) || ''; } catch { return ''; }
 };
-const writeStoredGroup = (userId, storageMode, v) => {
-  try { localStorage.setItem(lastGroupKey(userId, storageMode), v || ''); } catch {}
+const safeWrite = (key, v) => {
+  try { localStorage.setItem(key, v || ''); } catch {}
 };
+
+/** Try to resolve a stored value to a valid group id.
+ *  - Prefers direct id match
+ *  - Falls back to legacy "stored name" match (for migration)
+ */
+function resolveStoredToGroupId(storedValue, groups) {
+  if (!storedValue) return '';
+  const byId = groups.find(g => g.id === storedValue);
+  if (byId) return byId.id;
+  const byName = groups.find(g => g.groupName === storedValue); // legacy path
+  return byName ? byName.id : '';
+}
 
 export default function PopUpComponent() {
-  // Pull both the fast index and the hydrated groups (arrives later) from context
-  const { groupsIndex, bookmarkGroups, userId, storageMode } = useContext(AppContext);
+  // Pull the fast index and the hydrated groups from context
+  const { groupsIndex, bookmarkGroups, userId, storageMode, activeWorkspaceId, currentWorkspaceId, workspaceId } =
+    useContext(AppContext);
+
+  // Prefer whatever your context calls it; fall back sanely
+  const wsId = activeWorkspaceId || currentWorkspaceId || workspaceId || 'default';
 
   // Actions
   const { addNamedBookmark } = useBookmarkManager();
 
-  // Selection state
-  const [selectedGroup, setSelectedGroup] = useState('New Group');
+  // Selection state (store **id**; not name)
+  const [selectedGroupId, setSelectedGroupId] = useState(SELECT_NEW);
   const [newGroupInput, setNewGroupInput] = useState('');
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
 
-  // Only choose a default once per scope (userId+storageMode)
+  // Only choose a default once per scope (userId+storageMode+workspaceId)
   const choseInitialRef = useRef(false);
-  const scopeKey = `${userId || 'local'}::${storageMode || 'local'}`;
+  const scopeKey = `${userId || 'local'}::${storageMode || 'local'}::${wsId}`;
 
   // Resolve available groups quickly (use the small index immediately; hydrate later)
   const availableGroups = useMemo(() => {
@@ -42,35 +62,45 @@ export default function PopUpComponent() {
     return base.filter((g) => g.groupName !== EMPTY_GROUP_IDENTIFIER);
   }, [groupsIndex, bookmarkGroups]);
 
-  // Pick a stable initial selection exactly once per scope:
-  // 1) If stored value exists and is still valid, keep it.
-  // 2) Else choose the first available group.
-  // 3) Else fall back to "New Group".
+  // Reset when scope changes
   useEffect(() => {
-    choseInitialRef.current = false; // reset when scope changes
+    choseInitialRef.current = false;
   }, [scopeKey]);
 
+  // Pick a stable initial selection exactly once per scope:
+  // 1) If stored id/name exists and is still valid, keep it.
+  // 2) Else choose the first available group's **id**.
+  // 3) Else wait (do not lock to "new").
   useEffect(() => {
     if (choseInitialRef.current) return;
     if (!storageMode) return; // wait until scope is known
 
-    const stored = readStoredGroup(userId, storageMode);
-    const hasStored = stored && availableGroups.some((g) => g.groupName === stored);
+    const key = lastGroupKey(userId, storageMode, wsId);
+    const storedRaw = safeRead(key);
+    const resolvedId = resolveStoredToGroupId(storedRaw, availableGroups);
 
-    const next = hasStored
-      ? stored
-      : (availableGroups[0]?.groupName || 'New Group');
+    if (resolvedId) {
+      setSelectedGroupId(resolvedId);
+      safeWrite(key, resolvedId); // migrate legacy "name" to "id"
+      choseInitialRef.current = true;
+      return;
+    }
 
-    setSelectedGroup(next);
-    writeStoredGroup(userId, storageMode, next);
-    choseInitialRef.current = true;
-  }, [availableGroups, userId, storageMode]);
+    if (availableGroups.length > 0) {
+      const firstId = availableGroups[0].id;
+      setSelectedGroupId(firstId);
+      safeWrite(key, firstId);
+      choseInitialRef.current = true;
+    }
+    // else: wait for groups to load
+  }, [availableGroups, userId, storageMode, wsId]);
 
-  // Keep the selection stable and persisted on user changes
+  // Keep the selection stable and persisted on user changes (store **id**)
   const onGroupChange = (e) => {
-    const val = e.target.value;
-    setSelectedGroup(val);
-    writeStoredGroup(userId, storageMode, val);
+    const val = e.target.value; // id or SELECT_NEW
+    setSelectedGroupId(val);
+    const key = lastGroupKey(userId, storageMode, wsId);
+    if (val !== SELECT_NEW) safeWrite(key, val);
     choseInitialRef.current = true;
   };
 
@@ -90,29 +120,40 @@ export default function PopUpComponent() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    const groupName = selectedGroup === 'New Group' ? newGroupInput.trim() : selectedGroup;
 
-    if (!groupName) {
-      alert("Please enter a name for the new group.");
-      return;
+    let groupNameToUse = '';
+    if (selectedGroupId === SELECT_NEW) {
+      groupNameToUse = newGroupInput.trim();
+      if (!groupNameToUse) {
+        alert("Please enter a name for the new group.");
+        return;
+      }
+    } else {
+      const grp = availableGroups.find(g => g.id === selectedGroupId);
+      groupNameToUse = grp?.groupName || '';
+      if (!groupNameToUse) {
+        alert("Please pick a valid group.");
+        return;
+      }
     }
 
     const urlWithProtocol = constructValidURL(url);
 
-    // Persist the user's last choice so next popup opens with it selected
-    writeStoredGroup(userId, storageMode, groupName);
+    // Persist the user's last choice (id) so next popup opens with it selected
+    const key = lastGroupKey(userId, storageMode, wsId);
+    if (selectedGroupId !== SELECT_NEW) safeWrite(key, selectedGroupId);
 
-    await addNamedBookmark(name.trim(), urlWithProtocol, groupName);
+    await addNamedBookmark(name.trim(), urlWithProtocol, groupNameToUse);
 
     // Optional: close the popup after successful submission (avoid in tests)
     try { if (chrome?.runtime?.id) window.close(); } catch {}
   };
 
-  // Build options from whichever list is currently available
+  // Build options from whichever list is currently available (value = **id**)
   const groupOptions = useMemo(
     () =>
       availableGroups.map((g) => (
-        <option key={g.id} value={g.groupName}>
+        <option key={g.id} value={g.id}>
           {g.groupName}
         </option>
       )),
@@ -139,14 +180,14 @@ export default function PopUpComponent() {
                     border-neutral-200 dark:border-neutral-800
                     text-neutral-700 dark:text-neutral-300
                     focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
-          value={selectedGroup}
+          value={selectedGroupId}
           onChange={onGroupChange}
         >
           {groupOptions}
-          <option value="New Group">New Group</option>
+          <option value={SELECT_NEW}>New Group</option>
         </select>
 
-        {selectedGroup === 'New Group' && (
+        {selectedGroupId === SELECT_NEW && (
           <div className="space-y-1">
             <label
               htmlFor="new-group-input"
