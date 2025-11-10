@@ -369,7 +369,7 @@ function CreateNewBookmark({
         Add link
       </button>
       <button className="close-form-button" onClick={closeForm} aria-label="Close Form">
-        <img src="./assets/delete-icon.svg" alt="Close" />
+        <i className="fas fa-xmark text-sm"/>
       </button>
     </div>
   );

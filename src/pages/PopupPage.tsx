@@ -315,9 +315,9 @@ export default function PopupPage(): ReactElement | null {
                    hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
         >
           <img
-            src="/assets/icon-no-bg-128.png"
+            src="/assets/icon-128.png"
             alt="Mindful logo"
-            className="h-[20px] w-[20px] object-contain"
+            className="h-[16px] w-[16px] object-contain"
           />
           <span className="text-sm font-medium">Open Mindful</span>
         </button>

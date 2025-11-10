@@ -169,7 +169,7 @@ export default function EmptyBookmarksState({
                       border border-neutral-200 bg-white shadow-sm
                       dark:border-neutral-700 dark:bg-neutral-800">
         <img
-          src="/assets/icon-no-bg-128.png"
+          src="/assets/icon-128.png"
           alt=""
           className="h-[30px] w-[30px] object-contain"
         />

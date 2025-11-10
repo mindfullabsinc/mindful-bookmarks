@@ -13,7 +13,7 @@ export default function LogoComponent() {
         window.location.href = url;
       }}
     >
-      <img src="/assets/icon-no-bg-128.png" className="w-[30px] h-[30px] object-cover" />
+      <img src="/assets/icon-128.png" className="w-[20px] h-[20px] object-cover" />
       <span className="text-neutral-900 dark:text-white text-lg font-semibold tracking-tight">Mindful</span>
       <Badge variant="secondary" className="ml-2">Bookmarks</Badge>
     </div>
