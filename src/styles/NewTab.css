@@ -50,9 +50,10 @@ body, html {
 }
 /* dark mode: add a subtle background + ring */
 @media (prefers-color-scheme: dark) {
-  .favicon {
-    @apply bg-white/15 rounded-md p-0.5 ring-1 ring-white/15;
-  }
+  .favicon.mono { filter: invert(1) brightness(1.15) contrast(0.9); }
+  .favicon.color { filter: none; }
+    /* @apply bg-white/15 rounded-md p-0.5 ring-1 ring-white/15; */
+    /* @apply bg-white/15 rounded-md p-0.5; */
 }
 
 a { margin-right: 5px; }
