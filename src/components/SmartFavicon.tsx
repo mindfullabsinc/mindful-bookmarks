@@ -6,18 +6,47 @@ import type { CSSProperties } from 'react';
 
 /* -------------------- Class-level variables -------------------- */
 // Simple in-memory caches (per page load)
-const goodSourceCache = new Map<string, string>(); // hostname -> working favicon URL
-const badSourceCache = new Map<string, true>();  // hostname -> true (no icon found)
+/**
+ * hostname -> working favicon URL
+ */
+const goodSourceCache = new Map<string, string>();
+/**
+ * hostname -> true (no icon found)
+ */
+const badSourceCache = new Map<string, true>();
+
+// --- TEST UTILITIES (safe no-ops in prod) ---
+// Exported only to allow unit tests to isolate module-scoped caches.
+/**
+ * Reset favicon caches (for use in unit tests only).
+ */
+export function __test__resetSmartFaviconCaches() {
+  goodSourceCache.clear();
+  badSourceCache.clear();
+}
 /* ---------------------------------------------------------- */
 
 /* -------------------- Class-level helper functions -------------------- */
+/**
+ * Generate a pseudo-random color used for letter avatars.
+ *
+ * @param host Hostname whose characters seed the color.
+ * @returns HSL color string.
+ */
 function circleColorFor(host: string) {
   let h = 0;
   for (let i = 0; i < host.length; i++) h = (h * 31 + host.charCodeAt(i)) >>> 0;
   return `hsl(${h % 360} 60% 45%)`;
 }
 
-function toHostname(raw: string) {
+/**
+ * Convert an arbitrary string into a normalized hostname when possible.
+ *
+ * @param raw URL or hostname candidate.
+ * @returns Lowercased hostname or null when parsing fails.
+ */
+function toHostname(raw?: string) {
+  if (!raw) return null;
   try {
     const u = new URL(raw.startsWith('http') ? raw : `https://${raw}`);
     return u.hostname.toLowerCase();
@@ -69,6 +98,11 @@ export default function SmartFavicon({ url, size = 20, className, fallback = 'le
   const [idx, setIdx] = useState(0);
   const [mono, setMono] = useState<boolean | null>(null);
 
+  /**
+   * Inspect the favicon image and flag whether it's monochrome to adjust styling.
+   *
+   * @param img Loaded favicon image element.
+   */
   const analyze = useCallback((img: HTMLImageElement) => {
     try {
       const cvs = document.createElement("canvas");
@@ -97,6 +131,9 @@ export default function SmartFavicon({ url, size = 20, className, fallback = 'le
     }
   }, []);
 
+  /**
+   * Build the set of favicon provider URLs to try for a hostname.
+   */
   const candidates = useMemo(() => {
     if (!host) return [];
     const s = String(size);
@@ -140,6 +177,9 @@ export default function SmartFavicon({ url, size = 20, className, fallback = 'le
       loading="lazy"
       decoding="async"
       style={{ objectFit: 'contain', borderRadius: 4, display: 'inline-block' }}
+      /**
+       * Capture the chosen favicon source and analyze its palette once loaded.
+       */
       onLoad={(e) => {
         if (host) {
           goodSourceCache.set(host, src);
@@ -147,6 +187,9 @@ export default function SmartFavicon({ url, size = 20, className, fallback = 'le
         }
         analyze(e.currentTarget);
       }}
+      /**
+       * Try the next favicon provider when loading fails.
+       */
       onError={() => setIdx(i => i + 1)}
     />
   );

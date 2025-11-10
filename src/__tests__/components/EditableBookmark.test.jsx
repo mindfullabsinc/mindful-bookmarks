@@ -112,7 +112,7 @@ describe('EditableBookmark Component', () => {
     await user.click(deleteButton);
     
     expect(window.confirm).toHaveBeenCalledWith(
-      'Are you sure you want to delete the Google bookmark from Search Engines?'
+      'Are you sure you want to delete the "Google" bookmark from "Search Engines"?'
     );
 
     await waitFor(() => {
