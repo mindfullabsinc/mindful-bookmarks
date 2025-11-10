@@ -360,17 +360,24 @@ function CreateNewBookmark({
           />
         </form>
       </div>
-      <button
-        type="submit"
-        className="add-bookmark-button-2"
-        onClick={handleSubmit}
-        aria-label="Submit Form"
-      >
-        Add link
-      </button>
-      <button className="close-form-button" onClick={closeForm} aria-label="Close Form">
-        <i className="fas fa-xmark text-sm"/>
-      </button>
+      <div className="flex items-center gap-2">
+        <button
+          type="submit"
+          className="add-bookmark-button-2"
+          onClick={handleSubmit}
+          aria-label="Submit Form"
+        >
+          Add link
+        </button>
+
+        <button
+          className="close-form-button"
+          onClick={closeForm}
+          aria-label="Close Form"
+        >
+          <i className="fas fa-xmark text-sm" />
+        </button>
+      </div>
     </div>
   );
   /* ---------------------------------------------------------- */

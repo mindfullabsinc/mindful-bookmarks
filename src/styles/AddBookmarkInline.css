@@ -64,16 +64,14 @@ input[type="text"] {
 }
 
 .add-bookmark-button-2 {
-  @apply mt-auto text-left text-sm p-2.5 rounded-md border-0
-         bg-blue-600 text-white hover:bg-blue-700 hover:shadow
-         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60;
+  @apply cursor-pointer flex-1 rounded-2xl px-4 py-2 font-semibold transition
+       bg-blue-600 hover:bg-blue-500 text-white;
 }
 
 .close-form-button {
-  @apply ml-auto w-9 h-9 p-0 rounded-md border-0 cursor-pointer
-         bg-neutral-100 hover:bg-neutral-200;
+  @apply border-0 bg-transparent text-neutral-400 dark:text-neutral-400 ml-1 p-2;
 }
-.close-form-button img { @apply w-5 h-5 align-middle; }
-@media (prefers-color-scheme: dark) {
-  .close-form-button { @apply bg-neutral-800 hover:bg-neutral-700; }
+.close-form-button:hover {
+  @apply cursor-pointer text-neutral-200 dark:text-neutral-200;
 }
+.close-form-button-img { width: 16px; height: 16px; }
