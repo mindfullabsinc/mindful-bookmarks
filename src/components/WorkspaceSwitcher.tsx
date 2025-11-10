@@ -21,13 +21,9 @@ import { openCopyTo } from "@/scripts/events/copyToBridge";
 import type { WorkspaceType } from '@/core/constants/workspaces';
 
 /**
- * WorkspaceSwitcher (Left Tab Drawer)
- * - Vertical left tab: icon + “Workspaces” label + chevron that flips
- * - Slide-out drawer with list, actions, and “Active” badge
- * - ESC to close; click backdrop to close; optional “W” hotkey
+ * WorkspaceSwitcher (Light-first with Dark support)
  */
 export const WorkspaceSwitcher: React.FC = () => {
-  /* -------------------- Context / state -------------------- */
   const { setActiveWorkspaceId, activeWorkspaceId: ctxActiveId } = useContext(AppContext) as {
     setActiveWorkspaceId: (id: string) => Promise<void> | void;
     activeWorkspaceId: string | null;
@@ -37,12 +33,9 @@ export const WorkspaceSwitcher: React.FC = () => {
   const [workspaces, setWorkspaces] = useState<WorkspaceType[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
 
-  // Refs for a11y/focus management
   const panelRef = useRef<HTMLDivElement | null>(null);
   const openerRef = useRef<HTMLButtonElement | null>(null);
-  /* ---------------------------------------------------------- */
 
-  /* -------------------- Effects -------------------- */
   useEffect(() => {
     (async () => {
       const [list, active] = await Promise.all([
@@ -54,14 +47,13 @@ export const WorkspaceSwitcher: React.FC = () => {
     })();
   }, []);
 
-  // ESC to close
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') {
         setPanelOpen(false);
         requestAnimationFrame(() => openerRef.current?.focus());
       }
-      // Optional: quick toggle with W (ignores when typing)
+      // Optional quick toggle (ignores while typing)
       if ((e.key === 'w' || e.key === 'W') && !/input|textarea/i.test((e.target as HTMLElement)?.tagName)) {
         setPanelOpen(v => !v);
       }
@@ -69,9 +61,7 @@ export const WorkspaceSwitcher: React.FC = () => {
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, []);
-  /* ---------------------------------------------------------- */
 
-  /* -------------------- Handlers -------------------- */ 
   const activeName = useMemo(
     () => workspaces.find((w) => w.id === activeId)?.name ?? 'Workspace',
     [workspaces, activeId]
@@ -92,11 +82,8 @@ export const WorkspaceSwitcher: React.FC = () => {
       return;
     }
     await setActiveWorkspaceId(workspace_id);
-
-    // Keep session mirrors tidy
     await clearSessionGroupsIndexExcept(workspace_id);
     await writeGroupsIndexSession(workspace_id, []);
-
     await refresh();
     setPanelOpen(false);
     requestAnimationFrame(() => openerRef.current?.focus());
@@ -128,9 +115,7 @@ export const WorkspaceSwitcher: React.FC = () => {
     await writeGroupsIndexSession(newActive, []);
     await refresh();
   }
-  /* ---------------------------------------------------------- */
 
-  /* -------------------- Component UI -------------------- */
   return (
     <>
       {/* Backdrop */}
@@ -140,7 +125,7 @@ export const WorkspaceSwitcher: React.FC = () => {
         onMouseDown={() => setPanelOpen(false)}
       />
 
-      {/* Left vertical tab (icon + label + chevron) */}
+      {/* Left tab — light-first */}
       <button
         ref={openerRef}
         type="button"
@@ -153,29 +138,26 @@ export const WorkspaceSwitcher: React.FC = () => {
           fixed left-0 top-1/2 z-50 -translate-y-1/2
           flex flex-col items-center justify-center gap-2
           rounded-r-2xl border border-l-0 shadow-lg px-2 py-3
-          bg-neutral-800/80 text-neutral-200
-          border-neutral-700
+          bg-white text-neutral-700 border-neutral-200
           hover:bg-blue-600 hover:text-white
           focus:outline-none focus:ring-2 focus:ring-blue-400
+          dark:bg-neutral-900 dark:text-neutral-200 dark:border-neutral-700
+          dark:hover:bg-blue-600 dark:hover:text-white
           backdrop-blur-sm transition-all duration-200 cursor-pointer
         "
       >
-        {/* Icon */}
         <i className="fa-regular fa-folder-open text-base" aria-hidden="true" />
-        {/* Vertical label */}
         <span className="[writing-mode:vertical-rl] rotate-180 tracking-wide select-none text-[11px] font-medium">
           Workspaces
         </span>
-        {/* Chevron that flips */}
         <i
           className={`fa-solid fa-chevron-right text-xs mt-1 transition-transform duration-200 ${panelOpen ? '-rotate-180' : ''}`}
           aria-hidden="true"
         />
-        {/* Subtle hover glow */}
-        <span className="absolute inset-0 rounded-r-2xl bg-white/0 hover:bg-white/5 pointer-events-none transition-colors" />
+        <span className="absolute inset-0 rounded-r-2xl bg-black/0 hover:bg-black/5 dark:hover:bg-white/5 pointer-events-none transition-colors" />
       </button>
 
-      {/* Drawer panel */}
+      {/* Drawer — light-first container */}
       <div
         ref={panelRef}
         id="ws-panel"
@@ -185,21 +167,21 @@ export const WorkspaceSwitcher: React.FC = () => {
         className={`
           fixed left-0 top-0 z-50 h-full w-[280px] max-w-[85vw]
           rounded-r-2xl border border-l-0
-          border-neutral-700
-          bg-neutral-900 text-neutral-100
+          bg-white text-neutral-900 border-neutral-200
           shadow-2xl backdrop-blur
           transition-transform duration-200
+          dark:bg-neutral-900 dark:text-neutral-100 dark:border-neutral-700
           ${panelOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
       >
-        <header className="flex items-center justify-between gap-2 px-3 py-3 border-b border-white/10">
+        <header className="flex items-center justify-between gap-2 px-3 py-3 border-b border-neutral-200 dark:border-white/10">
           <div className="flex items-center gap-2">
-            <i className="fa-regular fa-folder-open text-blue-400" />
+            <i className="fa-regular fa-folder-open text-blue-600 dark:text-blue-400" />
             <h2 className="text-sm font-semibold">Workspaces</h2>
           </div>
           <button
             onClick={() => setPanelOpen(false)}
-            className="text-xs px-2 py-1 rounded-lg hover:bg-white/10 cursor-pointer"
+            className="text-xs px-2 py-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer"
             aria-label="Close workspace panel"
           >
             <i className="fas fa-xmark text-sm" />
@@ -208,17 +190,20 @@ export const WorkspaceSwitcher: React.FC = () => {
 
         <div className="max-h-[calc(100vh-9rem)] overflow-auto p-3">
           {workspaces.length === 0 && (
-            <div className="px-2 py-3 text-sm text-neutral-400">
+            <div className="px-2 py-3 text-sm text-neutral-500 dark:text-neutral-400">
               No workspaces yet.
             </div>
           )}
+
           {workspaces.map((w) => {
             const isActive = w.id === activeId;
             return (
               <div
                 key={w.id}
                 className={`group flex items-center justify-between gap-2 px-3 py-2 rounded-xl
-                  ${isActive ? 'bg-blue-600 text-white' : 'bg-white/5 hover:bg-white/10'}
+                  ${isActive
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-black/5 hover:bg-black/10 dark:bg-white/5 dark:hover:bg-white/10'}
                 `}
               >
                 <button
@@ -230,7 +215,7 @@ export const WorkspaceSwitcher: React.FC = () => {
                   <div className="flex items-center justify-between gap-3">
                     <span className="truncate">{w.name}</span>
                     {isActive && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/20">Active</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/25">Active</span>
                     )}
                   </div>
                 </button>
@@ -238,7 +223,7 @@ export const WorkspaceSwitcher: React.FC = () => {
                 <div className="flex gap-1 shrink-0">
                   <button
                     onClick={() => onRename(w.id)}
-                    className="text-[11px] px-2 py-1 rounded-lg hover:bg-white/10 cursor-pointer"
+                    className="text-[11px] px-2 py-1 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer"
                     aria-label={`Rename ${w.name}`}
                     title="Rename"
                   >
@@ -246,7 +231,7 @@ export const WorkspaceSwitcher: React.FC = () => {
                   </button>
                   <button
                     onClick={() => onArchive(w.id)}
-                    className="text-[11px] px-2 py-1 rounded-lg hover:bg-white/10 cursor-pointer"
+                    className="text-[11px] px-2 py-1 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer"
                     aria-label={`Archive ${w.name}`}
                     title="Archive"
                   >
@@ -254,7 +239,7 @@ export const WorkspaceSwitcher: React.FC = () => {
                   </button>
                   <button
                     onClick={() => openCopyTo({ kind: "workspace", fromWorkspaceId: w.id })}
-                    className="text-[11px] px-2 py-1 rounded-lg hover:bg-white/10 cursor-pointer"
+                    className="text-[11px] px-2 py-1 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer"
                     aria-label={`Copy ${w.name} to…`}
                     title="Copy to…"
                   >
@@ -266,18 +251,20 @@ export const WorkspaceSwitcher: React.FC = () => {
           })}
         </div>
 
-        <footer className="border-t border-white/10 px-3 py-3 rounded-b-2xl">
+        <footer className="border-t border-neutral-200 dark:border-white/10 px-3 py-3 rounded-b-2xl">
           <button
             onClick={handleCreate}
-            className="w-full text-left text-sm px-3 py-2 rounded-xl cursor-pointer bg-white/5 hover:bg-white/10"
+            className="w-full text-left text-sm px-3 py-2 rounded-xl cursor-pointer
+                       bg-black/5 hover:bg-black/10
+                       dark:bg-white/5 dark:hover:bg-white/10"
           >
             <span className="inline-flex items-center gap-2">
               <i className="fa-solid fa-plus" />
               <span>New Local Workspace</span>
             </span>
           </button>
-          <div className="mt-2 text-[11px] text-neutral-400">
-            Tip: Press <kbd className="px-1 py-0.5 rounded bg-white/10">W</kbd> to toggle
+          <div className="mt-2 text-[11px] text-neutral-500 dark:text-neutral-400">
+            Tip: Press <kbd className="px-1 py-0.5 rounded bg-black/5 dark:bg-white/10">W</kbd> to toggle
           </div>
         </footer>
       </div>
