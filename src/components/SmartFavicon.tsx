@@ -172,7 +172,6 @@ export default function SmartFavicon({ url, size = 20, className, fallback = 'le
       height={size}
       alt=""                
       className={clsx("favicon", mono === true ? "mono" : "color", className)}
-      crossOrigin="anonymous" // needed or canvas may be tainted 
       referrerPolicy="no-referrer"
       loading="lazy"
       decoding="async"
