@@ -220,30 +220,30 @@ export const WorkspaceSwitcher: React.FC = () => {
                   </div>
                 </button>
 
-                <div className="flex gap-1 shrink-0">
+                <div className="flex gap-0.5 shrink-0">
                   <button
                     onClick={() => onRename(w.id)}
-                    className="text-[11px] px-2 py-1 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer"
+                    className="text-[11px] px-1 py-1 rounded-md hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer"
                     aria-label={`Rename ${w.name}`}
                     title="Rename"
                   >
                     <i className="fa-solid fa-pen" />
                   </button>
                   <button
-                    onClick={() => onArchive(w.id)}
-                    className="text-[11px] px-2 py-1 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer"
-                    aria-label={`Archive ${w.name}`}
-                    title="Archive"
-                  >
-                    <i className="fa-solid fa-box-archive" />
-                  </button>
-                  <button
                     onClick={() => openCopyTo({ kind: "workspace", fromWorkspaceId: w.id })}
-                    className="text-[11px] px-2 py-1 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer"
+                    className="text-[11px] px-1 py-1 rounded-md hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer"
                     aria-label={`Copy ${w.name} to…`}
                     title="Copy to…"
                   >
                     <i className="fa-regular fa-copy" />
+                  </button>
+                  <button
+                    onClick={() => onArchive(w.id)}
+                    className="text-[11px] px-1 py-1 rounded-md hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer"
+                    aria-label={`Archive ${w.name}`}
+                    title="Archive"
+                  >
+                    <i className="fa-solid fa-xmark" />
                   </button>
                 </div>
               </div>
