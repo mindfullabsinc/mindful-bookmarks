@@ -83,10 +83,11 @@ const TopBanner = ({
             </button>
           </Tooltip>
 
-          {isSignedIn && userAttributes ? (
+          {/* PR6: Commenting out sign-in UI for now */}
+          {/* {isSignedIn && userAttributes ? (
             <div ref={containerRef} className="relative">
               {/* Avatar button */}
-              <Tooltip label="Manage account" align="right">
+              {/* <Tooltip label="Manage account" align="right">
                 <button
                   onClick={() => setDropdownOpen((v) => !v)}
                   className="cursor-pointer"
@@ -100,7 +101,6 @@ const TopBanner = ({
                 </button>
               </Tooltip>
 
-              {/* Dropdown menu (absolutely positioned, doesn’t affect navbar height) */}
               {isDropdownOpen && (
                 <div
                   role="menu"
@@ -116,7 +116,6 @@ const TopBanner = ({
                         {StorageLabel[StorageMode.LOCAL]}
                       </span>
                         <div className="relative inline-flex h-5 w-9 items-center">
-                          {/* the peer comes first */}
                           <input
                             id="storageToggle"
                             type="checkbox"
@@ -125,7 +124,6 @@ const TopBanner = ({
                             className="peer sr-only"
                           />
 
-                          {/* track */}
                           <label
                             htmlFor="storageToggle"
                             className="absolute inset-0 rounded-full border transition cursor-pointer
@@ -133,7 +131,6 @@ const TopBanner = ({
                                       peer-checked:bg-blue-600 peer-checked:border-blue-600"
                           />
 
-                          {/* thumb */}
                           <span
                             className="pointer-events-none absolute left-1 h-4 w-4 rounded-full bg-white shadow
                                       transition transform peer-checked:translate-x-4"
@@ -177,7 +174,7 @@ const TopBanner = ({
                 <i className="fas fa-user" />
               </button>
             </Tooltip>
-          )}
+          )} */}
         </nav>
 
         {/* The import bookmarks modal, when visible */}

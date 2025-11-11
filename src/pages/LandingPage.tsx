@@ -80,7 +80,7 @@ export default function LandingPage() {
           <header className="sticky top-0 z-30 backdrop-blur supports-[backdrop-filter]:bg-neutral-950/50">
             <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
               <a href="#home" className="flex items-center gap-2">
-                <img src="/assets/icon-no-bg-128.png" className="w-[30px] h-[30px] object-cover" />
+                <img src="/assets/icon-128.png" className="w-[20px] h-[20px] object-cover" />
                 <span className="text-lg font-semibold tracking-tight">Mindful</span>
                 <Badge className="ml-2 bg-neutral-800 text-neutral-300 hover:bg-neutral-800">Bookmarks</Badge>
               </a>
@@ -298,7 +298,7 @@ export default function LandingPage() {
             <div className="mx-auto grid max-w-6xl grid-cols-1 gap-6 px-4 py-8 sm:grid-cols-2 md:grid-cols-4">
               <div>
                 <div className="flex items-center gap-2">
-                  <img src="/assets/icon-no-bg-128.png" className="w-[30px] h-[30px] object-cover" />
+                  <img src="/assets/icon-128.png" className="w-[30px] h-[30px] object-cover" />
                   <span className="text-sm font-semibold">Mindful</span>
                 </div>
                 <p className="mt-3 text-sm text-neutral-400">A calm, visual space for your digital mind.</p>

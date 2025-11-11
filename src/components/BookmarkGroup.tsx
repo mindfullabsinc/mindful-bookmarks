@@ -25,7 +25,7 @@ import { AddBookmarkInline } from '@/components/AddBookmarkInline';
 /* ---------------------------------------------------------- */
 
 /* -------------------- Local types and interfaces -------------------- */
-type FlexibleRef<T> = Ref<T> | undefined;
+type FlexibleRef<T> = Ref<T> | null | undefined; 
 
 export interface BookmarkGroupProps {
   bookmarkGroup: BookmarkGroupType;
@@ -36,7 +36,7 @@ export interface BookmarkGroupProps {
   onCommitTitle?: (newTitle: string) => void | Promise<void>;
   onCancelTitleEdit?: () => void;
   autoAddLink?: boolean;
-  addLinkInputRef?: FlexibleRef<HTMLInputElement | HTMLElement>;
+  addLinkInputRef?: FlexibleRef<HTMLInputElement>; 
   onAddLinkDone?: () => void;
   autofillFromClipboard?: boolean;
 }

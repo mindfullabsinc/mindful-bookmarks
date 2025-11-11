@@ -470,8 +470,9 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
   }));
 
   // Only mount Analytics when signed in
+    // Only mount Analytics when signed in
   const content = (
-    <div className="min-h-screen bg-gray-100 dark:bg-neutral-950">
+    <div className="min-h-screen bg-gray-100 dark:bg-neutral-950 overflow-x-hidden">
       <TopBanner
         onExportBookmarks={exportBookmarksToJSON}
         userAttributes={userAttributes}
@@ -480,28 +481,49 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
         isSignedIn={isSignedIn /* prefer context-derived status over props */}
         onStorageModeChange={changeStorageMode}
       />
-      {/* Workspace Switcher (Local-only). Compact, header-aligned. */}
-      <WorkspaceSwitcher />
-      {ready && (
-        <>
-          <DraggableGrid
-            ref={gridRef as any}
-            user={isSignedIn ? { sub: userId as string } : null}
-            bookmarkGroups={normalizedGroups}
-          />
-          <EmptyBookmarksState
-            onCreateGroup={() => gridRef.current?.startCreateGroup?.({ prefill: ONBOARDING_NEW_GROUP_PREFILL, select: 'all' })}
-            onImport={handleLoadBookmarks}
-          />
-          <CopyToModal
-            open={copyOpen}
-            onClose={() => { setCopyOpen(false); pendingCopyRef.current = null; }}
-            onConfirm={handleCopyConfirm}
-            currentWorkspaceId={activeWorkspaceId as WorkspaceIdType}
-          />
-          <Toast message={toastMsg} />
-        </>
-      )}
+
+      {/* Workspace Switcher: fixed on left; reserve gutter for grid */}
+      <div className="relative">
+        <WorkspaceSwitcher />
+
+        {ready && (
+          <div
+            className="
+              pl-[20px] md:pl-[24px] lg:pl-[32px]
+              mt-3 md:mt-4
+              transition-[padding-left]
+            "
+          >
+            <DraggableGrid
+              ref={gridRef as any}
+              user={isSignedIn ? { sub: userId as string } : null}
+              bookmarkGroups={normalizedGroups}
+            />
+
+            <EmptyBookmarksState
+              onCreateGroup={() =>
+                gridRef.current?.startCreateGroup?.({
+                  prefill: ONBOARDING_NEW_GROUP_PREFILL,
+                  select: 'all',
+                })
+              }
+              onImport={handleLoadBookmarks}
+            />
+
+            <CopyToModal
+              open={copyOpen}
+              onClose={() => {
+                setCopyOpen(false);
+                pendingCopyRef.current = null;
+              }}
+              onConfirm={handleCopyConfirm}
+              currentWorkspaceId={activeWorkspaceId as WorkspaceIdType}
+            />
+
+            <Toast message={toastMsg} />
+          </div>
+        )}
+      </div>
     </div>
   );
 
