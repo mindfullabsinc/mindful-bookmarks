@@ -21,3 +21,5 @@ amplify_outputs.*.json
 *.swp
 
 .vscode
+
+.tsc-show.json

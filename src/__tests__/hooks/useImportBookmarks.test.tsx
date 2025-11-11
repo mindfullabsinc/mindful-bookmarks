@@ -66,13 +66,13 @@ jest.mock('@/hooks/useBookmarkManager', () => ({
 
 // Make IDs deterministic for easier assertions.
 let mockNextId = 1;
-jest.mock('@/scripts/Utilities', () => ({
+jest.mock('@/core/utils/utilities', () => ({
   __esModule: true,
   createUniqueID: () => `id_${mockNextId++}`,
 }));
 
 // Constant used by the hook/helpers.
-jest.mock('@/scripts/Constants', () => ({
+jest.mock('@/core/constants/constants', () => ({
   __esModule: true,
   EMPTY_GROUP_IDENTIFIER: '__EMPTY__',
 }));

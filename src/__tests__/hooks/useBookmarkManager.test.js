@@ -2,7 +2,9 @@ import React from 'react';
 import { renderHook, act } from '@testing-library/react';
 import { useBookmarkManager } from '@/hooks/useBookmarkManager';
 import { AppContext } from '@/scripts/AppContextProvider';
-import { EMPTY_GROUP_IDENTIFIER, StorageType } from '@/scripts/Constants';
+import { EMPTY_GROUP_IDENTIFIER } from '@/core/constants/constants';
+import { StorageMode } from '@/core/constants/storageMode';
+import { DEFAULT_LOCAL_WORKSPACE_ID } from '@/core/constants/workspaces';
 
 // --- Mocks ---
 
@@ -28,7 +30,7 @@ jest.mock('uuid', () => ({
 }));
 
 // Mock the utilities module
-jest.mock('@/scripts/Utilities', () => ({
+jest.mock('@/core/utils/utilities', () => ({
   getUserStorageKey: (userId) => `bookmarks-${userId}`,
   refreshOtherMindfulTabs: jest.fn(),
 }));
@@ -48,25 +50,24 @@ let mockStorageSave;
 let mockStorageLoad;
 
 jest.mock('@/scripts/Storage', () => ({
-  Storage: jest.fn().mockImplementation(() => {
-    return {
-      save: mockStorageSave,
-      load: mockStorageLoad,
-    };
-  }),
+  Storage: jest.fn().mockImplementation(() => ({
+    save: (...args) => mockStorageSave(...args),   // <-- spread args so 3rd param is OK
+    load: (...args) => mockStorageLoad(...args),
+    delete: jest.fn().mockResolvedValue(undefined),
+  })),
 }));
 
 // Import after mocks are defined to get a reference to the mock functions
 const { v4: mockV4 } = require('uuid');
-const { refreshOtherMindfulTabs } = require('@/scripts/Utilities');
+const { refreshOtherMindfulTabs } = require('@/core/utils/utilities');
 
 
 // --- Test Suite ---
 
 describe.each([
-  { storageType: StorageType.LOCAL, description: 'local' },
-  { storageType: StorageType.REMOTE, description: 'remote' },
-])('useBookmarkManager with $description storage', ({ storageType }) => {
+  { storageMode: StorageMode.LOCAL, description: 'local' },
+  { storageMode: StorageMode.REMOTE, description: 'remote' },
+])('useBookmarkManager with $description storage', ({ storageMode }) => {
 
   const createWrapper = (mockContextValue) => {
     return ({ children }) => (
@@ -107,8 +108,8 @@ describe.each([
         bookmarkGroups: initialGroups,
         setBookmarkGroups,
         userId: 'user-1',
-        storageType: storageType,
-        setStorageType: jest.fn(),
+        storageMode: StorageMode.LOCAL,
+        setStorageMode: jest.fn(),
         user: { identityId: 'user-1' },
       }),
     });
@@ -124,7 +125,29 @@ describe.each([
     const finalGroups = updaterFn(initialGroups);
 
     expect(finalGroups.length).toBe(3);
-    expect(mockStorageSave).toHaveBeenCalledWith(finalGroups, 'user-1');
+    expect(mockStorageSave).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ groupName: 'Work', id: 'group-1', bookmarks: [] }),
+        expect.objectContaining({
+          groupName: 'Social Media',
+          id: expect.any(String),
+          bookmarks: [
+            expect.objectContaining({
+              name: 'New Site',
+              url: 'https://newsite.com',
+              id: expect.any(String),
+            }),
+          ],
+        }),
+        expect.objectContaining({
+          groupName: EMPTY_GROUP_IDENTIFIER,
+          id: 'empty-id',
+          bookmarks: [],
+        }),
+      ]),
+      'user-1',
+      DEFAULT_LOCAL_WORKSPACE_ID,    // <-- include the 3rd arg your hook actually passes
+    );
     expect(refreshOtherMindfulTabs).toHaveBeenCalledTimes(1);
   });
 
@@ -146,8 +169,8 @@ describe.each([
         bookmarkGroups: initialGroups,
         setBookmarkGroups,
         userId: 'user-2',
-        storageType: storageType,
-        setStorageType: jest.fn(),
+        storageMode: StorageMode.LOCAL,
+        setStorageMode: jest.fn(),
         user: { identityId: 'user-2' },
       }),
     });
@@ -164,7 +187,21 @@ describe.each([
 
     expect(workGroup.bookmarks.length).toBe(2);
     expect(workGroup.bookmarks[1].name).toBe('Company Blog');
-    expect(mockStorageSave).toHaveBeenCalledWith(finalGroups, 'user-2');
+    expect(mockStorageSave).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          groupName: 'Work',
+          id: 'group-1',
+          bookmarks: expect.arrayContaining([
+            expect.objectContaining({ id: 'bm-1', name: 'Internal Docs', url: 'https://docs.internal' }),
+            expect.objectContaining({ name: 'Company Blog', url: 'https://blog.co', id: expect.any(String) }),
+          ]),
+        }),
+        expect.objectContaining({ groupName: 'Personal', id: 'group-2', bookmarks: [] }),
+      ]),
+      'user-2',
+      DEFAULT_LOCAL_WORKSPACE_ID,
+    );
     expect(refreshOtherMindfulTabs).toHaveBeenCalledTimes(1);
   });
 });

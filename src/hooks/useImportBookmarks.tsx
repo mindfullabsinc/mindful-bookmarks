@@ -5,8 +5,9 @@ import ImportBookmarksModal from '@/components/ImportBookmarksModal';
 import { useBookmarkManager } from '@/hooks/useBookmarkManager';
 
 /* Scripts */
-import { createUniqueID } from '@/scripts/Utilities';
-import { EMPTY_GROUP_IDENTIFIER } from "@/scripts/Constants";
+import { createUniqueID } from '@/core/utils/utilities';
+import { EMPTY_GROUP_IDENTIFIER } from "@/core/constants/constants";
+import type { BookmarkGroupType } from '@/core/types/bookmarks';
 
 export type SmartStrategy = 'folders' | 'domain' | 'topic';
 export type ImportChromeOpts = { mode: 'flat' | 'smart'; smartStrategy?: SmartStrategy };
@@ -41,7 +42,7 @@ export function useImportBookmarks(pipelines?: ImportPipelines) {
       console.warn("updateAndPersistGroups not available; wire this to your state updater.");
       return;
     }
-    await updateAndPersistGroups((prev: Group[]) => {
+    await updateAndPersistGroups((prev: BookmarkGroupType[]) => {
       const normalized = normalizeGroups(groups);
   
       // insert before EMPTY, then collapse empties and move one to end
@@ -60,7 +61,7 @@ export function useImportBookmarks(pipelines?: ImportPipelines) {
     const text = await file.text();
     const raw = JSON.parse(text);
     const normalized = normalizeGroups(raw);
-    await updateAndPersistGroups?.((prev: Group[]) =>
+    await updateAndPersistGroups?.((prev: BookmarkGroupType[]) =>
       ensureSingleEmpty(
         // reuse your insert-before-empty behavior:
         (() => {
@@ -127,11 +128,7 @@ export default useImportBookmarks;
 
 
 /* Helpers ------------------------------ */
-type Group = {
-  id: string;
-  groupName: string;
-  bookmarks: Array<{ id: string; name: string; url: string }>;
-};
+type Group = BookmarkGroupType;
 
 const isEmptyGroup = (g: Group) =>
   g.id === EMPTY_GROUP_IDENTIFIER || g.groupName === EMPTY_GROUP_IDENTIFIER;

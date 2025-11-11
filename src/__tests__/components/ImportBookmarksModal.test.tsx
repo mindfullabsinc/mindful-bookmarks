@@ -13,20 +13,34 @@ jest.mock('react-dom', () => {
   };
 });
 
-// Minimal chrome.permissions mock
-declare global {
-  // eslint-disable-next-line no-var
-  var chrome: any;
-}
-
+// Minimal-but-complete chrome.permissions mock for TS
 const mockPermissions = {
-  contains: jest.fn(),
-  request: jest.fn(),
+  contains: jest.fn().mockResolvedValue(false),
+  request: jest.fn().mockResolvedValue(true),
+  getAll: jest.fn().mockResolvedValue({ origins: [], permissions: [] }),
+  remove: jest.fn().mockResolvedValue(true),
+
+  // MV3 host access helpers (exist in @types/chrome)
+  addHostAccessRequest: jest.fn(),
+  removeHostAccessRequest: jest.fn(),
+
+  // Events: shape must include addListener/removeListener/hasListener
+  onAdded: {
+    addListener: jest.fn(),
+    removeListener: jest.fn(),
+    hasListener: jest.fn(),
+  },
+  onRemoved: {
+    addListener: jest.fn(),
+    removeListener: jest.fn(),
+    hasListener: jest.fn(),
+  },
 };
 
+// Make it globally available for the test runtime
 beforeAll(() => {
-  // @ts-ignore
-  global.chrome = {
+  // Cast to any so we don't have to perfectly match the full Chrome type
+  (global as any).chrome = {
     permissions: mockPermissions,
   };
 });

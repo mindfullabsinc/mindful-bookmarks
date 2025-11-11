@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import tailwind from '@tailwindcss/vite'
 import { resolve } from 'path';
 import { fileURLToPath, URL } from 'node:url'
+import circular from 'vite-plugin-circular-dependency';
 
 
 export default defineConfig({
@@ -10,6 +11,18 @@ export default defineConfig({
   plugins: [
     react(),
     tailwind(),
+    circular({
+      include: /src/,
+      exclude: /node_modules/,
+      failOnError: true,        // ❗ stop the dev server on cycles
+      allowAsyncCycles: false,  // treat dynamic import cycles as errors too
+      onDetected({ modulePath, cyclePaths, cycleStack }) {
+        console.error('\n[CYCLE DETECTED]');
+        console.error('Module:', modulePath);
+        console.error('Path:  ', cyclePaths.join(' -> '));
+        console.error(cycleStack);
+      },
+    }),
   ],
   resolve: {
     alias: {
@@ -32,5 +45,9 @@ export default defineConfig({
     },
     outDir: 'dist', // Default output directory
     emptyOutDir: true, // Clean the output directory before each build
+    sourcemap: true,  // make runtime errors map to source
+  },
+  esbuild: { // helps keep names visible in dev
+    keepNames: true,
   },
 });

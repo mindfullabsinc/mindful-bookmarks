@@ -2,22 +2,23 @@ import React, { useState, useEffect, useContext, useMemo } from "react";
 
 /* Scripts */
 import { AppContext } from "@/scripts/AppContextProvider";
-import { importChromeBookmarksAsSingleGroup, importOpenTabsAsSingleGroup } from '@/scripts/Importers'; 
+import { importChromeBookmarksAsSingleGroup, importOpenTabsAsSingleGroup } from '@/scripts/importers'; 
 
 /* Hooks */
 import useImportBookmarks from '@/hooks/useImportBookmarks';
 
 /* Constants */
-import { EMPTY_GROUP_IDENTIFIER, StorageType, StorageLabel } from "@/scripts/Constants";
+import { EMPTY_GROUP_IDENTIFIER } from "@/core/constants/constants";
+import { StorageMode, StorageLabel } from "@/core/constants/storageMode";
 
 const DISMISS_KEY = "mindful.emptyStateDismissed";
 
 export default function EmptyBookmarksState({
   onCreateGroup,
   onImport, // optional
-  onClose, // optional: parent can listen if desired
+  onClose = () => {},
 }) {
-  const { bookmarkGroups, storageType } = useContext(AppContext);
+  const { bookmarkGroups, storageMode } = useContext(AppContext);
 
   const { openImport, renderModal } = useImportBookmarks({
     importChromeBookmarksAsSingleGroup,       // bookmarks → flat
@@ -168,7 +169,7 @@ export default function EmptyBookmarksState({
                       border border-neutral-200 bg-white shadow-sm
                       dark:border-neutral-700 dark:bg-neutral-800">
         <img
-          src="/assets/icon-no-bg-128.png"
+          src="/assets/icon-128.png"
           alt=""
           className="h-[30px] w-[30px] object-contain"
         />
@@ -179,14 +180,14 @@ export default function EmptyBookmarksState({
         Welcome to Mindful
       </h2>
       <p className="mx-auto mt-3 max-w-prose text-center text-sm sm:text-left text-neutral-600 dark:text-neutral-400">
-        Organize your links into groups. Create your first group to get
-        started. Add unlimited bookmarks and switch between{" "}
+        Create your first group to get started and add unlimited bookmarks. 
+        {/* and switch between{" "}
         <span className="font-medium text-neutral-800 dark:text-neutral-200">
-          {StorageLabel[storageType]}
+          {StorageLabel[storageMode]}
         </span>
         {" "}and{" "} 
-        {storageType === StorageType.LOCAL ? StorageLabel[StorageType.REMOTE] : StorageLabel[StorageType.LOCAL]}
-        {" "}storage modes.
+        {storageMode === StorageMode.LOCAL ? StorageLabel[StorageMode.REMOTE] : StorageLabel[StorageMode.LOCAL]}
+        {" "}storage modes. */}
       </p>
 
       {/* Primary actions */}
@@ -202,6 +203,7 @@ export default function EmptyBookmarksState({
 
         <button
           onClick={openImport}
+          aria-label="Import bookmarks"
           className="cursor-pointer inline-flex items-center justify-center rounded-xl border px-5 py-2.5 transition
                     border-neutral-300 bg-white text-neutral-800 shadow-sm hover:bg-neutral-50
                     focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70
@@ -225,7 +227,7 @@ export default function EmptyBookmarksState({
         <div className="flex flex-col gap-2">
           <Step id="createdGroup" label="Create a group" />
           <Step id="addedBookmark" label="Add a link" />
-          <Step id="triedStorage" label="Try Local ↔︎ Sync" />
+          {/* <Step id="triedStorage" label="Try Local ↔︎ Sync" /> */}
         </div>
       </div>
 

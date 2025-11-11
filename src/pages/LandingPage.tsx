@@ -1,9 +1,10 @@
+/* -------------------- Imports -------------------- */
 import "@/styles/Index.css"
 import React, { useEffect } from "react";
-import { motion } from "framer-motion";
-import { Button } from "@/components/ui/button";
+import { motion, type MotionProps } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Accordion, AccordionItem, AccordionTrigger, AccordionContent,
 } from "@/components/ui/accordion";
@@ -27,23 +28,30 @@ import '@aws-amplify/ui-react/styles.css';
 
 /* Analytics */
 import AnalyticsProvider from "@/analytics/AnalyticsProvider";
+/* ---------------------------------------------------------- */
 
+/* -------------------- Constants -------------------- */
+const CHROME_EXTENSION_URL = "https://chromewebstore.google.com/detail/mindful/bjobloafhnodgomnplkfhebkihnafhfe"
+/* ---------------------------------------------------------- */
 
+/* -------------------- Helper functions -------------------- */
 // Utility for simple fade-up animations
-const fadeUp = {
+const fadeUp: MotionProps = {
   initial: { opacity: 0, y: 24 },
   whileInView: { opacity: 1, y: 0 },
-  viewport: { once: true, amount: 0.24 },
-  transition: { duration: 0.6, ease: "easeOut" },
+  viewport: { once: true, amount: 0.4 },
+  transition: {
+    duration: 0.6,
+    // cubic-bezier equivalent to a nice ease-out
+    ease: [0.22, 1, 0.36, 1],
+  },
 };
-
-const CHROME_EXTENSION_URL = "https://chromewebstore.google.com/detail/mindful/bjobloafhnodgomnplkfhebkihnafhfe"
 
 function InstallCTA({ size = "default", className = "" }: { size?: "default" | "lg"; className?: string }) {
   return (
     <Button
       size={size}
-      className={`bg-neutral-200 text-neutral-900 hover:bg-white ${className}`}
+      variant="secondary" 
       asChild
       title="Add to Chrome" 
     >
@@ -56,6 +64,7 @@ function InstallCTA({ size = "default", className = "" }: { size?: "default" | "
     </Button>
   );
 }
+/* ---------------------------------------------------------- */
 
 export default function LandingPage() {
   return (
@@ -71,7 +80,7 @@ export default function LandingPage() {
           <header className="sticky top-0 z-30 backdrop-blur supports-[backdrop-filter]:bg-neutral-950/50">
             <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
               <a href="#home" className="flex items-center gap-2">
-                <img src="/assets/icon-no-bg-128.png" className="w-[30px] h-[30px] object-cover" />
+                <img src="/assets/icon-128.png" className="w-[20px] h-[20px] object-cover" />
                 <span className="text-lg font-semibold tracking-tight">Mindful</span>
                 <Badge className="ml-2 bg-neutral-800 text-neutral-300 hover:bg-neutral-800">Bookmarks</Badge>
               </a>
@@ -289,7 +298,7 @@ export default function LandingPage() {
             <div className="mx-auto grid max-w-6xl grid-cols-1 gap-6 px-4 py-8 sm:grid-cols-2 md:grid-cols-4">
               <div>
                 <div className="flex items-center gap-2">
-                  <img src="/assets/icon-no-bg-128.png" className="w-[30px] h-[30px] object-cover" />
+                  <img src="/assets/icon-128.png" className="w-[30px] h-[30px] object-cover" />
                   <span className="text-sm font-semibold">Mindful</span>
                 </div>
                 <p className="mt-3 text-sm text-neutral-400">A calm, visual space for your digital mind.</p>

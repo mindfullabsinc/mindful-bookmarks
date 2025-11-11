@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
 import { BookmarkGroup } from '@/components/BookmarkGroup';
-import { EMPTY_GROUP_IDENTIFIER } from '@/scripts/Constants';
+import { EMPTY_GROUP_IDENTIFIER } from '@/core/constants/constants';
 
 // --- FIXED MOCKS ---
 

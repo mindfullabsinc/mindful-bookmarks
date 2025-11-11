@@ -2,8 +2,8 @@ import React, { useContext, useState, useEffect, useRef } from 'react';
 
 /* Scripts */
 import { AppContext } from "@/scripts/AppContextProvider";
-import { importChromeBookmarksAsSingleGroup, importOpenTabsAsSingleGroup } from '@/scripts/Importers'; 
-import { DEFAULT_STORAGE_TYPE, StorageType, StorageLabel } from "@/scripts/Constants";
+import { importChromeBookmarksAsSingleGroup, importOpenTabsAsSingleGroup } from '@/scripts/importers'; 
+import { StorageMode, StorageLabel, DEFAULT_STORAGE_MODE } from "@/core/constants/storageMode";
 
 /* Hooks */
 import useImportBookmarks from '@/hooks/useImportBookmarks';
@@ -20,9 +20,9 @@ const TopBanner = ({
   onSignIn,
   onSignOut,
   isSignedIn,
-  onStorageTypeChange
+  onStorageModeChange
 }) => {
-  const storageType = useContext(AppContext)?.storageType ?? DEFAULT_STORAGE_TYPE;
+  const storageMode = useContext(AppContext)?.storageMode ?? DEFAULT_STORAGE_MODE;
   const [isDropdownOpen, setDropdownOpen] = useState(false);
   const containerRef = useRef(null);
 
@@ -83,10 +83,11 @@ const TopBanner = ({
             </button>
           </Tooltip>
 
-          {isSignedIn && userAttributes ? (
+          {/* PR6: Commenting out sign-in UI for now */}
+          {/* {isSignedIn && userAttributes ? (
             <div ref={containerRef} className="relative">
               {/* Avatar button */}
-              <Tooltip label="Manage account" align="right">
+              {/* <Tooltip label="Manage account" align="right">
                 <button
                   onClick={() => setDropdownOpen((v) => !v)}
                   className="cursor-pointer"
@@ -100,7 +101,6 @@ const TopBanner = ({
                 </button>
               </Tooltip>
 
-              {/* Dropdown menu (absolutely positioned, doesn’t affect navbar height) */}
               {isDropdownOpen && (
                 <div
                   role="menu"
@@ -112,20 +112,18 @@ const TopBanner = ({
                       Storage type
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className={`text-sm text-neutral-500 dark:text-neutral-400 ${storageType === StorageType.LOCAL ? "font-semibold" : "font-normal"}`}>
-                        {StorageLabel[StorageType.LOCAL]}
+                      <span className={`text-sm text-neutral-500 dark:text-neutral-400 ${storageMode === StorageMode.LOCAL ? "font-semibold" : "font-normal"}`}>
+                        {StorageLabel[StorageMode.LOCAL]}
                       </span>
                         <div className="relative inline-flex h-5 w-9 items-center">
-                          {/* the peer comes first */}
                           <input
                             id="storageToggle"
                             type="checkbox"
-                            checked={storageType === StorageType.REMOTE}
-                            onChange={(e) => onStorageTypeChange(e.target.checked ? StorageType.REMOTE : StorageType.LOCAL)}
+                            checked={storageMode === StorageMode.REMOTE}
+                            onChange={(e) => onStorageModeChange(e.target.checked ? StorageMode.REMOTE : StorageMode.LOCAL)}
                             className="peer sr-only"
                           />
 
-                          {/* track */}
                           <label
                             htmlFor="storageToggle"
                             className="absolute inset-0 rounded-full border transition cursor-pointer
@@ -133,15 +131,14 @@ const TopBanner = ({
                                       peer-checked:bg-blue-600 peer-checked:border-blue-600"
                           />
 
-                          {/* thumb */}
                           <span
                             className="pointer-events-none absolute left-1 h-4 w-4 rounded-full bg-white shadow
                                       transition transform peer-checked:translate-x-4"
                           />
                         </div>
 
-                      <span className={`text-sm text-neutral-500 dark:text-neutral-400 ${storageType === StorageType.REMOTE ? "font-semibold" : "font-normal"}`}>
-                        {StorageLabel[StorageType.REMOTE]}
+                      <span className={`text-sm text-neutral-500 dark:text-neutral-400 ${storageMode === StorageMode.REMOTE ? "font-semibold" : "font-normal"}`}>
+                        {StorageLabel[StorageMode.REMOTE]}
                       </span>
                     </div>
                   </div>
@@ -177,7 +174,7 @@ const TopBanner = ({
                 <i className="fas fa-user" />
               </button>
             </Tooltip>
-          )}
+          )} */}
         </nav>
 
         {/* The import bookmarks modal, when visible */}
