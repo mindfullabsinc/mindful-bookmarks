@@ -120,7 +120,7 @@ export const WorkspaceSwitcher: React.FC = () => {
     <>
       {/* Backdrop */}
       <div
-        className={`fixed inset-0 z-40 ${panelOpen ? 'block' : 'hidden'}`}
+        className={`fixed left-2 top-1/2 -translate-y-1/2 z-30 inset-0 ${panelOpen ? 'block' : 'hidden'}`}
         aria-hidden="true"
         onMouseDown={() => setPanelOpen(false)}
       />
