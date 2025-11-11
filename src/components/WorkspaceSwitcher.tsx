@@ -210,6 +210,7 @@ export const WorkspaceSwitcher: React.FC = () => {
                   onClick={() => handleSwitch(w.id)}
                   className="flex-1 text-left text-sm truncate cursor-pointer"
                   aria-current={isActive ? 'true' : undefined}
+                  aria-label={w.name}
                   title={w.name}
                 >
                   <div className="flex items-center justify-between gap-3">
