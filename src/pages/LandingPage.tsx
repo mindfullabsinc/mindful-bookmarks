@@ -322,7 +322,16 @@ export default function LandingPage() {
               <div>
                 <h6 className="mb-2 text-sm font-medium">Legal</h6>
                 <ul className="space-y-1 text-sm text-neutral-400">
-                  <li><a href="#" className="hover:text-neutral-200">Privacy Policy</a></li>
+                  <li>
+                    <a
+                      href="/privacy/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:text-neutral-200"
+                    >
+                      Privacy Policy
+                    </a>
+                  </li>
                   <li><a href="#" className="hover:text-neutral-200">Terms</a></li>
                 </ul>
               </div>
