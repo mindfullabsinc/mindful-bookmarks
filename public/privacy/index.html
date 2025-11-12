@@ -8,22 +8,82 @@
   <link rel="canonical" href="https://mindfulbookmarks.com/privacy" />
   <link rel="icon" href="/favicon.ico" />
   <style>
+    :root { color-scheme: light dark; }
     body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; }
-    main { max-width: 800px; margin: 48px auto; padding: 0 16px; line-height: 1.6; }
-    h1 { font-size: 2rem; margin-bottom: 0.5rem; }
-    time { color: #6b7280; font-size: 0.9rem; }
-    a { color: #2563eb; }
+    main { max-width: 800px; margin: 48px auto; padding: 0 16px; line-height: 1.65; }
+    h1 { font-size: 2rem; margin: 0 0 .75rem; }
+    h2 { margin-top: 2rem; font-size: 1.375rem; }
+    h3 { margin-top: 1.25rem; font-size: 1.125rem; }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    a { text-decoration: underline; }
+    strong { font-weight: 600; }
   </style>
 </head>
 <body>
   <main>
-    <h1>Privacy Policy</h1>
-    <p><time datetime="2025-01-01">Last updated: <!-- update date --></time></p>
+    <h1>Privacy Policy for Mindful Bookmarks</h1>
+<p><strong>Effective date:</strong> 2025-11-12</p>
+<p>Mindful gives you control over your data. All users sign in with an account. You can choose to keep data <strong>locally on your device</strong> (Local-Only mode) or enable <strong>Encrypted Sync</strong> to keep bookmarks in sync across your devices.</p>
+<h2>Storage Options</h2>
+<h3>1) Local-Only (default)</h3>
+<ul>
+<li>Bookmark data (URL, title, tags, folder structure, settings) is stored on your device via Chrome’s <code>chrome.storage</code> API.</li>
+<li>You must still sign in with an account, but data remains on your device in this mode and is not uploaded to our servers.</li>
+</ul>
+<h3>2) Encrypted Sync</h3>
+<ul>
+<li>If you enable Encrypted Sync, we store your bookmark data in our backend so it can sync across your devices.</li>
+<li>Data is encrypted in transit (HTTPS/TLS) and at rest using AWS-managed encryption (e.g., KMS).</li>
+<li>We do not sell or share your data, and we do not use it for advertising or unrelated purposes.</li>
+</ul>
+<h2>Data We Handle</h2>
+<ul>
+<li><strong>Bookmark data &amp; preferences</strong>: URLs, titles, tags, folder/group structure, and settings you create in the app. Used only to provide bookmarking and syncing.</li>
+<li><strong>Account info</strong>: Email address, phone number, and full name.
+Authentication is provided by our identity provider (e.g., AWS Cognito via Amplify). We do not store or access your password.</li>
+<li><strong>Diagnostics (minimal, non-content)</strong>: error codes and operational metadata to maintain reliability. We do not collect page text, keystrokes, mouse movements, or browsing history.</li>
+</ul>
+<p>We do <strong>not</strong> collect financial/health data, personal communications, precise location, web history, or other unrelated categories.</p>
+<h2>How Permissions Are Used</h2>
+<ul>
+<li><code>storage</code>: save your bookmarks and settings locally.</li>
+<li><code>tabs</code>: read the current tab’s URL/title only when you click <strong>“Add bookmark,”</strong> or list open tabs only when you explicitly choose <strong>“Import Open Tabs.”</strong> No background page reading or content script injection.</li>
+<li><code>bookmarks</code>: access the Chrome bookmarks API only when you explicitly choose <strong>“Import from Chrome Bookmarks.”</strong> Read-only, never monitored in the background.</li>
+<li><strong>Host access</strong>: communicates with Mindful’s backend services (AWS API Gateway, Cognito, S3) to provide login and, if enabled, Encrypted Sync. These requests are limited to our own domains.</li>
+</ul>
+<h2>Your Controls</h2>
+<ul>
+<li><strong>Choose storage mode</strong> any time in Settings (Local-Only ↔ Encrypted Sync).</li>
+<li><strong>Export/Import</strong> bookmarks as JSON from the app.</li>
+<li><strong>Delete data</strong>:
+<ul>
+<li>Local-Only: remove the extension or clear its storage.</li>
+<li>Encrypted Sync: use <em>Settings → Encrypted Sync → Delete cloud data</em>. We delete copies immediately.</li>
+</ul>
+</li>
+</ul>
+<h2>Security</h2>
+<ul>
+<li>Transport security (HTTPS/TLS) and encryption at rest on AWS.</li>
+<li>Access to backend systems is restricted and audited.</li>
+<li>We do not execute remote code from third-party CDNs.</li>
+</ul>
+<h2>Data Sharing &amp; Selling</h2>
+<ul>
+<li>We do not sell personal information.</li>
+<li>We do not share data except with service providers necessary to run the app (e.g., AWS), operating under data-processing agreements and only on our instructions.</li>
+</ul>
+<h2>Regional Rights</h2>
+<p>Depending on your region (e.g., GDPR/CCPA), you may have rights to access, correct, export, or delete your data. Contact us to exercise these rights.</p>
+<h2>Children’s Privacy</h2>
+<p>Mindful Bookmarks is not intended for children under 13.</p>
+<h2>Contact</h2>
+<p>Questions or requests (including data deletion/export)?<br>
+Email: <code>amy@mindfulbookmarks.com</code></p>
+<h2>Changes to This Policy</h2>
+<p>We may update this policy to reflect product or legal changes. We’ll update the “Effective date” above and, if changes are material, provide notice in-app.</p>
+<p>Last updated: 2025-11-12</p>
 
-    <p>Mindful Bookmarks (“Mindful”, “we”, “us”) …</p>
-    <!-- full policy text -->
-    <h2>Contact</h2>
-    <p>Email <a href="mailto:amy@mindfulbookmarks.com">amy@mindfulbookmarks.com</a>.</p>
   </main>
 </body>
 </html>
