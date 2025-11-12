@@ -65,6 +65,29 @@ const wrapped = `<!doctype html>
     code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
     a { text-decoration: underline; }
     strong { font-weight: 600; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.5rem 0;
+      font-size: 0.95rem;
+    }
+
+    th, td {
+      border: 1px solid #ccc;
+      padding: 0.6rem 0.8rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: rgba(0,0,0,0.04);
+      font-weight: 600;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      th, td { border-color: #333; }
+      th { background: rgba(255,255,255,0.05); }
+    }
   </style>
 </head>
 <body>
