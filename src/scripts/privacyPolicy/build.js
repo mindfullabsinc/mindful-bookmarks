@@ -9,7 +9,7 @@ const md = new MarkdownIt({
   typographer: true,
 });
 
-const SRC = "docs/privacy.md";
+const SRC = "public/privacy/privacy.md";
 const DEST = "public/privacy/index.html";
 
 // Map a few common Liquid date tokens -> date-fns tokens
