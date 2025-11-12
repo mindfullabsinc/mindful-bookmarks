@@ -2,9 +2,10 @@ name: Node.js CI
 
 on:
   push:
-    branches: [main]
+    branches: ['**']  # run on pushes to any branch
   pull_request:
-    branches: [main]
+    branches: [main]  # run on PRs into main branch
+  workflow_dispatch:  # manual "Run workflow" button
 
 jobs:
   install:
