@@ -1,36 +1,43 @@
 name: Node.js CI
 
-# Controls when the workflow will run
 on:
   push:
-    branches: [ "main" ]
+    branches: ['**']  # run on pushes to any branch
   pull_request:
-    branches: [ "main" ] 
+    branches: [main]  # run on PRs into main branch
+  workflow_dispatch:  # manual "Run workflow" button
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  build:
+  install:
+    name: install
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: [22.x]
-    
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Use Node.js ${{ matrix.node-version }}
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
-          cache: 'npm'
-
+          node-version: 22.x
+          cache: npm
       - name: Install dependencies
-        run: npm ci 
+        run: npm ci
 
+  typescript:
+    name: typescript
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
       - name: Create dummy Amplify outputs file
         run: |
-          cat > amplify_outputs.json << EOF
+          cat > amplify_outputs.json << 'EOF'
           {
             "version": "1",
             "auth": {
@@ -57,14 +64,47 @@ jobs:
             }
           }
           EOF
-
-      - name: TypeScript type check (no emit) 
+      - name: TypeScript type check (no emit)
         run: npx tsc -p tsconfig.json --noEmit --pretty false
-          
-      # Run these first as they're faster (unless using an e2e test)
-      - name: Run tests
-        run: npm test
-      
-      # Fails if the build process is broken
-      - name: Build project 
-        run: npm run build  
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Create dummy Amplify outputs file
+        run: |
+          cat > amplify_outputs.json << 'EOF'
+          { "version":"1","auth":{"user_pool_id":"us-east-1_dummy","user_pool_client_id":"dummy_client_id","aws_region":"us-east-1"},"data":{"aws_region":"us-east-1","url":"https://dummy.appsync-api.us-east-1.amazonaws.com/graphql"},"storage":{"aws_region":"us-east-1","bucket_name":"dummy-bucket-name"},"custom":{"API":{"bookmarks":{"apiName":"bookmarksApi","type":"httpApi","endpoint":"https://dummy.execute-api.us-west-1.amazonaws.com"}}}}
+          EOF
+      - name: Run unit tests
+        run: npm test -- --ci
+
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Create dummy Amplify outputs file
+        run: |
+          cat > amplify_outputs.json << 'EOF'
+          { "version":"1","auth":{"user_pool_id":"us-east-1_dummy","user_pool_client_id":"dummy_client_id","aws_region":"us-east-1"},"data":{"aws_region":"us-east-1","url":"https://dummy.appsync-api.us-east-1.amazonaws.com/graphql"},"storage":{"aws_region":"us-east-1","bucket_name":"dummy-bucket-name"},"custom":{"API":{"bookmarks":{"apiName":"bookmarksApi","type":"httpApi","endpoint":"https://dummy.execute-api.us-west-1.amazonaws.com"}}}}
+          EOF
+      - name: Build project
+        run: npm run build
