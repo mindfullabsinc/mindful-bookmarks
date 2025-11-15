@@ -40,7 +40,7 @@ export const MarketingNavbar: React.FC = () => {
               href="faqs.html"
               className="text-sm text-neutral-600 hover:text-neutral-900"
             >
-              FAQ
+              FAQs
             </a>
           </nav>
 

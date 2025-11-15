@@ -6,9 +6,9 @@ import "@aws-amplify/ui-react/styles.css";
 
 import AnalyticsProvider from "@/analytics/AnalyticsProvider";
 
-import LogoComponent from "@/components/LogoComponent";
 import { Accordion, AccordionItem, AccordionContent, AccordionTrigger } from "@/components/ui/accordion";
 import { MarketingNavbar } from "@/components/marketingWebsite/MarketingNavBar";
+import { MarketingFooter } from "@/components/marketingWebsite/MarketingFooter";
 
 
 const fadeUp: MotionProps = {
@@ -206,6 +206,9 @@ export default function FAQsPage() {
               </Accordion>
             </section>
           </main>
+
+          {/* FOOTER */}
+          <MarketingFooter />
         </div>
       </AnalyticsProvider>
     </Authenticator.Provider>
