@@ -2,25 +2,8 @@
 import "@/styles/Index.css"
 import React from "react";
 import { motion, type MotionProps } from "framer-motion";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Accordion, AccordionItem, AccordionTrigger, AccordionContent,
-} from "@/components/ui/accordion";
-import {
-  Lock,
-  HardDrive,
-  ShieldCheck,
-  LayoutGrid,
-  Tags,
-  Search,
-  Sparkles,
-  FolderTree,
-  Share2,
-  Zap,
-  Download,
-} from "lucide-react";
+import { Download } from "lucide-react";
 
 /* CSS styles */
 import "@/styles/Index.css";
@@ -39,7 +22,6 @@ import LogoComponent from '@/components/LogoComponent';
 /* -------------------- Constants -------------------- */
 const CHROME_EXTENSION_URL = "https://chromewebstore.google.com/detail/mindful/bjobloafhnodgomnplkfhebkihnafhfe";
 const LIGHT_SHADOW = "shadow-[0_20px_45px_rgba(0,0,0,0.12),0_-20px_45px_rgba(0,0,0,0.10)]";
-// const DARK_SHADOW = "shadow-[0_0_20px_rgba(255,255,255,0.06),0_0_8px_rgba(255,255,255,0.04)]"
 const DARK_SHADOW = "shadow-[0_0_40px_rgba(0,0,0,0.5),0_0_8px_rgba(0,0,0,0.04)]";
 /* ---------------------------------------------------------- */
 
@@ -71,7 +53,7 @@ export default function LandingPage() {
           {/* NAVBAR */}
           <header className="sticky top-0 z-30 border-b border-neutral-200 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/80">
             <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
-              <LogoComponent /> 
+              <LogoComponent forceLight /> 
               <nav className="hidden items-center gap-6 md:flex">
                 <a href="#features" className="text-sm text-neutral-600 hover:text-neutral-900">Features</a>
                 <a href="#privacy" className="text-sm text-neutral-600 hover:text-neutral-900">Privacy</a>
@@ -306,7 +288,7 @@ export default function LandingPage() {
           <footer className="border-t border-neutral-200 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/80">
             <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 px-4 py-8 sm:grid-cols-2 md:grid-cols-4">
               <div>
-                <LogoComponent />
+                <LogoComponent forceLight />
                 <p className="mt-3 text-sm text-neutral-600">
                   A calm, visual space for your digital mind.
                 </p>
