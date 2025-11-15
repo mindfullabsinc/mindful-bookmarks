@@ -7,7 +7,7 @@ import config from '../../amplify_outputs.json';
 Amplify.configure(config);
 
 /* Components */
-import LandingPage from "@/pages/LandingPage"
+import LandingPage from "@/pages/marketingWebsite/LandingPage"
 
 /* CSS styles */
 import "@/styles/Index.css"

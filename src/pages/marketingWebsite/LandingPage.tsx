@@ -17,6 +17,7 @@ import AnalyticsProvider from "@/analytics/AnalyticsProvider";
 
 /* Components */ 
 import LogoComponent from '@/components/LogoComponent';
+import { Accordion, AccordionItem, AccordionContent, AccordionTrigger} from "@/components/ui/accordion";
 /* ---------------------------------------------------------- */
 
 /* -------------------- Constants -------------------- */
@@ -56,9 +57,8 @@ export default function LandingPage() {
               <LogoComponent forceLight /> 
               <nav className="hidden items-center gap-6 md:flex">
                 <a href="#features" className="text-sm text-neutral-600 hover:text-neutral-900">Features</a>
-                <a href="#privacy" className="text-sm text-neutral-600 hover:text-neutral-900">Privacy</a>
                 <a href="#pricing" className="text-sm text-neutral-600 hover:text-neutral-900">Pricing</a>
-                <a href="#faq" className="text-sm text-neutral-600 hover:text-neutral-900">FAQ</a>
+                <a href="faqs.html" className="text-sm text-neutral-600 hover:text-neutral-900">FAQ</a>
               </nav>
               <div className="flex items-center gap-2">
                 <Button variant="primary" asChild>
@@ -119,7 +119,7 @@ export default function LandingPage() {
 
           {/* FEATURE: PopUp */}
           <section
-            id="home"
+            id="features"
             className="relative mx-auto max-w-7xl px-4 pt-40 md:pt-40"
           >
             <div className="pl-4 sm:pl-6 md:pl-6">
@@ -290,7 +290,7 @@ export default function LandingPage() {
               <div>
                 <LogoComponent forceLight />
                 <p className="mt-3 text-sm text-neutral-600">
-                  A calm, visual space for your digital mind.
+                  A calm, visual space for your digital mind
                 </p>
               </div>
 
