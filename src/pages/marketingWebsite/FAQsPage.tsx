@@ -5,8 +5,11 @@ import { Authenticator } from "@aws-amplify/ui-react";
 import "@aws-amplify/ui-react/styles.css";
 
 import AnalyticsProvider from "@/analytics/AnalyticsProvider";
+
 import LogoComponent from "@/components/LogoComponent";
 import { Accordion, AccordionItem, AccordionContent, AccordionTrigger } from "@/components/ui/accordion";
+import { MarketingNavbar } from "@/components/marketingWebsite/MarketingNavBar";
+
 
 const fadeUp: MotionProps = {
   initial: { opacity: 0, y: 24 },
@@ -23,23 +26,7 @@ export default function FAQsPage() {
     <Authenticator.Provider>
       <AnalyticsProvider>
         <div className="force-light min-h-screen bg-neutral-50 text-neutral-900 selection:bg-blue-200 selection:text-neutral-900">
-          {/* Simple header reused */}
-          <header className="sticky top-0 z-30 border-b border-neutral-200 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/80">
-            <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
-              <LogoComponent forceLight />
-              <nav className="hidden items-center gap-6 md:flex">
-                <a href="/" className="text-sm text-neutral-600 hover:text-neutral-900">
-                  Home
-                </a>
-                <a href="/privacy/#privacy" className="text-sm text-neutral-900 font-medium">
-                  Privacy
-                </a>
-                <a href="/privacy/#faq" className="text-sm text-neutral-600 hover:text-neutral-900">
-                  FAQ
-                </a>
-              </nav>
-            </div>
-          </header>
+          <MarketingNavbar />
 
           <main className="mx-auto max-w-4xl px-4 py-12 space-y-16">
             {/* FAQ anchor */}
