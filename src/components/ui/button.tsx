@@ -16,7 +16,7 @@ const sizeStyles: Record<ButtonSize, string> = {
 };
 
 const variantStyles: Record<ButtonVariant, string> = {
-  primary: "bg-neutral-900 text-white hover:bg-black",
+  primary: "bg-blue-600 text-white hover:bg-blue-500",
   secondary: "bg-neutral-200 text-neutral-900 hover:bg-white",
   ghost: "bg-transparent hover:bg-neutral-100",
   link: "bg-transparent underline underline-offset-4 hover:no-underline",
