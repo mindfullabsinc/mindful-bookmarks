@@ -11,10 +11,14 @@ export default function LogoComponent({ forceLight = false }) {
     <div
       className="flex items-center gap-2 cursor-pointer"
       onClick={() => {
-        const url = chrome?.runtime?.getURL
-          ? chrome.runtime.getURL("newtab.html")
-          : "newtab.html";
-        window.location.href = url;
+        const isExtension = Boolean(chrome?.runtime?.id);
+        if (isExtension) {
+          // Send users to our extension's new tab page
+          window.location.href = chrome.runtime.getURL("newtab.html");
+        } else {
+          // Normal website navigation
+          window.location.href = "/";
+        }
       }}
     >
       <img src="/assets/icon-128.png" className="w-[20px] h-[20px] object-cover" />
