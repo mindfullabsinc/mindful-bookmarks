@@ -7,3 +7,16 @@
 @import "@fortawesome/fontawesome-free/css/all.min.css";
 
 @tailwind utilities;
+
+@layer utilities {
+  /* Force light colors inside this subtree even when <html class="dark"> */
+  .force-light {
+    color-scheme: light;
+  }
+
+  .dark .force-light .dark\:text-white {
+    /* roughly text-neutral-900 */
+    --tw-text-opacity: 1;
+    color: rgb(15 23 42 / var(--tw-text-opacity)) !important;
+  }
+}
