@@ -3,6 +3,9 @@ import React from "react";
 import LogoComponent from "@/components/LogoComponent";
 
 
+/**
+ * Footer used across public marketing pages with navigation shortcuts and legal links.
+ */
 export const MarketingFooter: React.FC = () => {
   const year = new Date().getFullYear();
 

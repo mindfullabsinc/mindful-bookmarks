@@ -12,11 +12,17 @@ type CTAButtonProps = {
   icon?: React.ReactNode;
 };
 
+/**
+ * Browser-aware CTA button that adjusts copy and target URL based on detected browser.
+ */
 export default function CTAButton({
   icon = <Download className="mr-2 h-5 w-5" />,
 }: CTAButtonProps) {
   const [browser, setBrowser] = useState<BrowserName>("unknown");
 
+  /**
+   * Detect the visitor's browser on mount so labels and links can adapt.
+   */
   useEffect(() => {
     setBrowser(detectBrowser());
   }, []);

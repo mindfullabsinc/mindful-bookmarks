@@ -19,6 +19,7 @@ import { CHROME_EXTENSION_URL } from "@/core/constants/constants";
 /* Components */ 
 import BrowserIcon from "@/components/marketingWebsite/BrowserIcon";
 import CTAButton from "@/components/marketingWebsite/CTAButton";
+import { FeatureSection } from "@/components/marketingWebsite/FeatureSection";
 import { MarketingNavbar } from "@/components/marketingWebsite/MarketingNavBar";
 import { MarketingFooter } from "@/components/marketingWebsite/MarketingFooter";
 
@@ -44,8 +45,14 @@ const fadeUp: MotionProps = {
 /* ---------------------------------------------------------- */
 
 /* -------------------- Main component -------------------- */
+/**
+ * Public marketing landing page outlining Mindful’s features and CTAs.
+ */
 export default function LandingPage() {
   /* -------------------- Effects -------------------- */
+  /**
+   * Smoothly scroll to anchored sections when the page loads or the URL hash changes.
+   */
   useEffect(() => {
     const scrollToHash = () => {
       const { hash } = window.location;
@@ -142,171 +149,73 @@ export default function LandingPage() {
           </section> 
 
           {/* FEATURE: PopUp */}
-          <section
+          <FeatureSection
             id="features"
-            className="scroll-mt-24 relative mx-auto max-w-7xl px-4 pt-40 md:pt-40"
-          >
-            <div className="pl-4 sm:pl-6 md:pl-6">
-              <div className="grid items-center gap-20 md:grid-cols-[1.0fr_1.3fr]">
-                {/* LEFT: TEXT */}
-                <motion.div {...fadeUp} className="md:-ml-2 lg:-ml-4 md:pr-4">
-                  <h2 className="text-xl leading-tight tracking-tight md:text-4xl">
-                      Catch important links the moment they matter
-                  </h2>
-                  <p className="mt-4 max-w-xl text-lg text-neutral-600">
-                      Save links in seconds, all without switching tabs or losing your momentum.
-                  </p>
-                </motion.div>
-
-                {/* RIGHT: Images */}
-                <motion.div
-                  {...fadeUp}
-                  className="relative flex justify-end"
-                >
-                  <img
-                    src="/assets/ui-screenshots/popup-menu2.png"
-                    alt="Mindful PopUp menu"
-                    className={`
-                      w-full max-w-[800px]
-                      bg-white
-                      rounded-2xl
-                      ${LIGHT_SHADOW}
-                    `}
-                  />
-                </motion.div>
-              </div>
-            </div>
-          </section> 
+            textSide="left"
+            title="Catch important links the moment they matter"
+            body="Save links in seconds, all without switching tabs or losing your momentum."
+            visual={
+              <img
+                src="/assets/ui-screenshots/popup-menu2.png"
+                alt="Mindful PopUp menu"
+                className={`w-full max-w-[800px] bg-white rounded-2xl ${LIGHT_SHADOW}`}
+              />
+            }
+          />
 
           {/* FEATURE: Workspaces */}
-          <section
-            id="home"
-            className="relative mx-auto max-w-7xl px-4 pt-40 md:pt-40"
-          >
-            <div className="pl-4 sm:pl-6 md:pl-6">
-              <div className="grid items-center gap-20 md:grid-cols-[1.3fr_1.0fr]">
-                {/* LEFT: Images */}
-                <motion.div
-                  {...fadeUp}
-                  className="relative flex"
-                >
-                  <div className="relative w-full max-w-[520px]">
-                    {/* Primary image */}
-                    <img
-                      src="/assets/ui-screenshots/workspace-switcher.png"
-                      alt="Switch workspaces"
-                      className={`
-                        w-full max-w-[520px] h-auto
-                        bg-white
-                        rounded-2xl
-                        ${LIGHT_SHADOW}
-                      `}
-                    />
-
-                    {/* Secondary image, overlapping bottom-right */}
-                    <img
-                      src="/assets/ui-screenshots/copy-workspaces.png"
-                      alt="Copy between workspaces"
-                      className={`
-                        absolute
-                        bottom-[-80px] right-[-50px]
-                        w-[55%] max-w-[360px] h-auto
-                        bg-white
-                        rounded-2xl
-                        ${LIGHT_SHADOW}
-                      `}
-                    />
-                  </div>
-                </motion.div> 
-
-                {/* RIGHT: TEXT */}
-                <motion.div {...fadeUp} className="md:-ml-2 lg:-ml-4 md:pr-4">
-                  <h2 className="text-xl leading-tight tracking-tight md:text-4xl">
-                    Workspaces that match your mind, not your tabs
-                  </h2>
-                  <p className="mt-4 max-w-xl text-lg text-neutral-600">
-                    Organize different parts of your life into dedicated screens and switch contexts without relying on messy tab groups. 
-                  </p>
-                </motion.div>
+          <FeatureSection
+            textSide="right"
+            visualJustify="start"
+            title="Workspaces that match your mind, not your tabs"
+            body="Organize different parts of your life into dedicated screens and switch contexts without relying on messy tab groups."
+            visual={
+              <div className="relative w-full max-w-[520px]">
+                <img
+                  src="/assets/ui-screenshots/workspace-switcher.png"
+                  alt="Switch workspaces"
+                  className={`w-full max-w-[520px] bg-white rounded-2xl ${LIGHT_SHADOW}`}
+                />
+                <img
+                  src="/assets/ui-screenshots/copy-workspaces.png"
+                  alt="Copy between workspaces"
+                  className={`absolute bottom-[-80px] right-[-50px] w-[55%] max-w-[360px] rounded-2xl bg-white ${LIGHT_SHADOW}`}
+                />
               </div>
-            </div>
-          </section> 
+            }
+          />
 
           {/* FEATURE: Local by default */}
-          <section
-            id="home"
-            className="relative mx-auto max-w-7xl px-4 pt-40 md:pt-40"
-          >
-            <div className="pl-4 sm:pl-6 md:pl-6">
-              <div className="grid items-center gap-20 md:grid-cols-[1.0fr_1.3fr]">
-                {/* LEFT: TEXT */}
-                <motion.div {...fadeUp} className="md:-ml-2 lg:-ml-4 md:pr-4">
-                  <h2 className="text-xl leading-tight tracking-tight md:text-4xl">
-                      Your data stays on your device
-                  </h2>
-                  <p className="mt-4 max-w-xl text-lg text-neutral-600">
-                      Mindful stores everything on your device and nowhere else. Easily import or export your data.
-                  </p>
-                  <p className="mt-4 max-w-xl text-lg text-neutral-600">
-                    Coming soon: smart grouping and categorization.
-                  </p>
-                </motion.div>
-
-                {/* RIGHT: Image */}
-                <motion.div
-                  {...fadeUp}
-                  className="relative flex justify-end"
-                >
-                  <img
-                    src="/assets/ui-screenshots/import-bookmarks.png"
-                    alt="Import bookmarks"
-                    className={`
-                      w-full max-w-[800px]
-                      bg-white
-                      rounded-2xl
-                      ${LIGHT_SHADOW}
-                    `}
-                  />
-                </motion.div>
-              </div>
-            </div>
-          </section> 
-
+          <FeatureSection
+            textSide="left"
+            title="Your data stays on your device"
+            body={[
+              "Mindful stores everything on your device and nowhere else. Easily import or export your data.",
+              "Coming soon: smart grouping and categorization."
+            ]}
+            visual={
+              <img
+                src="/assets/ui-screenshots/import-bookmarks.png"
+                alt="Import bookmarks"
+                className={`w-full max-w-[800px] bg-white rounded-2xl ${LIGHT_SHADOW}`}
+              />
+            }
+          />
+          
           {/* FEATURE: Dark mode */}
-          <section
-            id="home"
-            className="relative mx-auto max-w-7xl px-4 pt-40 pb-40 md:pt-40 md:pb-40"
-          >
-            <div className="pl-4 sm:pl-6 md:pl-6">
-              <div className="grid items-center gap-20 md:grid-cols-[1.3fr_1.0fr]">
-                {/* LEFT: Image */}
-                <motion.div
-                  {...fadeUp}
-                  className="relative flex justify-end"
-                >
-                  <img
-                    src="/assets/ui-screenshots/dark-mode.png"
-                    alt="Dark mode UI"
-                    className={`
-                      w-full max-w-[800px]
-                      rounded-2xl
-                      ${DARK_SHADOW}
-                    `}
-                  />
-                </motion.div>
-
-                {/* RIGHT: TEXT */}
-                <motion.div {...fadeUp} className="md:-ml-2 lg:-ml-4 md:pr-4">
-                  <h2 className="text-xl leading-tight tracking-tight md:text-4xl">
-                    Effortless dark mode 
-                  </h2>
-                  <p className="mt-4 max-w-xl text-lg text-neutral-600">
-                    Mindful switches between light and dark mode based on your device settings, keeping your workspace comfortable day or night. 
-                  </p>
-                </motion.div>
-              </div>
-            </div>
-          </section> 
+          <FeatureSection
+            textSide="right"
+            sectionClassName="pb-40 md:pb-40"
+            title="Effortless dark mode"
+            body="Mindful switches between light and dark mode based on your device settings, keeping your workspace comfortable day or night."
+            visual={
+              <img
+                src="/assets/ui-screenshots/dark-mode.png"
+                alt="Dark mode UI"
+                className={`w-full max-w-[800px] rounded-2xl ${DARK_SHADOW}`}
+              />
+            }
+          />
 
           {/* FOOTER */}
           <MarketingFooter />
