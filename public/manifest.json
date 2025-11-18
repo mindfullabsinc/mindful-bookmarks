@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Mindful",
-  "description": "Store lists of bookmarks in separate categories",
-  "version": "1.2.1",
+  "description": "A calm, visual space for your digital mind.",
+  "version": "1.2.2",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArHPqhcF3XNX/ZTezWtEtG8Jl6a4BtkKt0TSAuCiR7ooXo2+45gO/zVZYWash1JoSy2g2K78ucZda8LFe/ZA1M0VKy5XMRFdez0nhIUUYEdYe9FrP0C5DI3YcXae9da/Xm5AwAPiOm+6O7XVOxJrN4Y0pTXjW6GpT/cAnCxoZxv09KxG/nineqXe/N+/gueGOVNv5raQa3gG7jTOnMuzGD8cxUYKlXczJbyWPgfp82zLtFmW2c/NqCznO9/Cq0/jMUd+8XW7sXKFOexQeF+xKKg1tQINVcTgfdNBm+fynVqyLJAGt5bSVtUj9NqMdkF9PH4OPmECCf/3V59tHno8hlQIDAQAB",
 
   "homepage_url": "https://www.mindfulbookmarks.com",
@@ -33,13 +33,11 @@
     "bookmarks"
   ],
 
-  "host_permissions": [
-    "https://2rra98zl35.execute-api.us-west-1.amazonaws.com/*",
-    "https://app.posthog.com/*"
-  ],
+  "host_permissions": [],
 
   "optional_host_permissions": [
-    "<all_urls>"
+    "https://api.mindfulbookmarks.com/*",
+    "https://app.posthog.com/*"
   ],
 
   "action": {
@@ -53,6 +51,6 @@
   },
 
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://cognito-idp.us-west-1.amazonaws.com https://cognito-identity.us-west-1.amazonaws.com https://kT7PGxGVd.auth.us-west-1.amazoncognito.com https://2rra98zl35.execute-api.us-west-1.amazonaws.com https://app.posthog.com;"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://cognito-idp.us-west-1.amazonaws.com https://cognito-identity.us-west-1.amazonaws.com https://kT7PGxGVd.auth.us-west-1.amazoncognito.com https://api.mindfulbookmarks.com https://app.posthog.com;"
   }
 }
