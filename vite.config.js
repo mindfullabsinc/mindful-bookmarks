@@ -33,6 +33,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         index: resolve(__dirname, 'index.html'),  // Entry point for the Mindful landing page 
+        FAQs: resolve(__dirname, 'faqs.html'),  // Entry point for the Mindful landing page > FAQs page
         ManageAccount: resolve(__dirname, 'ManageAccount.html'),  // Entry point for Manage Account page
         NewTab: resolve(__dirname, 'NewTab.html'),  // Entry point for the new tab page
         PopUp: resolve(__dirname, 'PopUp.html'),   // Entry point for the popup window

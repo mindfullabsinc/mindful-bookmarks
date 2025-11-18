@@ -1,26 +1,9 @@
 /* -------------------- Imports -------------------- */
 import "@/styles/Index.css"
-import React from "react";
+import React, { useEffect } from "react";
 import { motion, type MotionProps } from "framer-motion";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Accordion, AccordionItem, AccordionTrigger, AccordionContent,
-} from "@/components/ui/accordion";
-import {
-  Lock,
-  HardDrive,
-  ShieldCheck,
-  LayoutGrid,
-  Tags,
-  Search,
-  Sparkles,
-  FolderTree,
-  Share2,
-  Zap,
-  Download,
-} from "lucide-react";
+import { Download } from "lucide-react";
 
 /* CSS styles */
 import "@/styles/Index.css";
@@ -34,12 +17,14 @@ import AnalyticsProvider from "@/analytics/AnalyticsProvider";
 
 /* Components */ 
 import LogoComponent from '@/components/LogoComponent';
+import { MarketingNavbar } from "@/components/marketingWebsite/MarketingNavBar";
+import { MarketingFooter } from "@/components/marketingWebsite/MarketingFooter";
+
 /* ---------------------------------------------------------- */
 
 /* -------------------- Constants -------------------- */
 const CHROME_EXTENSION_URL = "https://chromewebstore.google.com/detail/mindful/bjobloafhnodgomnplkfhebkihnafhfe";
 const LIGHT_SHADOW = "shadow-[0_20px_45px_rgba(0,0,0,0.12),0_-20px_45px_rgba(0,0,0,0.10)]";
-// const DARK_SHADOW = "shadow-[0_0_20px_rgba(255,255,255,0.06),0_0_8px_rgba(255,255,255,0.04)]"
 const DARK_SHADOW = "shadow-[0_0_40px_rgba(0,0,0,0.5),0_0_8px_rgba(0,0,0,0.04)]";
 /* ---------------------------------------------------------- */
 
@@ -59,35 +44,38 @@ const fadeUp: MotionProps = {
 /* ---------------------------------------------------------- */
 
 export default function LandingPage() {
+  /* -------------------- Effects -------------------- */
+  useEffect(() => {
+    const scrollToHash = () => {
+      const { hash } = window.location;
+      if (!hash) return;
+
+      const id = hash.slice(1); // remove '#'
+      const el = document.getElementById(id);
+      if (el) {
+        // timeout lets layout settle before scrolling
+        setTimeout(() => {
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 0);
+      }
+    };
+
+    // When the page first loads with a hash (e.g., index.html#features)
+    scrollToHash();
+
+    // Optional: also handle in-page hash changes (not strictly needed,
+    // but nice if you ever do client-side hash navigation)
+    window.addEventListener("hashchange", scrollToHash);
+    return () => window.removeEventListener("hashchange", scrollToHash);
+  }, []);
+  /* ---------------------------------------------------------- */
+
+  /* -------------------- Main component UI -------------------- */
   return (
     <Authenticator.Provider>
       <AnalyticsProvider>
         <div className="force-light min-h-screen bg-neutral-50 text-neutral-900 selection:bg-blue-200 selection:text-neutral-900">
-          {/* Top gradient glow */}
-          <div className="pointer-events-none fixed inset-0 -z-10">
-            <div className="absolute inset-x-0 -top-24 h-[420px] bg-[radial-gradient(ellipse_at_top,rgba(59,130,246,0.14),transparent_55%)]" />
-          </div>
-
-          {/* NAVBAR */}
-          <header className="sticky top-0 z-30 border-b border-neutral-200 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/80">
-            <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
-              <LogoComponent /> 
-              <nav className="hidden items-center gap-6 md:flex">
-                <a href="#features" className="text-sm text-neutral-600 hover:text-neutral-900">Features</a>
-                <a href="#privacy" className="text-sm text-neutral-600 hover:text-neutral-900">Privacy</a>
-                <a href="#pricing" className="text-sm text-neutral-600 hover:text-neutral-900">Pricing</a>
-                <a href="#faq" className="text-sm text-neutral-600 hover:text-neutral-900">FAQ</a>
-              </nav>
-              <div className="flex items-center gap-2">
-                <Button variant="primary" asChild>
-                  <a href={CHROME_EXTENSION_URL}>
-                    <Download className="mr-2 h-5 w-5" />
-                    Add to Chrome
-                  </a>
-                </Button>
-              </div>
-            </div>
-          </header>
+          <MarketingNavbar /> 
 
           {/* HERO */}
           <section
@@ -137,8 +125,8 @@ export default function LandingPage() {
 
           {/* FEATURE: PopUp */}
           <section
-            id="home"
-            className="relative mx-auto max-w-7xl px-4 pt-40 md:pt-40"
+            id="features"
+            className="scroll-mt-24 relative mx-auto max-w-7xl px-4 pt-40 md:pt-40"
           >
             <div className="pl-4 sm:pl-6 md:pl-6">
               <div className="grid items-center gap-20 md:grid-cols-[1.0fr_1.3fr]">
@@ -303,86 +291,11 @@ export default function LandingPage() {
           </section> 
 
           {/* FOOTER */}
-          <footer className="border-t border-neutral-200 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/80">
-            <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 px-4 py-8 sm:grid-cols-2 md:grid-cols-4">
-              <div>
-                <LogoComponent />
-                <p className="mt-3 text-sm text-neutral-600">
-                  A calm, visual space for your digital mind.
-                </p>
-              </div>
-
-              <div>
-                <h6 className="mb-2 text-sm font-medium text-neutral-900">Product</h6>
-                <ul className="space-y-1 text-sm text-neutral-600">
-                  <li>
-                    <a href="#features" className="hover:text-neutral-900">
-                      Features
-                    </a>
-                  </li>
-                  <li>
-                    <a href="#pricing" className="hover:text-neutral-900">
-                      Pricing
-                    </a>
-                  </li>
-                  <li>
-                    <a href="#faq" className="hover:text-neutral-900">
-                      FAQ
-                    </a>
-                  </li>
-                </ul>
-              </div>
-
-              <div>
-                <h6 className="mb-2 text-sm font-medium text-neutral-900">Company</h6>
-                <ul className="space-y-1 text-sm text-neutral-600">
-                  <li>
-                    <a href="#" className="hover:text-neutral-900">
-                      About
-                    </a>
-                  </li>
-                  <li>
-                    <a href="#" className="hover:text-neutral-900">
-                      Changelog
-                    </a>
-                  </li>
-                  <li>
-                    <a href="#" className="hover:text-neutral-900">
-                      Contact
-                    </a>
-                  </li>
-                </ul>
-              </div>
-
-              <div>
-                <h6 className="mb-2 text-sm font-medium text-neutral-900">Legal</h6>
-                <ul className="space-y-1 text-sm text-neutral-600">
-                  <li>
-                    <a
-                      href="/privacy/"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="hover:text-neutral-900"
-                    >
-                      Privacy Policy
-                    </a>
-                  </li>
-                  <li>
-                    <a href="#" className="hover:text-neutral-900">
-                      Terms
-                    </a>
-                  </li>
-                </ul>
-              </div>
-            </div>
-
-            <div className="border-t border-neutral-200 py-4 text-center text-xs text-neutral-500">
-              © {new Date().getFullYear()} Mindful. All rights reserved.
-            </div>
-          </footer>
+          <MarketingFooter />
           
         </div>
       </AnalyticsProvider>
     </Authenticator.Provider>
   );
+  /* ---------------------------------------------------------- */
 }
