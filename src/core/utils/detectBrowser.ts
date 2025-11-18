@@ -1,5 +1,10 @@
 export type BrowserName = "chrome" | "brave" | "edge" | "firefox" | "safari" | "unknown";
 
+/**
+ * Detect the current browser based on user-agent heuristics and feature detection.
+ *
+ * @returns One of the known browser identifiers.
+ */
 export function detectBrowser(): BrowserName {
   if (typeof navigator === "undefined") return "unknown";
 

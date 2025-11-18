@@ -10,6 +10,9 @@ import LogoComponent from "@/components/LogoComponent";
 import CTAButton from "@/components/marketingWebsite/CTAButton";
 
 
+/**
+ * Top navigation shared across landing/marketing pages with CTA and section links.
+ */
 export const MarketingNavbar: React.FC = () => {
   return (
     <>

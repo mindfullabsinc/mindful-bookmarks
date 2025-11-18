@@ -6,6 +6,9 @@ type BrowserIconProps = {
   alt: string;
 };
 
+/**
+ * Render a linked browser icon used within the marketing CTA strip.
+ */
 export default function BrowserIcon({ href, src, alt }: BrowserIconProps) {
   return (
     <a
