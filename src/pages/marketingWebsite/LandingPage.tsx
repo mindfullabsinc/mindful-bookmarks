@@ -2,8 +2,6 @@
 import "@/styles/Index.css"
 import React, { useEffect } from "react";
 import { motion, type MotionProps } from "framer-motion";
-import { Button } from "@/components/ui/button";
-import { Download } from "lucide-react";
 
 /* CSS styles */
 import "@/styles/Index.css";
@@ -15,15 +13,18 @@ import '@aws-amplify/ui-react/styles.css';
 /* Analytics */
 import AnalyticsProvider from "@/analytics/AnalyticsProvider";
 
+/* Constants */
+import { CHROME_EXTENSION_URL } from "@/core/constants/constants";
+
 /* Components */ 
-import LogoComponent from '@/components/LogoComponent';
+import BrowserIcon from "@/components/marketingWebsite/BrowserIcon";
+import CTAButton from "@/components/marketingWebsite/CTAButton";
 import { MarketingNavbar } from "@/components/marketingWebsite/MarketingNavBar";
 import { MarketingFooter } from "@/components/marketingWebsite/MarketingFooter";
 
 /* ---------------------------------------------------------- */
 
 /* -------------------- Constants -------------------- */
-const CHROME_EXTENSION_URL = "https://chromewebstore.google.com/detail/mindful/bjobloafhnodgomnplkfhebkihnafhfe";
 const LIGHT_SHADOW = "shadow-[0_20px_45px_rgba(0,0,0,0.12),0_-20px_45px_rgba(0,0,0,0.10)]";
 const DARK_SHADOW = "shadow-[0_0_40px_rgba(0,0,0,0.5),0_0_8px_rgba(0,0,0,0.04)]";
 /* ---------------------------------------------------------- */
@@ -40,9 +41,9 @@ const fadeUp: MotionProps = {
     ease: [0.22, 1, 0.36, 1],
   },
 };
-
 /* ---------------------------------------------------------- */
 
+/* -------------------- Main component -------------------- */
 export default function LandingPage() {
   /* -------------------- Effects -------------------- */
   useEffect(() => {
@@ -85,6 +86,7 @@ export default function LandingPage() {
             {/* Make sure there is some left padding even when the window gets narrow */}
             <div className="pl-4 sm:pl-6 md:pl-6">
               <div className="grid items-center gap-15 md:grid-cols-[1.0fr_1.3fr]">
+                
                 {/* LEFT: TEXT */}
                 <motion.div {...fadeUp} className="md:-ml-2 lg:-ml-4 md:pr-4">
                   <h1 className="text-4xl font-semibold leading-tight tracking-tight md:text-5xl">
@@ -94,13 +96,29 @@ export default function LandingPage() {
                     Mindful turns your new tab into a simple, visual space for the links you actually care about.
                     Arrange workspaces and group links to build your own personal command center.
                   </p>
+
+                  {/* CTA Button */}
                   <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                    <Button variant="primary" asChild>
-                      <a href={CHROME_EXTENSION_URL}>
-                        <Download className="mr-2 h-5 w-5" />
-                        Add to Chrome
-                      </a>
-                    </Button>
+                    <CTAButton />
+                  </div>
+
+                  {/* Compatible Browsers */}
+                  <div className="mt-3 flex items-center gap-3 text-sm text-neutral-500">
+                    <span className="text-neutral-400">
+                      Available for
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <BrowserIcon
+                        href={CHROME_EXTENSION_URL}
+                        src="/assets/browsers/chrome.png"
+                        alt="Chrome"
+                      />
+                      <BrowserIcon
+                        href={CHROME_EXTENSION_URL}
+                        src="/assets/browsers/brave.png"
+                        alt="Brave"
+                      />
+                    </div>
                   </div>
                 </motion.div>
 
@@ -299,3 +317,4 @@ export default function LandingPage() {
   );
   /* ---------------------------------------------------------- */
 }
+/* ---------------------------------------------------------- */
