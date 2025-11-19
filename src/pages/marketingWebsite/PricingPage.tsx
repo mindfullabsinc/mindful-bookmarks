@@ -7,17 +7,17 @@ import { Check, Lock, Sparkles, Zap, Circle } from "lucide-react";
 /* Scripts and hooks */
 import AnalyticsProvider from "@/analytics/AnalyticsProvider";
 
-/* Constants */
-import { CHROME_EXTENSION_URL } from "@/core/constants/constants";
-
 /* Components */
 import { MarketingNavbar } from "@/components/marketingWebsite/MarketingNavBar";
 import { MarketingFooter } from "@/components/marketingWebsite/MarketingFooter";
 import { PricingCard } from "@/components/marketingWebsite/PricingCard";
 import CTAButton from "@/components/marketingWebsite/CTAButton";
+import WaitlistModal from "@/components/marketingWebsite/WaitlistModal";
 
 
 export default function PricingPage() {
+  const [waitlistOpen, setWaitlistOpen] = React.useState(false);
+
   return (
     <Authenticator.Provider>
       <AnalyticsProvider>
@@ -50,39 +50,6 @@ export default function PricingPage() {
 
             {/* PRICING GRID */}
             <section className="grid gap-8 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:items-start">
-              {/* Feature list
-              <div>
-                <ul className="mt-6 space-y-3 text-sm text-neutral-800 sm:text-base">
-                  <li className="flex gap-3">
-                    <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-500" />
-                    <span>
-                      Unlimited workspaces and bookmark groups, so you can
-                      organize every part of your digital life.
-                    </span>
-                  </li>
-                  <li className="flex gap-3">
-                    <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-500" />
-                    <span>
-                      Local-only mode that keeps your data on your device by
-                      default: nothing is sent to our servers.
-                    </span>
-                  </li>
-                  <li className="flex gap-3">
-                    <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-500" />
-                    <span>
-                      Fast keyboard shortcuts to open, switch, and save links
-                      without breaking your flow.
-                    </span>
-                  </li>
-                  <li className="flex gap-3">
-                    <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-500" />
-                    <span>
-                      Works with Chromium browsers like Chrome and Brave right
-                      out of the box.
-                    </span>
-                  </li>
-                </ul>
-              </div> */}
 
               {/* Mindful Core (free tier) */}
               <PricingCard
@@ -151,9 +118,11 @@ export default function PricingPage() {
                   },
                 ]}
                 buttonLabel="Join the waitlist"
-                buttonHref="#"
+                onButtonClick={() => setWaitlistOpen(true)}
                 buttonVariant="outline"
               />
+
+              <WaitlistModal open={waitlistOpen} onOpenChange={setWaitlistOpen} />
 
             </section>
           </main>

@@ -21,6 +21,9 @@ interface PricingCardProps {
 
   // Optional custom button renderer (e.g. CTAButton)
   renderButton?: () => React.ReactNode;
+
+  // Optional custom button hook
+  onButtonClick?: () => void;
 }
 
 export const PricingCard: React.FC<PricingCardProps> = ({
@@ -34,6 +37,7 @@ export const PricingCard: React.FC<PricingCardProps> = ({
   buttonHref = "#",
   buttonVariant = "outline",
   renderButton,
+  onButtonClick,
 }) => {
   return (
     <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] sm:p-7">
@@ -73,7 +77,13 @@ export const PricingCard: React.FC<PricingCardProps> = ({
           renderButton()
         ) : (
           buttonLabel && (
-            <Button asChild size="lg" variant={buttonVariant} className="w-full">
+            <Button 
+              asChild 
+              size="lg" 
+              variant={buttonVariant} 
+              className="w-full"
+              onClick={onButtonClick}
+            >
               <a href={buttonHref}>{buttonLabel}</a>
             </Button>
           )
