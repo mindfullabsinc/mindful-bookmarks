@@ -34,7 +34,7 @@ export const MarketingNavbar: React.FC = () => {
               Features
             </a>
             <a
-              href="index.html#pricing"
+              href="pricing.html"
               className="text-sm text-neutral-600 hover:text-neutral-900"
             >
               Pricing

@@ -34,7 +34,7 @@ export const MarketingFooter: React.FC = () => {
             </li>
             <li>
               <a
-                href="index.html#pricing"
+                href="pricing.html"
                 className="hover:text-neutral-900"
               >
                 Pricing

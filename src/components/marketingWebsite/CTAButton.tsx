@@ -1,15 +1,27 @@
+// CTAButton.tsx
 import React, { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, type ButtonVariant } from "@/components/ui/button";
 import { Download } from "lucide-react";
 
 /* Utilities */
-import { detectBrowser, BrowserName } from "@/core/utils/detectBrowser";
+import { detectBrowser, type BrowserName } from "@/core/utils/detectBrowser";
 
 /* Constants */
 import { CHROME_EXTENSION_URL } from "@/core/constants/constants";
 
 type CTAButtonProps = {
-  icon?: React.ReactNode;
+  icon?: React.ReactNode | null;
+
+  /**
+   * Optional label template. Use `{browser}` as a placeholder.
+   * Example: "Install on {browser}" or "Get Mindful for {browser}".
+   * Defaults to "Add to {browser}".
+   */
+  labelTemplate?: string;
+
+  /** Pass-through styling props for Button */
+  variant?: ButtonVariant;
+  className?: string;
 };
 
 /**
@@ -17,24 +29,26 @@ type CTAButtonProps = {
  */
 export default function CTAButton({
   icon = <Download className="mr-2 h-5 w-5" />,
+  labelTemplate = "Add to {browser}",
+  variant = "primary",
+  className,
 }: CTAButtonProps) {
   const [browser, setBrowser] = useState<BrowserName>("unknown");
 
-  /**
-   * Detect the visitor's browser on mount so labels and links can adapt.
-   */
   useEffect(() => {
     setBrowser(detectBrowser());
   }, []);
 
-  const label = {
-    chrome: "Add to Chrome",
-    brave: "Add to Brave",
-    edge: "Add to Chrome",
-    firefox: "Add to Chrome",
-    safari: "Add to Chrome",
-    unknown: "Add to Chrome",
+  const browserLabel = {
+    chrome: "Chrome",
+    brave: "Brave",
+    edge: "Chrome",
+    firefox: "Chrome",
+    safari: "Chrome",
+    unknown: "Chrome",
   }[browser];
+
+  const label = labelTemplate.replace("{browser}", browserLabel);
 
   const href = {
     chrome: CHROME_EXTENSION_URL,
@@ -46,9 +60,9 @@ export default function CTAButton({
   }[browser];
 
   return (
-    <Button variant="primary" asChild>
+    <Button variant={variant} asChild className={className}>
       <a href={href}>
-        {icon}
+        {icon && icon}
         {label}
       </a>
     </Button>
