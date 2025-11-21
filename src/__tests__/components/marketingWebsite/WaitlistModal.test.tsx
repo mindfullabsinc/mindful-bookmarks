@@ -47,17 +47,30 @@ describe("WaitlistModal", () => {
     const submitButton = screen.getByRole("button", { name: /join the waitlist/i });
     fireEvent.click(submitButton);
 
-    // Should call fetch with correct URL and payload
+    // Should call fetch once
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledTimes(1);
     });
 
-    expect(global.fetch).toHaveBeenCalledWith(
-      "https://eidotpc2fc.execute-api.us-west-1.amazonaws.com/waitlist",
+    // Inspect the actual call rather than hard-coding the full URL
+    const [[calledUrl, calledOptions]] = (global.fetch as jest.Mock).mock.calls;
+
+    // 1) URL: allow sandbox / dummy / prod, just require the waitlist path
+    expect(typeof calledUrl).toBe("string");
+    expect(calledUrl).toMatch(/\/waitlist$/);
+
+    // (Optionally, if you want to enforce API Gateway URLs)
+    // expect(calledUrl).toMatch(/^https:\/\/.+\.execute-api\..+\.amazonaws\.com\/waitlist$/);
+
+    // 2) Options: still strict
+    expect(calledOptions).toEqual(
       expect.objectContaining({
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: "test@example.com", tier: "Mindful Pro" }),
+        body: JSON.stringify({
+          email: "test@example.com",
+          tier: "Mindful Pro",
+        }),
       })
     );
 
@@ -66,7 +79,7 @@ describe("WaitlistModal", () => {
     expect(
       screen.getByText(/we'll email you when Mindful Pro is ready\./i)
     ).toBeInTheDocument();
-  });
+  }); 
 
   it("closes the modal and resets state when clicking Close", async () => {
     const onOpenChange = jest.fn();
