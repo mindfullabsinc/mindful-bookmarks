@@ -1,5 +1,4 @@
-import { defineBackend, secret } from '@aws-amplify/backend';
-import { defineFunction } from '@aws-amplify/backend-function';
+import { defineBackend } from '@aws-amplify/backend';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as apigwv2 from 'aws-cdk-lib/aws-apigatewayv2';
 import * as kms from 'aws-cdk-lib/aws-kms';
@@ -10,60 +9,16 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import { auth } from './auth/resource';
 import { data } from './data/resource';
 import { storage } from './storage/resource';
-import { RUNTIME, MEMORY_MB, TIMEOUT_SECONDS } from './functions/_shared/constants';
 
-// ---------- 1) Lambdas ----------
-const BOOKMARKS_FILE_NAME = 'bookmarks.json.encrypted'
-const KEY_FILE_NAME = 'bookmarks.key'
+/* Imported lambdas */
+import { saveBookmarks } from "./functions/saveBookmarks/resource";
+import { loadBookmarks } from "./functions/loadBookmarks/resource";
+import { deleteBookmarks } from "./functions/deleteBookmarks/resource";
+import { emailWaitlist } from "./functions/emailWaitlist/resource";
 
-const saveBookmarks = defineFunction({
-  name: 'saveBookmarksFunc',
-  entry: './functions/saveBookmarks/handler.ts',
-  resourceGroupName: 'storage',
-  environment: {
-    // Pulled securely at runtime
-    ALLOWED_EXTENSION_IDS: secret('ALLOWED_EXTENSION_IDS'),
-    ALLOWED_ORIGIN: secret('ALLOWED_ORIGIN'),  // Keep this legacy value of single allowed Chrome extension ID
-    // These are non-secret, fine to keep as plain envs
-    BOOKMARKS_FILE_NAME: BOOKMARKS_FILE_NAME,
-    KEY_FILE_NAME: KEY_FILE_NAME,
-  },
-  runtime: RUNTIME,
-  memoryMB: MEMORY_MB,
-  timeoutSeconds: TIMEOUT_SECONDS,
-});
-
-const loadBookmarks = defineFunction({
-  name: 'loadBookmarksFunc',
-  entry: './functions/loadBookmarks/handler.ts',
-  resourceGroupName: 'storage',
-  environment: {
-    ALLOWED_EXTENSION_IDS: secret('ALLOWED_EXTENSION_IDS'),
-    ALLOWED_ORIGIN: secret('ALLOWED_ORIGIN'),
-    BOOKMARKS_FILE_NAME: BOOKMARKS_FILE_NAME,
-    KEY_FILE_NAME: KEY_FILE_NAME,
-  },
-  runtime: RUNTIME,
-  memoryMB: MEMORY_MB,
-  timeoutSeconds: TIMEOUT_SECONDS,
-});
-
-const deleteBookmarks = defineFunction({
-  name: 'deleteBookmarksFunc',
-  entry: './functions/deleteBookmarks/handler.ts',
-  resourceGroupName: 'storage',
-  environment: {
-    ALLOWED_EXTENSION_IDS: secret('ALLOWED_EXTENSION_IDS'),
-    ALLOWED_ORIGIN: secret('ALLOWED_ORIGIN'),
-    BOOKMARKS_FILE_NAME: BOOKMARKS_FILE_NAME,
-    KEY_FILE_NAME: KEY_FILE_NAME,
-  },
-  runtime: RUNTIME,
-  memoryMB: MEMORY_MB,
-  timeoutSeconds: TIMEOUT_SECONDS,
-});
-
-// ---------- 2) Backend ----------
+/**
+ * Root Amplify backend definition with auth, storage, functions, and data resources.
+ */
 export const backend = defineBackend({
   auth,
   data,
@@ -71,9 +26,10 @@ export const backend = defineBackend({
   saveBookmarks,
   loadBookmarks,
   deleteBookmarks,
+  emailWaitlist,           
 });
 
-// ---------- 3) Synthesized resources ----------
+// ---------- Synthesized resources ----------
 const stack = backend.storage.resources.bucket.stack;
 const authenticatedUserRole = backend.auth.resources.authenticatedUserIamRole;
 const s3Bucket = backend.storage.resources.bucket;
@@ -81,8 +37,9 @@ const s3Bucket = backend.storage.resources.bucket;
 const saveBookmarksFn = backend.saveBookmarks.resources.lambda as lambda.Function;
 const loadBookmarksFn = backend.loadBookmarks.resources.lambda as lambda.Function;
 const deleteBookmarksFn = backend.deleteBookmarks.resources.lambda as lambda.Function;
+const emailWaitlistFn = backend.emailWaitlist.resources.lambda as lambda.Function; 
 
-// ---------- 3.1) Version + Alias + Provisioned Concurrency (loadBookmarks and saveBookmarks) ----------
+// ---------- Version + Alias + Provisioned Concurrency (loadBookmarks and saveBookmarks) ----------
 const loadVersion = new lambda.Version(stack, 'LoadBookmarksVersion', {
   lambda: loadBookmarksFn,
 });
@@ -103,7 +60,7 @@ const saveAlias = new lambda.Alias(stack, 'SaveBookmarksLiveAlias', {
 loadAlias.addAutoScaling({ minCapacity: 1, maxCapacity: 1 });
 saveAlias.addAutoScaling({ minCapacity: 1, maxCapacity: 1 });
 
-// ---------- 4) KMS key (ID or ARN both work for GenerateDataKey) ----------
+// ---------- KMS key (ID or ARN both work for GenerateDataKey) ----------
 const kmsKeyId = 'arn:aws:kms:us-west-1:534861782220:key/51a54516-e016-4d00-a6da-7aff429418ed';
 const kmsKey = kms.Key.fromKeyArn(stack, 'BookmarksKmsKey', kmsKeyId);
 
@@ -111,14 +68,14 @@ const kmsKey = kms.Key.fromKeyArn(stack, 'BookmarksKmsKey', kmsKeyId);
 kmsKey.grant(saveBookmarksFn, 'kms:GenerateDataKey');
 kmsKey.grant(loadBookmarksFn, 'kms:Decrypt');
 
-// ---------- 5) Lambda env ----------
+// ---------- Lambda env ----------
 for (const fn of [saveBookmarksFn, loadBookmarksFn, deleteBookmarksFn]) {
   fn.addEnvironment('S3_BUCKET_NAME', s3Bucket.bucketName);
 }
 saveBookmarksFn.addEnvironment('KMS_KEY_ID', kmsKeyId);
 loadBookmarksFn.addEnvironment('KMS_KEY_ID', kmsKeyId);
 
-// ---------- 6) S3 access for authenticated users ----------
+// ---------- S3 access for authenticated users ----------
 const authenticatedUserPrincipal = new iam.ArnPrincipal(authenticatedUserRole.roleArn);
 
 s3Bucket.addToResourcePolicy(new iam.PolicyStatement({
@@ -138,7 +95,7 @@ s3Bucket.addToResourcePolicy(new iam.PolicyStatement({
   },
 }));
 
-// ---------- 7) HTTP API + authorizer ----------
+// ---------- HTTP API + authorizer ----------
 const authorizer = new HttpUserPoolAuthorizer(
   'userPoolAuthorizer',
   backend.auth.resources.userPool,
@@ -181,8 +138,14 @@ api.addRoutes({
   authorizer,
 });
 
-// ---------- 8) Lambda IAM for S3 + KMS ----------
-// Replace your shared policy with per-function policies:
+api.addRoutes({
+  path: '/waitlist',
+  methods: [apigwv2.HttpMethod.POST],
+  integration: new HttpLambdaIntegration('emailWaitlistIntegration', emailWaitlistFn),
+  // No authorizer -> public endpoint (safe because handler does its own validation & is write-only)
+});
+
+// ---------- Lambda IAM for S3 + KMS ----------
 saveBookmarksFn.addToRolePolicy(new iam.PolicyStatement({
   effect: iam.Effect.ALLOW,
   actions: ['s3:GetObject','s3:PutObject','s3:DeleteObject'],
@@ -201,14 +164,28 @@ deleteBookmarksFn.addToRolePolicy(new iam.PolicyStatement({
   resources: [`${s3Bucket.bucketArn}/*`],
 }));
 
-// ---------- 9) Export the API endpoint to amplify_outputs.json ----------
+// SES permissions for the waitlist lambda 
+emailWaitlistFn.addToRolePolicy(new iam.PolicyStatement({
+  effect: iam.Effect.ALLOW,
+  actions: ['ses:SendEmail', 'ses:SendRawEmail'],
+  resources: ['*'],
+}));
+
+// ---------- Export the API endpoint to amplify_outputs.json ----------
 backend.addOutput({
   custom: {
     API: {
       bookmarks: {
         apiName: 'bookmarksApi',
         type: 'httpApi',
-        endpoint: api.apiEndpoint, 
+        endpoint: api.apiEndpoint,
+      },
+      // Convenience entry for waitlist usage
+      waitlist: {
+        apiName: 'bookmarksApi',
+        type: 'httpApi',
+        endpoint: api.apiEndpoint,
+        path: '/waitlist',
       },
     },
   },
