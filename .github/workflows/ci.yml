@@ -59,6 +59,12 @@ jobs:
                   "apiName": "bookmarksApi",
                   "type": "httpApi",
                   "endpoint": "https://dummy.execute-api.us-west-1.amazonaws.com"
+                },
+                "waitlist": {
+                  "apiName": "bookmarksApi",
+                  "type": "httpApi",
+                  "endpoint": "https://dummy.execute-api.us-west-1.amazonaws.com",
+                  "path": "/waitlist"
                 }
               }
             }
