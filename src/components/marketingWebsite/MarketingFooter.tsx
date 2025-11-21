@@ -3,6 +3,9 @@ import React from "react";
 import LogoComponent from "@/components/LogoComponent";
 
 
+/**
+ * Footer used across public marketing pages with navigation shortcuts and legal links.
+ */
 export const MarketingFooter: React.FC = () => {
   const year = new Date().getFullYear();
 
@@ -31,7 +34,7 @@ export const MarketingFooter: React.FC = () => {
             </li>
             <li>
               <a
-                href="index.html#pricing"
+                href="pricing.html"
                 className="hover:text-neutral-900"
               >
                 Pricing

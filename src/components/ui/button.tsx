@@ -5,7 +5,7 @@ const base =
   "inline-flex items-center gap-2 justify-center rounded-md px-4 py-2 text-sm font-medium shadow-sm transition-colors disabled:opacity-50 disabled:pointer-events-none";
 
 type ButtonSize = "sm" | "md" | "lg" | "icon" | "default";
-type ButtonVariant = "primary" | "secondary" | "ghost" | "link" | "destructive";
+export type ButtonVariant = "primary" | "secondary" | "ghost" | "link" | "destructive" | "outline" | "default";
 
 const sizeStyles: Record<ButtonSize, string> = {
   sm: "h-8 px-3 text-sm",
@@ -21,22 +21,24 @@ const variantStyles: Record<ButtonVariant, string> = {
   ghost: "bg-transparent hover:bg-neutral-100",
   link: "bg-transparent underline underline-offset-4 hover:no-underline",
   destructive: "bg-red-600 text-white hover:bg-red-700",
+  outline: "border border-neutral-300 text-neutral-900 bg-transparent hover:bg-neutral-100",
+  default: "bg-white text-neutral-900 border border-neutral-300 hover:bg-neutral-100 shadow-sm", 
 };
 
 type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   asChild?: boolean;
   className?: string;
   children?: React.ReactNode;
-  size?: ButtonSize;            // NEW
-  variant?: ButtonVariant;      // NEW
+  size?: ButtonSize;            
+  variant?: ButtonVariant;      
 };
 
 export function Button({
   asChild = false,
   className = "",
   children,
-  size = "md",                  // NEW
-  variant = "primary",          // NEW
+  size = "md",                  
+  variant = "primary",          
   ...props
 }: ButtonProps) {
   const computed = `${base} ${sizeStyles[size]} ${variantStyles[variant]} ${className}`;

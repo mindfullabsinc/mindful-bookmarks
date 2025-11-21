@@ -8,7 +8,7 @@ module.exports = {
         '<rootDir>/src/__tests__/setupEnv.js',
         '<rootDir>/src/__tests__/setupChrome.js',
       ],
-      setupFilesAfterEnv: ['<rootDir>/src/__tests__/setupTests.js'],
+      setupFilesAfterEnv: ['<rootDir>/src/__tests__/setupTests.ts'],
       moduleNameMapper: {
         '^@/env$': '<rootDir>/src/__tests__/mocks/env.mock.ts',
         '\\.(css|less|scss|sass)$': 'identity-obj-proxy',

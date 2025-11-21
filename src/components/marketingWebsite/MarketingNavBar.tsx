@@ -2,13 +2,17 @@
 import React from "react";
 import { Download } from "lucide-react";
 
+/* Constants */
+import { CHROME_EXTENSION_URL } from "@/core/constants/constants";
+
+/* Components */
 import LogoComponent from "@/components/LogoComponent";
-import { Button } from "@/components/ui/button";
-
-const CHROME_EXTENSION_URL =
-  "https://chromewebstore.google.com/detail/mindful/bjobloafhnodgomnplkfhebkihnafhfe";
+import CTAButton from "@/components/marketingWebsite/CTAButton";
 
 
+/**
+ * Top navigation shared across landing/marketing pages with CTA and section links.
+ */
 export const MarketingNavbar: React.FC = () => {
   return (
     <>
@@ -30,7 +34,7 @@ export const MarketingNavbar: React.FC = () => {
               Features
             </a>
             <a
-              href="index.html#pricing"
+              href="pricing.html"
               className="text-sm text-neutral-600 hover:text-neutral-900"
             >
               Pricing
@@ -45,12 +49,7 @@ export const MarketingNavbar: React.FC = () => {
           </nav>
 
           <div className="flex items-center gap-2">
-            <Button variant="primary" asChild>
-              <a href={CHROME_EXTENSION_URL}>
-                <Download className="mr-2 h-5 w-5" />
-                Add to Chrome
-              </a>
-            </Button>
+            <CTAButton /> 
           </div>
         </div>
       </header>

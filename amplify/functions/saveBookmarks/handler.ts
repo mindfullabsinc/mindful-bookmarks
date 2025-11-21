@@ -1,10 +1,8 @@
-// amplify/backend/function/saveBookmarks/src/handler.ts
 import { KMSClient, GenerateDataKeyCommand } from "@aws-sdk/client-kms";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 import { createCipheriv, randomBytes } from "crypto";
 
-// 👇 NEW: keep-alive HTTP handler for AWS SDK v3
 import { NodeHttpHandler } from "@smithy/node-http-handler";
 import { Agent as HttpsAgent } from "https";
 
