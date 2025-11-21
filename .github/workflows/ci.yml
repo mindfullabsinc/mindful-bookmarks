@@ -89,7 +89,37 @@ jobs:
       - name: Create dummy Amplify outputs file
         run: |
           cat > amplify_outputs.json << 'EOF'
-          { "version":"1","auth":{"user_pool_id":"us-east-1_dummy","user_pool_client_id":"dummy_client_id","aws_region":"us-east-1"},"data":{"aws_region":"us-east-1","url":"https://dummy.appsync-api.us-east-1.amazonaws.com/graphql"},"storage":{"aws_region":"us-east-1","bucket_name":"dummy-bucket-name"},"custom":{"API":{"bookmarks":{"apiName":"bookmarksApi","type":"httpApi","endpoint":"https://dummy.execute-api.us-west-1.amazonaws.com"}}}}
+          {
+            "version": "1",
+            "auth": {
+              "user_pool_id": "us-east-1_dummy",
+              "user_pool_client_id": "dummy_client_id",
+              "aws_region": "us-east-1"
+            },
+            "data": {
+              "aws_region": "us-east-1",
+              "url": "https://dummy.appsync-api.us-east-1.amazonaws.com/graphql"
+            },
+            "storage": {
+              "aws_region": "us-east-1",
+              "bucket_name": "dummy-bucket-name"
+            },
+            "custom": {
+              "API": {
+                "bookmarks": {
+                  "apiName": "bookmarksApi",
+                  "type": "httpApi",
+                  "endpoint": "https://dummy.execute-api.us-west-1.amazonaws.com"
+                },
+                "waitlist": {
+                  "apiName": "bookmarksApi",
+                  "type": "httpApi",
+                  "endpoint": "https://dummy.execute-api.us-west-1.amazonaws.com",
+                  "path": "/waitlist"
+                }
+              }
+            }
+          }
           EOF
       - name: Run unit tests
         run: npm test -- --ci
@@ -110,7 +140,37 @@ jobs:
       - name: Create dummy Amplify outputs file
         run: |
           cat > amplify_outputs.json << 'EOF'
-          { "version":"1","auth":{"user_pool_id":"us-east-1_dummy","user_pool_client_id":"dummy_client_id","aws_region":"us-east-1"},"data":{"aws_region":"us-east-1","url":"https://dummy.appsync-api.us-east-1.amazonaws.com/graphql"},"storage":{"aws_region":"us-east-1","bucket_name":"dummy-bucket-name"},"custom":{"API":{"bookmarks":{"apiName":"bookmarksApi","type":"httpApi","endpoint":"https://dummy.execute-api.us-west-1.amazonaws.com"}}}}
+          {
+            "version": "1",
+            "auth": {
+              "user_pool_id": "us-east-1_dummy",
+              "user_pool_client_id": "dummy_client_id",
+              "aws_region": "us-east-1"
+            },
+            "data": {
+              "aws_region": "us-east-1",
+              "url": "https://dummy.appsync-api.us-east-1.amazonaws.com/graphql"
+            },
+            "storage": {
+              "aws_region": "us-east-1",
+              "bucket_name": "dummy-bucket-name"
+            },
+            "custom": {
+              "API": {
+                "bookmarks": {
+                  "apiName": "bookmarksApi",
+                  "type": "httpApi",
+                  "endpoint": "https://dummy.execute-api.us-west-1.amazonaws.com"
+                },
+                "waitlist": {
+                  "apiName": "bookmarksApi",
+                  "type": "httpApi",
+                  "endpoint": "https://dummy.execute-api.us-west-1.amazonaws.com",
+                  "path": "/waitlist"
+                }
+              }
+            }
+          }
           EOF
       - name: Build project
         run: npm run build
