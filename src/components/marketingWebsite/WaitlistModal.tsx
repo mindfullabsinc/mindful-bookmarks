@@ -1,8 +1,7 @@
 import * as React from "react";
 
 /* Backend API */
-//import { API_URL } from '@/core/constants/constants';
-const API_URL = "https://eidotpc2fc.execute-api.us-west-1.amazonaws.com"  // TODO: Change this from the sandbox URL
+import { WAITLIST_ENDPOINT } from '@/core/constants/constants';
 
 /* Components */
 import { Button } from "@/components/ui/button";
@@ -28,7 +27,7 @@ export default function WaitlistModal({
     setStatus("loading");
 
     try {
-      await fetch(`${API_URL}/waitlist`, {
+      await fetch(WAITLIST_ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, tier }),
