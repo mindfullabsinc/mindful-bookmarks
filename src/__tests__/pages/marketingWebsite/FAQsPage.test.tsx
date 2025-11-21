@@ -12,7 +12,6 @@ beforeAll(() => {
   } as any;
 });
 
-
 // Mock Amplify Authenticator provider to just render children
 jest.mock("@aws-amplify/ui-react", () => ({
   Authenticator: {
