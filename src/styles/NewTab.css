@@ -46,14 +46,9 @@ body, html {
 .bookmark-container { @apply flex items-center mb-1; }
 
 .favicon {
-  @apply mr-1 align-middle inline-block h-5 w-5; 
-}
-/* dark mode: add a subtle background + ring */
-@media (prefers-color-scheme: dark) {
-  .favicon.mono { filter: invert(1) brightness(1.15) contrast(0.9); }
-  .favicon.color { filter: none; }
-    /* @apply bg-white/15 rounded-md p-0.5 ring-1 ring-white/15; */
-    /* @apply bg-white/15 rounded-md p-0.5; */
+  @apply mr-1 align-middle inline-block h-5 w-5
+         dark:rounded-md dark:p-0.5
+        dark:bg-white/90 dark:ring-1 dark:ring-white/10;
 }
 
 a { margin-right: 5px; }

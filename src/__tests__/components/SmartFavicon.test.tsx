@@ -160,55 +160,6 @@ describe('SmartFavicon', () => {
     expect(img).toHaveAttribute('src', candidates[1]);
   });
 
-  test('adds "mono" class when the favicon is mostly monochrome (colorful < 8%)', async () => {
-    // Make canvas return <8% colorful pixels
-    const { canvas } = makeCanvasMock({ colorfulRatio: 0.05 });
-    (document.createElement as any) = (tag: string) => {
-      if (tag === 'canvas') return canvas;
-      return originalCreateElement(tag);
-    };
-
-    const host = 'monochrome.test';
-    const size = 20;
-    const candidates = candidatesFor(host, size);
-
-    render(<SmartFavicon url={`https://${host}`} size={size} className="custom" />);
-
-    const img = screen.getByRole('presentation') as HTMLImageElement;
-    expect(img).toHaveAttribute('src', candidates[0]);
-
-    // Trigger load -> analyze -> mono should become true
-    fireEvent.load(img);
-
-    await waitFor(() => {
-      expect(img).toHaveClass('mono');
-      expect(img).not.toHaveClass('color');
-      expect(img).toHaveClass('custom'); // preserves caller className
-    });
-  });
-
-  test('adds "color" class when the favicon has sufficient color (>= 8%)', async () => {
-    // Make canvas return >=8% colorful pixels
-    const { canvas } = makeCanvasMock({ colorfulRatio: 0.25 });
-    (document.createElement as any) = (tag: string) => {
-      if (tag === 'canvas') return canvas;
-      return originalCreateElement(tag);
-    };
-
-    const host = 'colorful.test';
-    const size = 20;
-
-    render(<SmartFavicon url={`https://${host}`} size={size} />);
-
-    const img = screen.getByRole('presentation') as HTMLImageElement;
-    fireEvent.load(img);
-
-    await waitFor(() => {
-      expect(img).toHaveClass('color');
-      expect(img).not.toHaveClass('mono');
-    });
-  });
-
   test('renders letter fallback immediately if host is previously marked bad (by exhausting candidates)', async () => {
     // First, exhaust candidates to mark as bad
     const { canvas } = makeCanvasMock({ colorfulRatio: 0.5 });
