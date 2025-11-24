@@ -195,9 +195,8 @@ describe('refreshOtherMindfulTabs', () => {
         'chrome-extension://*/options.html',
       ],
     });
-    expect(reloadMock).toHaveBeenCalledTimes(2);
-    expect(reloadMock).toHaveBeenNthCalledWith(1, 10);
-    expect(reloadMock).toHaveBeenNthCalledWith(2, 11);
+    expect(reloadMock).toHaveBeenCalledTimes(1);  // reload the second Mindful tab but not the active one
+    expect(reloadMock).toHaveBeenNthCalledWith(1, 11);  
   });
 
   it('swallows query errors (no tabs permission) gracefully', async () => {

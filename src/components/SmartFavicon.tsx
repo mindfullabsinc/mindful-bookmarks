@@ -96,40 +96,6 @@ export default function SmartFavicon({ url, size = 20, className, fallback = 'le
 }) {
   const host = useMemo(() => toHostname(url), [url]);
   const [idx, setIdx] = useState(0);
-  const [mono, setMono] = useState<boolean | null>(null);
-
-  /**
-   * Inspect the favicon image and flag whether it's monochrome to adjust styling.
-   *
-   * @param img Loaded favicon image element.
-   */
-  const analyze = useCallback((img: HTMLImageElement) => {
-    try {
-      const cvs = document.createElement("canvas");
-      const n = 16; // tiny downscale
-      cvs.width = n; cvs.height = n;
-      const ctx = cvs.getContext("2d", { willReadFrequently: true })!;
-      ctx.drawImage(img, 0, 0, n, n);
-      const { data } = ctx.getImageData(0, 0, n, n);
-
-      let colorful = 0, total = 0;
-      for (let i = 0; i < data.length; i += 4) {
-        const [r,g,b,a] = [data[i],data[i+1],data[i+2],data[i+3]];
-        if (a < 32) continue; // ignore transparent
-        total++;
-        // saturation-ish check + not gray
-        const max = Math.max(r,g,b), min = Math.min(r,g,b);
-        const sat = max === 0 ? 0 : (max - min) / max;
-        const grayish = Math.abs(r-g) < 10 && Math.abs(g-b) < 10;
-        if (sat > 0.2 && !grayish) colorful++;
-      }
-      // if fewer than 8% pixels are colorful, treat as monochrome
-      setMono(colorful / Math.max(total,1) < 0.08);
-    } catch {
-      // CORS-tainted canvas or error: fall back to "color" (safer)
-      setMono(false);
-    }
-  }, []);
 
   /**
    * Build the set of favicon provider URLs to try for a hostname.
@@ -171,20 +137,19 @@ export default function SmartFavicon({ url, size = 20, className, fallback = 'le
       width={size}
       height={size}
       alt=""                
-      className={clsx("favicon", mono === true ? "mono" : "color", className)}
+      className={clsx("favicon", className)}
       referrerPolicy="no-referrer"
       loading="lazy"
       decoding="async"
       style={{ objectFit: 'contain', borderRadius: 4, display: 'inline-block' }}
       /**
-       * Capture the chosen favicon source and analyze its palette once loaded.
+       * Capture the chosen favicon source.
        */
       onLoad={(e) => {
         if (host) {
           goodSourceCache.set(host, src);
           badSourceCache.delete(host);
         }
-        analyze(e.currentTarget);
       }}
       /**
        * Try the next favicon provider when loading fails.

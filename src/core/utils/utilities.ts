@@ -128,7 +128,7 @@ export async function refreshOtherMindfulTabs() {
     // BroadcastChannel not available or blocked (ok to ignore)
   }
 
-  // 3) (Optional) If you already reload tabs, keep doing it here.
+  // 3) Reload all NewTab tabs except for the active one 
   // Wrap in try/catch so it’s a no-op without "tabs" permission.
   try {
     const tabs = await chrome.tabs.query({
@@ -137,9 +137,13 @@ export async function refreshOtherMindfulTabs() {
         'chrome-extension://*/options.html',
       ],
     });
+
+    // Get the active tab id up front
+    const activeTabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    const activeTabId = activeTabs[0]?.id;
   
     for (const t of tabs) {
-      if (t.id !== undefined) {
+      if ((t.id !== undefined) && (t.id !== activeTabId)) {
         chrome.tabs
           .reload(t.id)
           .catch((err) => {
