@@ -1,16 +1,25 @@
-// src/pages/NewTabGate.tsx
 import React, { Suspense } from "react";
 import type { ReactElement } from "react";
 
+/* Authentication and storage mode */
 import { guessBootAuthMode } from "@/scripts/bootAuthMode";
-import { AppContextProvider } from "@/scripts/AppContextProvider";
 import { StorageMode } from "@/core/constants/storageMode";
 import { AuthMode, AuthModeType } from "@/core/constants/authMode";
+
+/* App context */
+import { AppContextProvider } from "@/scripts/AppContextProvider";
+
+/* Pages */
 import { NewTabPage } from "@/pages/NewTabPage";
 
+/* Components */ 
+import { OnboardingOverlay } from "@/components/onboarding/OnboardingOverlay";
+
+/* CSS styling */
 import "@/styles/Index.css";
 import "@/styles/NewTab.css";
 import "@/styles/amplify-auth-tailwind.css";
+import { i } from "node_modules/framer-motion/dist/types.d-BJcRxCew";
 
 /* -------------------- Boot probe (sync, no Amplify) -------------------- */
 const bootAuth = guessBootAuthMode();
@@ -197,6 +206,9 @@ export default function NewTabGate(): ReactElement | null {
       <div className="newtab-root mindful-auth">
         <AppContextProvider user={null} preferredStorageMode={StorageMode.LOCAL}>
           <NewTabPage />
+
+          {/* Onboarding overlay sits on top of everything */}
+          <OnboardingOverlay />
         </AppContextProvider>
       </div>
     );

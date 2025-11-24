@@ -44,6 +44,9 @@ import {
   initializeLocalWorkspaceRegistry, 
   setActiveWorkspace, 
 } from "@/workspaces/registry";
+
+/* Onboarding */
+import { ONBOARDING_STORAGE_KEY } from '@/core/constants/onboarding';
 /* ---------------------------------------------------------- */
 
 /* -------------------- Class-level helpers -------------------- */
@@ -99,6 +102,13 @@ export interface AppContextValue {
   setUserAttributes: Dispatch<SetStateAction<UserAttributes | null>>;
   hasHydrated: boolean;
   isHydratingRemote: boolean;
+
+  /* Onboarding */
+  onboardingStatus: OnboardingStatus;
+  shouldShowOnboarding: boolean;
+  completeOnboarding: () => Promise<void>;
+  skipOnboarding: () => Promise<void>;
+  restartOnboarding: () => Promise<void>;
 }
 
 type AppContextProviderProps = {
@@ -106,6 +116,13 @@ type AppContextProviderProps = {
   preferredStorageMode?: StorageModeType | undefined;
   children: ReactNode;
 };
+
+export enum OnboardingStatus {
+  NOT_STARTED = "not_started",
+  IN_PROGRESS = "in_progress",
+  COMPLETED = "completed",
+  SKIPPED = "skipped",
+}
 /* ---------------------------------------------------------- */
 
 export const AppContext = createContext<AppContextValue>({} as AppContextValue);
@@ -150,6 +167,13 @@ export function AppContextProvider({
   /** @deprecated Prefer `authMode === AuthMode.AUTH`. `isSignedIn` remains for backward compatibility. */
   const isSignedIn = authMode === AuthMode.AUTH;
   const authKey = authMode === AuthMode.AUTH ? resolvedUserId : 'anon-key';
+
+  // Onboarding
+  const [onboardingStatus, setOnboardingStatus] =
+    useState<OnboardingStatus>(OnboardingStatus.NOT_STARTED);
+  const shouldShowOnboarding =
+    onboardingStatus === OnboardingStatus.IN_PROGRESS ||
+    onboardingStatus === OnboardingStatus.NOT_STARTED;
   /* ---------------------------------------------------------- */
 
   /* -------------------- Helper functions -------------------- */
@@ -319,9 +343,99 @@ export function AppContextProvider({
     },
     [user],
   );
+
+  const persistOnboardingStatus = async (status: OnboardingStatus) => {
+    try {
+      await chrome?.storage?.local?.set?.({
+        [ONBOARDING_STORAGE_KEY]: status,
+      });
+    } catch {
+      // ignore
+    }
+  };
+
+  const completeOnboarding = useCallback(async () => {
+    setOnboardingStatus(OnboardingStatus.COMPLETED);
+    await persistOnboardingStatus(OnboardingStatus.COMPLETED);
+  }, []);
+
+  const skipOnboarding = useCallback(async () => {
+    setOnboardingStatus(OnboardingStatus.SKIPPED);
+    await persistOnboardingStatus(OnboardingStatus.SKIPPED);
+  }, []);
+
+  const restartOnboarding = useCallback(async () => {
+    setOnboardingStatus(OnboardingStatus.IN_PROGRESS);
+    await persistOnboardingStatus(OnboardingStatus.IN_PROGRESS);
+  }, []);
   /* ---------------------------------------------------------- */
 
   /* -------------------- Effects -------------------- */
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const payload =
+          (await chrome?.storage?.local?.get?.(ONBOARDING_STORAGE_KEY)) ?? {};
+        const raw = (payload as Record<string, unknown>)[ONBOARDING_STORAGE_KEY];
+
+        if (cancelled) return;
+
+        // raw is a string like "completed" | "skipped" | etc.
+        if (typeof raw === "string") {
+          const values = Object.values(OnboardingStatus);
+          if (values.includes(raw as OnboardingStatus)) {
+            setOnboardingStatus(raw as OnboardingStatus);
+            return;
+          }
+        }
+
+        setOnboardingStatus(OnboardingStatus.NOT_STARTED);
+      } catch {
+        if (!cancelled) {
+          setOnboardingStatus(OnboardingStatus.NOT_STARTED);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!activeWorkspaceId) return;
+    if (!storageMode) return;
+    if (isLoading) return;
+    if (!hasHydrated) return;
+    if (
+      onboardingStatus !== OnboardingStatus.NOT_STARTED &&
+      onboardingStatus !== OnboardingStatus.IN_PROGRESS
+    ) {
+      return;
+    }
+
+    const isEmpty = !bookmarkGroups || bookmarkGroups.length === 0;
+    if (!isEmpty) return;
+
+    setOnboardingStatus(OnboardingStatus.IN_PROGRESS);
+    try {
+      void chrome?.storage?.local?.set?.({
+        [ONBOARDING_STORAGE_KEY]: OnboardingStatus.IN_PROGRESS,
+      });
+    } catch {
+      // best-effort
+    }
+  }, [
+    activeWorkspaceId,
+    storageMode,
+    isLoading,
+    hasHydrated,
+    onboardingStatus,
+    bookmarkGroups,
+  ]);
+
   /**
    * Wait for the workspace registry bootstrap to finish, then hydrate local state with the
    * registered workspaces and active workspace identifier.
@@ -746,6 +860,13 @@ export function AppContextProvider({
     setUserAttributes,
     hasHydrated,
     isHydratingRemote,
+
+    // Onboarding
+    onboardingStatus,
+    shouldShowOnboarding,
+    completeOnboarding,
+    skipOnboarding,
+    restartOnboarding,
   };
 
   return (
