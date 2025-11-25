@@ -9,9 +9,6 @@ import { AuthMode, AuthModeType, AMPLIFY_HUB_AUTH_CHANNEL } from '@/core/constan
 import PopUpComponent from '@/components/PopUpComponent';
 import PopupAutosize from "@/components/PopupAutosize";
 
-// CSS styling
-import '@/styles/amplify-auth-tailwind.css';
-
 /* ----------------------- Utilities ----------------------- */
 /**
  * Open the full new-tab authentication experience and close the popup window.

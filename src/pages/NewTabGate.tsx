@@ -15,19 +15,9 @@ import { NewTabPage } from "@/pages/NewTabPage";
 /* Components */ 
 import { OnboardingOverlay } from "@/components/onboarding/OnboardingOverlay";
 
-/* Theme */
-import { ThemeChoice } from "@/core/constants/theme";
-import {
-  applyTheme,
-  loadInitialTheme,
-  persistAndApplyTheme,
-} from "@/hooks/applyTheme";
-
 /* CSS styling */
 import "@/styles/Index.css";
 import "@/styles/NewTab.css";
-import "@/styles/amplify-auth-tailwind.css";
-import { i } from "node_modules/framer-motion/dist/types.d-BJcRxCew";
 
 /* -------------------- Boot probe (sync, no Amplify) -------------------- */
 const bootAuth = guessBootAuthMode();
@@ -167,46 +157,8 @@ export default function NewTabGate(): ReactElement | null {
   // We freeze boot decision for the very first paint; AppContext can refine later.
   const [authMode, setAuthMode] = useState<AuthModeType | null>(null); // 'anon' | 'auth'
   const [ready, setReady] = useState<boolean>(false);
-  const [theme, setTheme] = useState<ThemeChoice | null>(null);
 
   /* -------------------- Effects -------------------- */
-  // Load initial theme on mount
-  useEffect(() => {
-    let cancelled = false;
-
-    (async () => {
-      const initial = await loadInitialTheme();
-      if (cancelled) return;
-      setTheme(initial);
-      applyTheme(initial);
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  // Keep system sync when in SYSTEM mode
-  useEffect(() => {
-    if (theme !== ThemeChoice.SYSTEM) return;
-    if (typeof window === "undefined") return;
-
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const handler = () => applyTheme(ThemeChoice.SYSTEM);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, [theme]);
-
-  // Expose a setter for children (via context or props) if we want.
-  // For now we’ll attach it to window so ThemeSelectorStep can call it
-  // until we move it into AppContext properly:
-  useEffect(() => {
-    (window as any).__mindfulSetTheme = async (choice: ThemeChoice) => {
-      setTheme(choice);
-      await persistAndApplyTheme(choice);
-    };
-  }, []);
-
   useEffect(() => {
     let cancelled = false;
 
