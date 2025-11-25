@@ -7,6 +7,7 @@
 /* Put component layers after @tailwind components */
 @import "@/styles/components/top-banner.css";
 @import "@/styles/PopUp.css";
+@import "@/styles/components/onboarding/OnboardingOverlay.css";
 @import "@fortawesome/fontawesome-free/css/all.min.css";
 
 @tailwind utilities;
