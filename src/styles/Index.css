@@ -6,16 +6,19 @@
 
 /* Put component layers after @tailwind components */
 @import "@/styles/components/top-banner.css";
+@import "@/styles/PopUp.css";
 @import "@fortawesome/fontawesome-free/css/all.min.css";
 
 @tailwind utilities;
 
 @layer base {
-  html {
+  html,
+  body {
     @apply bg-neutral-50 text-neutral-900;
   }
 
-  html.dark {
+  html.dark,
+  body.dark {
     @apply bg-neutral-950 text-neutral-50;
   }
 }

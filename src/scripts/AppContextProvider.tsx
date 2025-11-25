@@ -12,9 +12,6 @@ import {
 /* Types */
 import type { BookmarkGroupType } from "@/core/types/bookmarks";
 
-/* Constants */
-import { ThemeChoice, THEME_STORAGE_KEY } from "@/core/constants/theme";
-
 /* Scripts */
 import {
   AuthMode,
@@ -52,7 +49,8 @@ import {
 import { ONBOARDING_STORAGE_KEY } from '@/core/constants/onboarding';
 
 /* Themes */
-import { applyTheme, loadInitialTheme } from "@/hooks/applyTheme";
+import { applyTheme, loadInitialTheme, persistAndApplyTheme } from "@/hooks/applyTheme";
+import { ThemeChoice } from "@/core/constants/theme";
 /* ---------------------------------------------------------- */
 
 /* -------------------- Class-level helpers -------------------- */
@@ -384,20 +382,11 @@ export function AppContextProvider({
 
   const setThemePreference = useCallback(
     async (choice: ThemeChoice): Promise<void> => {
-      console.log("[AppContextProvider] In setThemePreference");
       setTheme(choice);
-      applyTheme(choice);
-
-      try {
-        await chrome?.storage?.local?.set?.({
-          [THEME_STORAGE_KEY]: choice,
-        });
-      } catch {
-        // best-effort only
-      }
+      await persistAndApplyTheme(choice);
     },
     []
-  );
+  ); 
   /* ---------------------------------------------------------- */
 
   /* -------------------- Effects -------------------- */
