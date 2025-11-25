@@ -3,8 +3,6 @@ import { ThemeChoice, THEME_STORAGE_KEY } from "@/core/constants/theme";
 
 /**
  * Apply the chosen theme to document root, honoring system preference when requested.
- *
- * @param choice Theme selection (light/dark/system).
  */
 export function applyTheme(choice: ThemeChoice) {
   if (typeof document === "undefined") return;
@@ -23,7 +21,6 @@ export function applyTheme(choice: ThemeChoice) {
   if (shouldUseDark) {
     root.classList.add("dark");
     body?.classList.add("dark");
-    // Helps native controls / scrollbars match
     root.style.colorScheme = "dark";
   } else {
     root.classList.remove("dark");
@@ -32,10 +29,7 @@ export function applyTheme(choice: ThemeChoice) {
   }
 }
 
-/**
- * Read the stored theme preference from chrome.storage/local.
- * Falls back to ThemeChoice.SYSTEM.
- */
+/** Load stored theme, defaulting to SYSTEM */
 export async function loadInitialTheme(): Promise<ThemeChoice> {
   try {
     const payload =
@@ -55,11 +49,7 @@ export async function loadInitialTheme(): Promise<ThemeChoice> {
   return ThemeChoice.SYSTEM;
 }
 
-/**
- * Persist the user preference to chrome.storage and immediately apply it.
- *
- * @param choice Theme selection to store/apply.
- */
+/** Persist and immediately apply */
 export async function persistAndApplyTheme(choice: ThemeChoice) {
   applyTheme(choice);
   try {
