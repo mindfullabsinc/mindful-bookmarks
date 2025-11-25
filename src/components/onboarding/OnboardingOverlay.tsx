@@ -1,12 +1,15 @@
+/* -------------------- Imports -------------------- */
 import React, { useContext, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AppContext, OnboardingStatus } from "@/scripts/AppContextProvider";
 
 /* Components */
 import { ThemeSelectorStep } from "@/components/onboarding/ThemeSelectorStep";
+import { ImportBookmarksStep } from "@/components/onboarding/ImportBookmarksStep";
+/* ---------------------------------------------------------- */
 
-/* -------------------- Types -------------------- */
-type OnboardingStepId = "welcome" | "firstWorkspace" | "tips";
+/* -------------------- Local types -------------------- */
+type OnboardingStepId = "welcome" | "importBookmarks" | "tips";
 
 type OnboardingStepConfig = {
   id: OnboardingStepId;
@@ -20,88 +23,12 @@ type OnboardingStepConfig = {
   hideBack?: boolean;
   /** Whether this is the last step in the flow */
   isFinal?: boolean;
+  /** Disable the primary button on this step */
+  primaryDisabled?: boolean;
 };
+/* ---------------------------------------------------------- */
 
-/* -------------------- Step config -------------------- */
-const STEPS: OnboardingStepConfig[] = [
-  {
-    id: "welcome",
-    title: "Welcome to Mindful!",
-    subtitle: "Create visual groups for different projects, save pages into those groups, and see your \"board\" every time you open a new tab.",
-    body: <ThemeSelectorStep />,
-    // body: (
-    //   <div className="space-y-3 text-sm text-neutral-700">
-    //     <p>
-    //       Create visual groups for different projects, save pages into those groups, 
-    //       and see your "board" every time you open a new tab. 
-    //     </p>
-    //   </div>
-    // ),
-    primaryLabel: "Get started",
-    secondaryLabel: "Skip for now",
-    hideBack: true,
-  },
-  {
-    id: "firstWorkspace",
-    title: "Create your first workspace",
-    subtitle: "Workspaces keep different parts of your life separate and calm.",
-    body: (
-      <div className="space-y-3 text-sm text-neutral-700 dark:text-neutral-300">
-        <p>
-          Start with a single workspace — you can add more later for other
-          projects or areas of your life.
-        </p>
-        <ul className="list-disc space-y-1 pl-5">
-          <li>
-            Examples: <strong>Today</strong>, <strong>Deep Work</strong>,{" "}
-            <strong>Planning</strong>.
-          </li>
-          <li>
-            You’ll be able to add bookmark groups inside this workspace from
-            the main UI.
-          </li>
-        </ul>
-        <p className="text-xs text-neutral-500">
-          (In a later iteration you can hook this button up to your actual
-          “create workspace” flow.)
-        </p>
-      </div>
-    ),
-    primaryLabel: "Looks good",
-    secondaryLabel: "Back",
-  },
-  {
-    id: "tips",
-    title: "You’re all set",
-    subtitle: "A few quick tips before you start.",
-    body: (
-      <div className="space-y-3 text-sm text-neutral-700">
-        <ul className="list-disc space-y-1 pl-5">
-          <li>
-            <strong>Click +</strong> in your workspace to create a new group
-            for related links.
-          </li>
-          <li>
-            Use the Mindful button (or right click &gt; “Save to Mindful”) to
-            add the current page.
-          </li>
-          <li>
-            Reorder groups and links with drag &amp; drop when you’re ready to
-            reorganize.
-          </li>
-        </ul>
-        <p className="text-xs text-neutral-500">
-          You can reopen this onboarding anytime from the settings menu.
-        </p>
-      </div>
-    ),
-    primaryLabel: "Start using Mindful",
-    secondaryLabel: "Back",
-    isFinal: true,
-  },
-];
-
-/* -------------------- Component -------------------- */
+/* -------------------- Main component -------------------- */
 export const OnboardingOverlay: React.FC = () => {
   const {
     onboardingStatus,
@@ -111,9 +38,69 @@ export const OnboardingOverlay: React.FC = () => {
     restartOnboarding,
   } = useContext(AppContext);
 
+  /* -------------------- Context / state -------------------- */
   // Local-only step index; AppContext just knows "in_progress vs done".
   const [stepIndex, setStepIndex] = useState(0);
+  const [importPrimaryDisabled, setImportPrimaryDisabled] = useState(true);
+  /* ---------------------------------------------------------- */
 
+  /* -------------------- Step config -------------------- */
+  const STEPS: OnboardingStepConfig[] = [
+    {
+      id: "welcome",
+      title: "Welcome to Mindful!",
+      subtitle: "Create visual groups for different projects, save pages into those groups, and see your \"board\" every time you open a new tab.",
+      body: <ThemeSelectorStep />,
+      primaryLabel: "Next",
+      secondaryLabel: "Skip for now",
+      hideBack: true,
+    },
+    {
+      id: "importBookmarks",
+      title: "Let's set up Mindful for your life.",
+      subtitle: "We'll tailor your space and help you import your bookmarks, tabs, and history, with full control.",
+      body: (
+        <ImportBookmarksStep 
+          setPrimaryDisabled={setImportPrimaryDisabled}
+        />
+      ),
+      primaryLabel: "Next",
+      secondaryLabel: "Back",
+      primaryDisabled: importPrimaryDisabled,
+    },
+    {
+      id: "tips",
+      title: "You’re all set",
+      subtitle: "A few quick tips before you start.",
+      body: (
+        <div className="space-y-3 text-sm text-neutral-700">
+          <ul className="list-disc space-y-1 pl-5">
+            <li>
+              <strong>Click +</strong> in your workspace to create a new group
+              for related links.
+            </li>
+            <li>
+              Use the Mindful button (or right click &gt; “Save to Mindful”) to
+              add the current page.
+            </li>
+            <li>
+              Reorder groups and links with drag &amp; drop when you’re ready to
+              reorganize.
+            </li>
+          </ul>
+          <p className="text-xs text-neutral-500">
+            You can reopen this onboarding anytime from the settings menu.
+          </p>
+        </div>
+      ),
+      primaryLabel: "Start using Mindful",
+      secondaryLabel: "Back",
+      isFinal: true,
+    },
+  ];
+  /* ---------------------------------------------------------- */
+
+  /* -------------------- Effects -------------------- */
   // Ensure a fresh start when the overlay first appears.
   useEffect(() => {
     if (shouldShowOnboarding && onboardingStatus === OnboardingStatus.NOT_STARTED) {
@@ -128,6 +115,7 @@ export const OnboardingOverlay: React.FC = () => {
       setStepIndex(0);
     }
   }, [shouldShowOnboarding]);
+  /* ---------------------------------------------------------- */
 
   // Don’t render if onboarding is done or not supposed to show.
   if (!shouldShowOnboarding) return null;
@@ -144,6 +132,7 @@ export const OnboardingOverlay: React.FC = () => {
   const isFirst = clampedIndex === 0;
   const isLast = !!step.isFinal || clampedIndex === totalSteps - 1;
 
+  /* -------------------- Helper functions -------------------- */
   const handlePrimary = async () => {
     if (isLast) {
       await completeOnboarding();
@@ -163,7 +152,9 @@ export const OnboardingOverlay: React.FC = () => {
       setStepIndex((prev) => Math.max(prev - 1, 0));
     }
   };
+  /* ---------------------------------------------------------- */
 
+  /* -------------------- Main component rendering -------------------- */
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 dark:bg-white/40 backdrop-blur-sm">
@@ -236,8 +227,9 @@ export const OnboardingOverlay: React.FC = () => {
                 )}
                 <button
                   type="button"
-                  className="rounded-full bg-neutral-900 dark:bg-neutral-100 px-4 py-2 text-sm font-medium text-white dark:text-black hover:bg-neutral-800 dark:hover:bg-neutral-200 cursor-pointer"
+                  className="rounded-full bg-neutral-900 dark:bg-neutral-100 px-4 py-2 text-sm font-medium text-white dark:text-black hover:bg-neutral-800 dark:hover:bg-neutral-200 cursor-pointer disabled:opacity-60 disabled:cursor-default"
                   onClick={handlePrimary}
+                  disabled={step.primaryDisabled}
                 >
                   {step.primaryLabel}
                 </button>
@@ -248,4 +240,5 @@ export const OnboardingOverlay: React.FC = () => {
       </div>
     </AnimatePresence>
   );
+  /* ---------------------------------------------------------- */
 };
