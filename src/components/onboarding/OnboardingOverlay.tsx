@@ -46,7 +46,7 @@ const STEPS: OnboardingStepConfig[] = [
     title: "Create your first workspace",
     subtitle: "Workspaces keep different parts of your life separate and calm.",
     body: (
-      <div className="space-y-3 text-sm text-neutral-700">
+      <div className="space-y-3 text-sm text-neutral-700 dark:text-neutral-300">
         <p>
           Start with a single workspace — you can add more later for other
           projects or areas of your life.
@@ -166,17 +166,17 @@ export const OnboardingOverlay: React.FC = () => {
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+      <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 dark:bg-white/40 backdrop-blur-sm">
         <motion.div
           key={step.id}
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 24 }}
           transition={{ duration: 0.2 }}
-          className="w-full max-w-lg rounded-2xl bg-white/95 p-6 shadow-2xl ring-1 ring-black/5"
+          className="w-full max-w-lg rounded-2xl bg-white/95 dark:bg-black/95 p-6 shadow-2xl ring-1 ring-black/5 dark:ring-white/5"
         >
           {/* Header / progress */}
-          <div className="mb-3 flex items-center justify-between text-xs text-neutral-500">
+          <div className="mb-3 flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-500">
             <span>
               Step {clampedIndex + 1} of {totalSteps}
             </span>
@@ -189,9 +189,9 @@ export const OnboardingOverlay: React.FC = () => {
             </button>
           </div>
 
-          <h2 className="text-lg font-semibold text-neutral-900">{step.title}</h2>
+          <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">{step.title}</h2>
           {step.subtitle && (
-            <p className="mt-1 text-sm text-neutral-600">{step.subtitle}</p>
+            <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">{step.subtitle}</p>
           )}
 
           {/* Body */}
@@ -201,7 +201,7 @@ export const OnboardingOverlay: React.FC = () => {
           <div className="mt-6 flex items-center justify-between">
             <button
               type="button"
-              className={`text-sm text-neutral-500 hover:text-neutral-700 cursor-pointer ${
+              className={`text-sm text-neutral-500 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 cursor-pointer ${
                 (isFirst || step.hideBack) ? "invisible" : ""
               }`}
               onClick={() => setStepIndex((prev) => Math.max(prev - 1, 0))}
@@ -217,7 +217,7 @@ export const OnboardingOverlay: React.FC = () => {
                   <span
                     key={s.id}
                     className={`h-1.5 w-1.5 rounded-full ${
-                      idx === clampedIndex ? "bg-neutral-900" : "bg-neutral-300"
+                      idx === clampedIndex ? "bg-neutral-900 dark:bg-neutral-100" : "bg-neutral-300 dark:bg-neutral-700"
                     }`}
                   />
                 ))}
@@ -228,7 +228,7 @@ export const OnboardingOverlay: React.FC = () => {
                 {step.secondaryLabel && (
                   <button
                     type="button"
-                    className="rounded-full border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 cursor-pointer"
+                    className="rounded-full border border-neutral-300 dark:border-neutral-700 px-3 py-1.5 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-950 cursor-pointer"
                     onClick={handleSecondary}
                   >
                     {step.secondaryLabel}
@@ -236,7 +236,7 @@ export const OnboardingOverlay: React.FC = () => {
                 )}
                 <button
                   type="button"
-                  className="rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 cursor-pointer"
+                  className="rounded-full bg-neutral-900 dark:bg-neutral-100 px-4 py-2 text-sm font-medium text-white dark:text-black hover:bg-neutral-800 dark:hover:bg-neutral-200 cursor-pointer"
                   onClick={handlePrimary}
                 >
                   {step.primaryLabel}

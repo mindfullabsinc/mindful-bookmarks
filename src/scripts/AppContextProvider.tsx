@@ -12,6 +12,9 @@ import {
 /* Types */
 import type { BookmarkGroupType } from "@/core/types/bookmarks";
 
+/* Constants */
+import { ThemeChoice, THEME_STORAGE_KEY } from "@/core/constants/theme";
+
 /* Scripts */
 import {
   AuthMode,
@@ -109,6 +112,10 @@ export interface AppContextValue {
   completeOnboarding: () => Promise<void>;
   skipOnboarding: () => Promise<void>;
   restartOnboarding: () => Promise<void>;
+
+  /* Theme (light/dark/system) for the UI */
+  theme: ThemeChoice;
+  setThemePreference: (choice: ThemeChoice) => Promise<void>;
 }
 
 type AppContextProviderProps = {
@@ -174,6 +181,9 @@ export function AppContextProvider({
   const shouldShowOnboarding =
     onboardingStatus === OnboardingStatus.IN_PROGRESS ||
     onboardingStatus === OnboardingStatus.NOT_STARTED;
+
+  // Themes
+  const [theme, setTheme] = useState<ThemeChoice>(ThemeChoice.SYSTEM);
   /* ---------------------------------------------------------- */
 
   /* -------------------- Helper functions -------------------- */
@@ -368,6 +378,39 @@ export function AppContextProvider({
     setOnboardingStatus(OnboardingStatus.IN_PROGRESS);
     await persistOnboardingStatus(OnboardingStatus.IN_PROGRESS);
   }, []);
+
+  const applyTheme = (choice: ThemeChoice) => {
+    if (typeof document === "undefined") return;
+
+    const root = document.documentElement;
+    const prefersDark =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-color-scheme: dark)").matches;
+
+    const shouldUseDark =
+      choice === ThemeChoice.DARK ||
+      (choice === ThemeChoice.SYSTEM && prefersDark);
+
+    console.log(`[AppContextProvider > applyTheme] prefersDark: ${prefersDark}, shouldUseDark: ${shouldUseDark}`);
+    root.classList.toggle("dark", shouldUseDark);
+  };
+
+  const setThemePreference = useCallback(
+    async (choice: ThemeChoice): Promise<void> => {
+      console.log("[AppContextProvider] In setThemePreference");
+      setTheme(choice);
+      applyTheme(choice);
+
+      try {
+        await chrome?.storage?.local?.set?.({
+          [THEME_STORAGE_KEY]: choice,
+        });
+      } catch {
+        // best-effort only
+      }
+    },
+    []
+  );
   /* ---------------------------------------------------------- */
 
   /* -------------------- Effects -------------------- */
@@ -831,6 +874,58 @@ export function AppContextProvider({
       } catch {}
     })();
   }, [activeWorkspaceId, storageMode, isHydratingRemote]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const payload =
+          (await chrome?.storage?.local?.get?.(THEME_STORAGE_KEY)) ?? {};
+        const raw = (payload as Record<string, unknown>)[THEME_STORAGE_KEY];
+
+        let initial = ThemeChoice.SYSTEM;
+        if (
+          raw === ThemeChoice.LIGHT ||
+          raw === ThemeChoice.DARK ||
+          raw === ThemeChoice.SYSTEM
+        ) {
+          initial = raw as ThemeChoice;
+        }
+
+        if (!cancelled) {
+          setTheme(initial);
+          applyTheme(initial);
+        }
+      } catch {
+        if (!cancelled) {
+          setTheme(ThemeChoice.SYSTEM);
+          applyTheme(ThemeChoice.SYSTEM);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (theme !== ThemeChoice.SYSTEM) return;
+    if (typeof window === "undefined") return;
+
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const handler = () => applyTheme(ThemeChoice.SYSTEM);
+
+    try {
+      mq.addEventListener("change", handler);
+      return () => mq.removeEventListener("change", handler);
+    } catch {
+      // older browsers
+      mq.addListener?.(handler);
+      return () => mq.removeListener?.(handler);
+    }
+  }, [theme]);
   /* ---------------------------------------------------------- */
 
   // ----- render gate: only block first paint if we truly have nothing -----
@@ -867,6 +962,10 @@ export function AppContextProvider({
     completeOnboarding,
     skipOnboarding,
     restartOnboarding,
+
+    // Themes
+    theme,
+    setThemePreference,
   };
 
   return (

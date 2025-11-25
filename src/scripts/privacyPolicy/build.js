@@ -84,9 +84,13 @@ const wrapped = `<!doctype html>
       font-weight: 600;
     }
 
-    @media (prefers-color-scheme: dark) {
-      th, td { border-color: #333; }
-      th { background: rgba(255,255,255,0.05); }
+    .dark th,
+    .dark td {
+      border-color: #333;
+    }
+
+    .dark th {
+      background: rgba(255, 255, 255, 0.05);
     }
   </style>
 </head>

@@ -8,29 +8,21 @@
          bg-white text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600
          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60;
 }
-@media (prefers-color-scheme: dark) {
-  .bookmark-group-box .add-bookmark-button-1 {
-    @apply bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200;
-  }
+.dark .bookmark-group-box .add-bookmark-button-1 {
+  @apply bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200;
 }
 
 .create-new-bookmark-component { @apply relative rounded-lg p-2.5 bg-neutral-100; }
-@media (prefers-color-scheme: dark) {
-  .create-new-bookmark-component { @apply bg-neutral-800; }
-}
+.dark .create-new-bookmark-component { @apply bg-neutral-800; }
 
 .create-new-bookmark-component { @apply relative rounded-lg p-2.5 bg-neutral-100; }
-@media (prefers-color-scheme: dark) {
-  .create-new-bookmark-component { @apply bg-neutral-800; }
-}
+.dark .create-new-bookmark-component { @apply bg-neutral-800; }
 
 .form-container {
   @apply static mb-2.5 rounded-md p-2.5 border shadow
          bg-white border-neutral-200;
 }
-@media (prefers-color-scheme: dark) {
-  .form-container { @apply bg-neutral-900 border-neutral-700; }
-}
+.dark .form-container { @apply bg-neutral-900 border-neutral-700; }
 
 form { @apply flex flex-col gap-1.5 w-full min-w-[200px] box-border rounded-lg; }
 
@@ -39,28 +31,22 @@ input[type="text"] {
          bg-white text-neutral-900 placeholder:text-neutral-400
          focus:outline-none focus:ring-0;
 }
-@media (prefers-color-scheme: dark) {
-  input[type="text"] {
-    @apply bg-neutral-900;          
-    @apply text-neutral-100 placeholder:text-neutral-400;
-  }
+.dark input[type="text"] {
+  @apply bg-neutral-900;          
+  @apply text-neutral-100 placeholder:text-neutral-400;
 }
 
 /* If we also have textareas, include them too */
-@media (prefers-color-scheme: dark) {
-  textarea {
-    @apply bg-black text-neutral-100 placeholder:text-neutral-400
-           ring-1 ring-white/10 focus:ring-2 focus:ring-white/20;
-  }
+.dark textarea {
+  @apply bg-black text-neutral-100 placeholder:text-neutral-400
+          ring-1 ring-white/10 focus:ring-2 focus:ring-white/20;
 }
 
 /* Optional: tame Chrome autofill yellow in dark mode */
-@media (prefers-color-scheme: dark) {
-  input[type="text"]:-webkit-autofill {
-    -webkit-text-fill-color: #e5e5e5;
-    -webkit-box-shadow: 0 0 0 1000px #000 inset;
-    caret-color: #e5e5e5;
-  }
+.dark input[type="text"]:-webkit-autofill {
+  -webkit-text-fill-color: #e5e5e5;
+  -webkit-box-shadow: 0 0 0 1000px #000 inset;
+  caret-color: #e5e5e5;
 }
 
 .add-bookmark-button-2 {
