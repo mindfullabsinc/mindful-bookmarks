@@ -10,6 +10,16 @@
 
 @tailwind utilities;
 
+@layer base {
+  html {
+    @apply bg-neutral-50 text-neutral-900;
+  }
+
+  html.dark {
+    @apply bg-neutral-950 text-neutral-50;
+  }
+}
+
 @layer utilities {
   /* Force light colors inside this subtree even when <html class="dark"> */
   .force-light {

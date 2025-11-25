@@ -50,6 +50,9 @@ import {
 
 /* Onboarding */
 import { ONBOARDING_STORAGE_KEY } from '@/core/constants/onboarding';
+
+/* Themes */
+import { applyTheme, loadInitialTheme } from "@/hooks/applyTheme";
 /* ---------------------------------------------------------- */
 
 /* -------------------- Class-level helpers -------------------- */
@@ -378,31 +381,6 @@ export function AppContextProvider({
     setOnboardingStatus(OnboardingStatus.IN_PROGRESS);
     await persistOnboardingStatus(OnboardingStatus.IN_PROGRESS);
   }, []);
-
-  const applyTheme = (choice: ThemeChoice) => {
-    if (typeof document === "undefined") return;
-
-    const prefersDark =
-      typeof window !== "undefined" &&
-      window.matchMedia?.("(prefers-color-scheme: dark)").matches;
-
-    const shouldUseDark =
-      choice === ThemeChoice.DARK ||
-      (choice === ThemeChoice.SYSTEM && prefersDark);
-
-    const root = document.documentElement;
-    const body = document.body;
-
-    if (shouldUseDark) {
-      root.classList.add("dark");
-      body?.classList.add("dark");
-      root.style.colorScheme = "dark";
-    } else {
-      root.classList.remove("dark");
-      body?.classList.remove("dark");
-      root.style.colorScheme = "light";
-    }
-  };
 
   const setThemePreference = useCallback(
     async (choice: ThemeChoice): Promise<void> => {
@@ -884,34 +862,15 @@ export function AppContextProvider({
     })();
   }, [activeWorkspaceId, storageMode, isHydratingRemote]);
 
-  useEffect(() => {
+    useEffect(() => {
     let cancelled = false;
 
     (async () => {
-      try {
-        const payload =
-          (await chrome?.storage?.local?.get?.(THEME_STORAGE_KEY)) ?? {};
-        const raw = (payload as Record<string, unknown>)[THEME_STORAGE_KEY];
+      const initial = await loadInitialTheme();
+      if (cancelled) return;
 
-        let initial = ThemeChoice.SYSTEM;
-        if (
-          raw === ThemeChoice.LIGHT ||
-          raw === ThemeChoice.DARK ||
-          raw === ThemeChoice.SYSTEM
-        ) {
-          initial = raw as ThemeChoice;
-        }
-
-        if (!cancelled) {
-          setTheme(initial);
-          applyTheme(initial);
-        }
-      } catch {
-        if (!cancelled) {
-          setTheme(ThemeChoice.SYSTEM);
-          applyTheme(ThemeChoice.SYSTEM);
-        }
-      }
+      setTheme(initial);
+      applyTheme(initial);
     })();
 
     return () => {

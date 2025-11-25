@@ -297,7 +297,7 @@ export default function PopupPage(): ReactElement | null {
   if (!ready) return null;
 
   return (
-    <div className="popup-root mindful-auth p-4">
+    <div className="popup-root mindful-auth p-4 bg-neutral-50 dark:bg-neutral-950">
       <PopupAutosize selector=".popup-root" maxH={600} />
 
       {/* Open Mindful button */}

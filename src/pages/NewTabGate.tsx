@@ -204,7 +204,7 @@ export default function NewTabGate(): ReactElement | null {
   if (authMode === AuthMode.ANON) {
     stripAuthHash();
     return (
-      <div className="newtab-root mindful-auth">
+      <div className="newtab-root mindful-auth bg-neutral-50 dark:bg-neutral-950">
         <AppContextProvider user={null} preferredStorageMode={StorageMode.LOCAL}>
           <NewTabPage />
 
