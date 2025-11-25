@@ -382,7 +382,6 @@ export function AppContextProvider({
   const applyTheme = (choice: ThemeChoice) => {
     if (typeof document === "undefined") return;
 
-    const root = document.documentElement;
     const prefersDark =
       typeof window !== "undefined" &&
       window.matchMedia?.("(prefers-color-scheme: dark)").matches;
@@ -391,8 +390,18 @@ export function AppContextProvider({
       choice === ThemeChoice.DARK ||
       (choice === ThemeChoice.SYSTEM && prefersDark);
 
-    console.log(`[AppContextProvider > applyTheme] prefersDark: ${prefersDark}, shouldUseDark: ${shouldUseDark}`);
-    root.classList.toggle("dark", shouldUseDark);
+    const root = document.documentElement;
+    const body = document.body;
+
+    if (shouldUseDark) {
+      root.classList.add("dark");
+      body?.classList.add("dark");
+      root.style.colorScheme = "dark";
+    } else {
+      root.classList.remove("dark");
+      body?.classList.remove("dark");
+      root.style.colorScheme = "light";
+    }
   };
 
   const setThemePreference = useCallback(
