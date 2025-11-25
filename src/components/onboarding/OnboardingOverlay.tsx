@@ -2,6 +2,9 @@ import React, { useContext, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AppContext, OnboardingStatus } from "@/scripts/AppContextProvider";
 
+/* Components */
+import { ThemeSelectorStep } from "@/components/onboarding/ThemeSelectorStep";
+
 /* -------------------- Types -------------------- */
 type OnboardingStepId = "welcome" | "firstWorkspace" | "tips";
 
@@ -23,21 +26,17 @@ type OnboardingStepConfig = {
 const STEPS: OnboardingStepConfig[] = [
   {
     id: "welcome",
-    title: "Welcome to Mindful",
-    subtitle: "A calm, visual space for your digital mind.",
-    body: (
-      <div className="space-y-3 text-sm text-neutral-700">
-        <p>
-          Let’s set things up so your new tab shows the work that actually
-          matters — not a wall of blank tiles.
-        </p>
-        <ul className="list-disc space-y-1 pl-5">
-          <li>Create visual groups for different projects.</li>
-          <li>Save pages into those groups with one click.</li>
-          <li>See your “board” every time you open a new tab.</li>
-        </ul>
-      </div>
-    ),
+    title: "Welcome to Mindful!",
+    subtitle: "Create visual groups for different projects, save pages into those groups, and see your \"board\" every time you open a new tab.",
+    body: <ThemeSelectorStep />,
+    // body: (
+    //   <div className="space-y-3 text-sm text-neutral-700">
+    //     <p>
+    //       Create visual groups for different projects, save pages into those groups, 
+    //       and see your "board" every time you open a new tab. 
+    //     </p>
+    //   </div>
+    // ),
     primaryLabel: "Get started",
     secondaryLabel: "Skip for now",
     hideBack: true,
@@ -183,7 +182,7 @@ export const OnboardingOverlay: React.FC = () => {
             </span>
             <button
               type="button"
-              className="underline-offset-2 hover:underline"
+              className="underline-offset-2 hover:underline cursor-pointer"
               onClick={() => void skipOnboarding()}
             >
               Skip onboarding
@@ -202,7 +201,7 @@ export const OnboardingOverlay: React.FC = () => {
           <div className="mt-6 flex items-center justify-between">
             <button
               type="button"
-              className={`text-sm text-neutral-500 hover:text-neutral-700 ${
+              className={`text-sm text-neutral-500 hover:text-neutral-700 cursor-pointer ${
                 (isFirst || step.hideBack) ? "invisible" : ""
               }`}
               onClick={() => setStepIndex((prev) => Math.max(prev - 1, 0))}
@@ -229,7 +228,7 @@ export const OnboardingOverlay: React.FC = () => {
                 {step.secondaryLabel && (
                   <button
                     type="button"
-                    className="rounded-full border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+                    className="rounded-full border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 cursor-pointer"
                     onClick={handleSecondary}
                   >
                     {step.secondaryLabel}
@@ -237,7 +236,7 @@ export const OnboardingOverlay: React.FC = () => {
                 )}
                 <button
                   type="button"
-                  className="rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800"
+                  className="rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 cursor-pointer"
                   onClick={handlePrimary}
                 >
                   {step.primaryLabel}
