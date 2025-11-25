@@ -8,28 +8,53 @@ import { AuthMode } from "@/core/constants/authMode";
 import { StorageMode } from "@/core/constants/storageMode";
 import { DEFAULT_LOCAL_WORKSPACE_ID } from "@/core/constants/workspaces";
 import { LOCAL_USER_ID } from "@/core/constants/authMode";
+import { OnboardingStatus } from "@/scripts/AppContextProvider";
+import { ThemeChoice } from "@/core/constants/theme";
 
 // ---- Minimal base context for tests ----
 const baseCtx: AppContextValue = {
+  /* Workspaces */
   workspaces: {},
   activeWorkspaceId: DEFAULT_LOCAL_WORKSPACE_ID,
   setActiveWorkspaceId: () => {},
+
+  /* Bookmarks */
   groupsIndex: [],
   bookmarkGroups: [],
   setBookmarkGroups: () => {},
+
+  /* Auth / storage */
   userId: LOCAL_USER_ID,
   storageMode: StorageMode.LOCAL,
   setStorageMode: async () => {},
+
   // keep while deprecated in codebase
   isSignedIn: false,
   authMode: AuthMode.ANON,
+
+  /* Loading + migration */
   isLoading: false,
   isMigrating: false,
   setIsMigrating: () => {},
+
+  /* User attributes */
   userAttributes: null,
   setUserAttributes: () => {},
+
+  /* Hydration flags */
   hasHydrated: true,
   isHydratingRemote: false,
+
+  /* Onboarding */
+  onboardingStatus: OnboardingStatus.NOT_STARTED,
+  shouldShowOnboarding: false,
+  completeOnboarding: async () => {},
+  skipOnboarding: async () => {},
+  restartOnboarding: async () => {},
+
+  /* Theme */
+  theme: ThemeChoice.SYSTEM,
+  setThemePreference: async () => {},
 };
 
 describe("<SignedOutGuard/> stub", () => {
@@ -40,7 +65,9 @@ describe("<SignedOutGuard/> stub", () => {
 
   test("when enabled + signed out -> shows children", () => {
     render(
-      <AppContext.Provider value={{ ...baseCtx, authMode: AuthMode.ANON, isSignedIn: false }}>
+      <AppContext.Provider
+        value={{ ...baseCtx, authMode: AuthMode.ANON, isSignedIn: false }}
+      >
         <SignedOutGuard enabled>Signed out content</SignedOutGuard>
       </AppContext.Provider>
     );
@@ -49,7 +76,9 @@ describe("<SignedOutGuard/> stub", () => {
 
   test("when enabled + signed in -> shows fallback", () => {
     render(
-      <AppContext.Provider value={{ ...baseCtx, authMode: AuthMode.AUTH, isSignedIn: true }}>
+      <AppContext.Provider
+        value={{ ...baseCtx, authMode: AuthMode.AUTH, isSignedIn: true }}
+      >
         <SignedOutGuard enabled fallback={<div>Fallback</div>}>
           Signed out content
         </SignedOutGuard>
