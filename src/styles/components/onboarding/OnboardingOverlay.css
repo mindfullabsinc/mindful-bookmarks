@@ -38,12 +38,9 @@
   }
 
   .theme-chip {
-    @apply flex flex-col rounded-2xl border border-neutral-300/70 dark:border-neutral-700/70
-           bg-white/80 dark:bg-black/80
+    @apply flex flex-col rounded-2xl 
            px-5 pt-5 pb-4
            transition
-           shadow-sm hover:shadow-md
-         hover:bg-neutral-50 dark:hover:bg-neutral-950
            cursor-pointer;
   }
 
