@@ -85,7 +85,7 @@ export const ThemeSelectorStep: React.FC = () => {
                 setSelected(opt.id);
                 void setThemePreference(opt.id);
               }}
-              className={`chip theme-chip ${active ? "theme-chip--active" : ""}`}
+              className={`chip theme-chip ${active ? "chip--active" : ""}`}
             >
               <div className="theme-chip-header">
                 <Icon className="chip-icon" />

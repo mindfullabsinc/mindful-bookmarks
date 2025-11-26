@@ -58,7 +58,7 @@ export const OnboardingOverlay: React.FC = () => {
     {
       id: "importBookmarks",
       title: "Let's set up Mindful for your life.",
-      subtitle: "We'll tailor your space and help you import your bookmarks, tabs, and history, with full control.",
+      // subtitle: "We'll tailor your space and help you import your bookmarks, tabs, and history, with full control.",
       body: (
         <ImportBookmarksStep 
           setPrimaryDisabled={setImportPrimaryDisabled}

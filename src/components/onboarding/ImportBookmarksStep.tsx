@@ -1,5 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { User, Briefcase, GraduationCap, Wand2, PlusSquare } from "lucide-react";
+import {
+  User,
+  Briefcase,
+  GraduationCap,
+  Loader2,
+  Wand2,
+  PlusSquare,
+} from "lucide-react";
 
 /* -------------------- Local types -------------------- */
 type PurposeChipProps = {
@@ -43,9 +50,7 @@ const PurposeChip: React.FC<PurposeChipProps> = ({
       type="button"
       onClick={handleClick}
       aria-pressed={active}
-      className={`chip purpose-chip ${
-        active ? "purpose-chip--active" : ""
-      }`}
+      className={`chip purpose-chip ${active ? "chip--active" : ""}`}
     >
       <Icon className="chip-icon" />
       <span>{label}</span>
@@ -58,18 +63,10 @@ export const ImportBookmarksStep: React.FC<ImportBookmarksStepProps> = ({
   setPrimaryDisabled,
   onSelectionChange,
 }) => {
-  /* -------------------- Context / state -------------------- */
+  /* -------------------- Purpose state -------------------- */
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [importChoice, setImportChoice] = useState<ImportChoice>(null);
-  /* ---------------------------------------------------------- */
-
-  /* -------------------- Effects -------------------- */
-  // Disable "Continue" when nothing selected
-  useEffect(() => {
-    setPrimaryDisabled?.(selectedIds.length === 0);
-    onSelectionChange?.(selectedIds);
-  }, [selectedIds, setPrimaryDisabled, onSelectionChange]);
-  /* ---------------------------------------------------------- */
+  const [isThinking, setIsThinking] = useState(false);
+  const [showImportSection, setShowImportSection] = useState(false);
 
   const singleSelection = selectedIds.length === 1 ? selectedIds[0] : null;
   const hasPurpose = selectedIds.length > 0;
@@ -80,16 +77,50 @@ export const ImportBookmarksStep: React.FC<ImportBookmarksStepProps> = ({
     school: "School",
   };
 
-  /* -------------------- Main component rendering -------------------- */
+  /* -------------------- Import choice state -------------------- */
+  const [importChoice, setImportChoice] = useState<ImportChoice>(null);
+  /* ---------------------------------------------------------- */
+
+  /* -------------------- Effects -------------------- */
+  // Disable "Next" when no purpose OR no import choice
+  useEffect(() => {
+    const disabled = selectedIds.length === 0 || importChoice === null;
+    setPrimaryDisabled?.(disabled);
+    onSelectionChange?.(selectedIds);
+  }, [selectedIds, importChoice, setPrimaryDisabled, onSelectionChange]);
+
+  useEffect(() => {
+    let timeoutId: number | undefined;
+
+    if (selectedIds.length > 0) {
+      setIsThinking(true);
+      setShowImportSection(false);
+
+      timeoutId = window.setTimeout(() => {
+        setIsThinking(false);
+        setShowImportSection(true);
+      }, 1200);
+    } else {
+      setIsThinking(false);
+      setShowImportSection(false);
+      setImportChoice(null); // reset if they deselect everything
+    }
+
+    return () => {
+      if (timeoutId) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, [selectedIds]);
+  /* ---------------------------------------------------------- */
+
   return (
     <div className="space-y-3 text-sm text-neutral-700 dark:text-neutral-300">
       {/* Divider */}
-      <div className="divider"></div>
+      <div className="divider" />
 
       {/* Prompt */}
-      <p className="prompt-title">
-        What brings you to Mindful?
-      </p>
+      <p className="prompt-title">What brings you to Mindful?</p>
 
       {/* Purpose chips */}
       <div className="purpose-chip-grid">
@@ -116,82 +147,84 @@ export const ImportBookmarksStep: React.FC<ImportBookmarksStepProps> = ({
         />
       </div>
 
-      {/* Recommended hint when exactly one is selected */}
       {singleSelection && (
-        <p className="tip">
-          Tip: You can select more than one category. 
-        </p>
+        <p className="tip">Tip: You can select more than one category.</p>
       )}
 
       {/* ---------- Import section (only after at least one purpose) ---------- */}
       {hasPurpose && (
-        <div className="mt-4 space-y-3">
-          <div className="h-px w-full bg-neutral-200 dark:bg-neutral-800" />
+        <>
+          {isThinking && (
+            <div className="mt-4 flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>
+                Tailoring Mindful for{" "}
+                {selectedIds.length === 1 ? labelMap[selectedIds[0]] : "you"}
+                {" …"}
+              </span>
+            </div>
+          )}
 
-          <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
-            Bring Mindful up to speed.
-          </p>
-          <p className="text-xs text-neutral-500 dark:text-neutral-400">
-            Choose how you’d like to start: we can automatically import and
-            sort what you already have, or you can build things up from scratch.
-          </p>
+          {showImportSection && (
+            <div className="mt-4 space-y-3">
+              <div className="h-px w-full bg-neutral-200 dark:bg-neutral-800" />
 
-          <div className="space-y-2">
-            {/* Auto import option */}
-            <button
-              type="button"
-              onClick={() => setImportChoice("auto")}
-              className={`w-full text-left import-option ${
-                importChoice === "auto" ? "import-option--active" : ""
-              }`}
-            >
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5">
-                  <Wand2 className="h-5 w-5 opacity-80" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
-                    Quick start (recommended)
-                  </p>
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                    Auto-import your existing bookmarks and organize them into
-                    groups. You’ll be able to review and tidy things up later.
-                  </p>
-                </div>
+              <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                Bring Mindful up to speed.
+              </p>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                Choose how you'd like to get your existing web life into
+                Mindful.
+              </p>
+
+              <div className="space-y-2">
+                {/* Smart Import */}
+                <button
+                  type="button"
+                  onClick={() => setImportChoice("auto")}
+                  className={`chip import-chip ${
+                    importChoice === "auto" ? "chip--active" : ""
+                  }`}
+                >
+                  <div className="import-chip__icon">
+                    <Wand2 className="h-5 w-5" />
+                  </div>
+                  <div className="import-chip__body">
+                    <div className="flex items-center gap-2">
+                      <p className="import-chip__title">Smart import</p>
+                      <span className="import-chip__pill">Recommended</span>
+                    </div>
+                    <p className="import-chip__subtitle">
+                      Let Mindful do the hard work to auto-import from your
+                      bookmarks, tabs, and history.
+                    </p>
+                  </div>
+                </button>
+
+                {/* Manual Import */}
+                <button
+                  type="button"
+                  onClick={() => setImportChoice("manual")}
+                  className={`chip import-chip ${
+                    importChoice === "manual" ? "chip--active" : ""
+                  }`}
+                >
+                  <div className="import-chip__icon">
+                    <PlusSquare className="h-5 w-5" />
+                  </div>
+                  <div className="import-chip__body">
+                    <p className="import-chip__title">Manual import</p>
+                    <p className="import-chip__subtitle">
+                      Manually decide exactly what you want to bring into
+                      Mindful, one step at a time.
+                    </p>
+                  </div>
+                </button>
               </div>
-            </button>
-
-            {/* Manual option */}
-            <button
-              type="button"
-              onClick={() => setImportChoice("manual")}
-              className={`w-full text-left import-option ${
-                importChoice === "manual" ? "import-option--active" : ""
-              }`}
-            >
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5">
-                  <PlusSquare className="h-5 w-5 opacity-80" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
-                    Start fresh
-                  </p>
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                    Don’t import anything yet. You’ll create a few focused
-                    groups and add links as you go.
-                  </p>
-                </div>
-              </div>
-            </button>
-          </div>
-
-          <p className="text-[11px] text-neutral-500 dark:text-neutral-500">
-            Your choices stay on this device unless you later turn on sync.
-          </p>
-        </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
-  /* ---------------------------------------------------------- */
-}
+};
