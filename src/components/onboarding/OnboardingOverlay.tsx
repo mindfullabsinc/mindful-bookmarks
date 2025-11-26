@@ -9,7 +9,7 @@ import { ImportBookmarksStep } from "@/components/onboarding/ImportBookmarksStep
 /* ---------------------------------------------------------- */
 
 /* -------------------- Local types -------------------- */
-type OnboardingStepId = "welcome" | "importBookmarks" | "tips";
+type OnboardingStepId = "selectTheme" | "importBookmarks" | "tips";
 
 type OnboardingStepConfig = {
   id: OnboardingStepId;
@@ -47,7 +47,7 @@ export const OnboardingOverlay: React.FC = () => {
   /* -------------------- Step config -------------------- */
   const STEPS: OnboardingStepConfig[] = [
     {
-      id: "welcome",
+      id: "selectTheme",
       title: "Welcome to Mindful!",
       subtitle: "Create visual groups for different projects, save pages into those groups, and see your \"board\" every time you open a new tab.",
       body: <ThemeSelectorStep />,
@@ -164,7 +164,7 @@ export const OnboardingOverlay: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 24 }}
           transition={{ duration: 0.2 }}
-          className="w-full max-w-lg rounded-2xl bg-white/95 dark:bg-black/95 p-6 shadow-2xl ring-1 ring-black/5 dark:ring-white/5"
+          className="w-full max-w-xl rounded-2xl bg-white/95 dark:bg-black/95 p-6 shadow-2xl ring-1 ring-black/5 dark:ring-white/5"
         >
           {/* Header / progress */}
           <div className="mb-3 flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-500">
