@@ -5,11 +5,12 @@ import { AppContext, OnboardingStatus } from "@/scripts/AppContextProvider";
 
 /* Components */
 import { ThemeSelectorStep } from "@/components/onboarding/ThemeSelectorStep";
+import { PurposeStep } from "@/components/onboarding/PurposeStep";
 import { ImportBookmarksStep } from "@/components/onboarding/ImportBookmarksStep";
 /* ---------------------------------------------------------- */
 
 /* -------------------- Local types -------------------- */
-type OnboardingStepId = "selectTheme" | "importBookmarks" | "tips";
+type OnboardingStepId = "selectTheme" | "setPurpose" | "importBookmarks" | "tips";
 
 type OnboardingStepConfig = {
   id: OnboardingStepId;
@@ -56,9 +57,22 @@ export const OnboardingOverlay: React.FC = () => {
       hideBack: true,
     },
     {
-      id: "importBookmarks",
-      title: "Let's set up Mindful for your life.",
+      id: "setPurpose",
+      title: "What brings you to Mindful?",
       // subtitle: "We'll tailor your space and help you import your bookmarks, tabs, and history, with full control.",
+      body: (
+        <PurposeStep
+          setPrimaryDisabled={setImportPrimaryDisabled}
+        />
+      ),
+      primaryLabel: "Next",
+      secondaryLabel: "Back",
+      primaryDisabled: importPrimaryDisabled,
+    },
+    {
+      id: "importBookmarks",
+      title: "Bring Mindful up to speed.",
+      subtitle: "Choose how you'd like to get your existing web life into Mindful.",
       body: (
         <ImportBookmarksStep 
           setPrimaryDisabled={setImportPrimaryDisabled}
