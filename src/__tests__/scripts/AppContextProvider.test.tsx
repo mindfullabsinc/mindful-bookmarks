@@ -61,7 +61,7 @@ const mock_readBookmarkCacheSession = jest.fn();
 const mock_writeBookmarkCacheSession = jest.fn();
 
 // Workspace registry: make an active workspace available immediately
-jest.mock('@/workspaces/registry', () => {
+jest.mock('@/scripts/workspaces/registry', () => {
   return {
     initializeLocalWorkspaceRegistry: jest.fn(async () => void 0),
     loadRegistry: jest.fn(async () => ({

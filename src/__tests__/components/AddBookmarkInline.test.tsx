@@ -23,7 +23,7 @@ import '@testing-library/jest-dom';
 import { AddBookmarkInline } from '@/components/AddBookmarkInline';
 import { AppContext } from '@/scripts/AppContextProvider';
 import { useBookmarkManager } from '@/hooks/useBookmarkManager';
-import { constructValidURL } from '@/core/utils/utilities';
+import { constructValidURL } from '@/core/utils/url';
 
 // --- Test setup ---
 

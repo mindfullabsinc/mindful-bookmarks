@@ -13,7 +13,7 @@ import { AppContextProvider } from '@/scripts/AppContextProvider';
 import * as bookmarksData from '@/scripts/bookmarksData';
 import * as useBookmarkManager from '@/hooks/useBookmarkManager';
 import useImportBookmarksDefault from '@/hooks/useImportBookmarks';
-import * as Utilities from '@/core/utils/utilities';
+import * as Utilities from '@/core/utils/chrome';
 import { StorageMode, type StorageModeType } from '@/core/constants/storageMode'; 
 /* ---------------------------------------------------------- */
 
@@ -109,7 +109,7 @@ jest.mock('@/scripts/AppContextProvider', () => {
   return { __esModule: true, AppContextProvider, AppContext };
 });
 
-jest.mock('@/workspaces/registry', () => {
+jest.mock('@/scripts/workspaces/registry', () => {
   // in-memory fake registry for this test file
   const now = () => Date.now();
   let reg = {
@@ -158,7 +158,7 @@ jest.mock('@/hooks/useBookmarkManager', () => ({
   useBookmarkManager: jest.fn(),
 }));
 
-jest.mock('@/core/utils/utilities', () => ({
+jest.mock('@/core/utils/storageKeys', () => ({
   __esModule: true,
   getUserStorageKey: jest.fn(),
 }));

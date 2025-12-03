@@ -1,6 +1,6 @@
 import { StorageMode } from "@/core/constants/storageMode";
 import type { WorkspaceIdType, WorkspaceType, WorkspaceRegistryType } from "@/core/constants/workspaces";
-import { createUniqueID } from "@/core/utils/utilities";
+import { createUniqueID } from "@/core/utils/ids";
 import { 
   DEFAULT_LOCAL_WORKSPACE_ID, 
   WORKSPACE_REGISTRY_KEY 

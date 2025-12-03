@@ -66,7 +66,7 @@ jest.mock('@/hooks/useBookmarkManager', () => ({
 
 // Make IDs deterministic for easier assertions.
 let mockNextId = 1;
-jest.mock('@/core/utils/utilities', () => ({
+jest.mock('@/core/utils/ids', () => ({
   __esModule: true,
   createUniqueID: () => `id_${mockNextId++}`,
 }));

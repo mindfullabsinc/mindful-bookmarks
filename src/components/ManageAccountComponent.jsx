@@ -14,7 +14,7 @@ import 'react-phone-number-input/style.css';
 
 /* Scripts */
 import { AppContext } from "@/scripts/AppContextProvider";
-import { toE164 } from "@/core/utils/utilities"
+import { toE164 } from "@/core/utils/phone";
 import { StorageMode, StorageLabel } from "@/core/constants/storageMode";
 
 /* Components */

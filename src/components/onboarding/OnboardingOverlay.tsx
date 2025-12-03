@@ -1,5 +1,5 @@
 /* -------------------- Imports -------------------- */
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext, useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AppContext, OnboardingStatus } from "@/scripts/AppContextProvider";
 
@@ -7,10 +7,12 @@ import { AppContext, OnboardingStatus } from "@/scripts/AppContextProvider";
 import { ThemeSelectorStep } from "@/components/onboarding/ThemeSelectorStep";
 import { PurposeStep } from "@/components/onboarding/PurposeStep";
 import { ImportBookmarksStep } from "@/components/onboarding/ImportBookmarksStep";
+import { SmartImportStep } from "@/components/onboarding/SmartImportStep";
+import { FinishUpStep } from "@/components/onboarding/FinishUpStep";
 /* ---------------------------------------------------------- */
 
 /* -------------------- Local types -------------------- */
-type OnboardingStepId = "selectTheme" | "setPurpose" | "importBookmarks" | "tips";
+type OnboardingStepId = "selectTheme" | "setPurpose" | "importBookmarks" | "smartImport" | "finishUp" | "tips";
 
 type OnboardingStepConfig = {
   id: OnboardingStepId;
@@ -33,16 +35,45 @@ type OnboardingStepConfig = {
 export const OnboardingOverlay: React.FC = () => {
   const {
     onboardingStatus,
+    setOnboardingStatus,
     shouldShowOnboarding,
     completeOnboarding,
     skipOnboarding,
     restartOnboarding,
+    onboardingPurposes,
   } = useContext(AppContext);
 
   /* -------------------- Context / state -------------------- */
   // Local-only step index; AppContext just knows "in_progress vs done".
   const [stepIndex, setStepIndex] = useState(0);
   const [importPrimaryDisabled, setImportPrimaryDisabled] = useState(true);
+  /* ---------------------------------------------------------- */
+
+    /* -------------------- Helper functions -------------------- */
+  const handlePrimary = async () => {
+    if (isLast) {
+      await completeOnboarding();
+      return;
+    }
+    setStepIndex((prev) => Math.min(prev + 1, totalSteps - 1));
+  };
+
+  const handleSecondary = async () => {
+    // On the first screen, secondary is "Skip for now"
+    if (isFirst && step.secondaryLabel === "Skip for now") {
+      await skipOnboarding();
+      return;
+    }
+    // Otherwise treat it as Back
+    if (!isFirst) {
+      setStepIndex((prev) => Math.max(prev - 1, 0));
+    }
+  };
+
+  // If onboarding is done, this component should unmount in the app shell
+  const finishOnboarding = useCallback(() => {
+    setOnboardingStatus(OnboardingStatus.COMPLETED);
+  }, [setOnboardingStatus]);
   /* ---------------------------------------------------------- */
 
   /* -------------------- Step config -------------------- */
@@ -56,6 +87,14 @@ export const OnboardingOverlay: React.FC = () => {
       secondaryLabel: "Skip for now",
       hideBack: true,
     },
+    // {  // TODO: Add pin to browser onboarding step
+    //   id: "finishUp",
+    //   title: "You're ready to go",
+    //   subtitle: "A few quick tips before you dive in.",
+    //   body: <FinishUpStep />,  
+    //   primaryLabel: "Next",
+    //   secondaryLabel: "Back",
+    // },
     {
       id: "setPurpose",
       title: "What brings you to Mindful?",
@@ -83,34 +122,19 @@ export const OnboardingOverlay: React.FC = () => {
       primaryDisabled: importPrimaryDisabled,
     },
     {
-      id: "tips",
-      title: "You’re all set",
-      subtitle: "A few quick tips before you start.",
+      id: "smartImport",
+      title: "Setting things up ...",
+      subtitle: "We’re pulling in your bookmarks, tabs, and history to build your Mindful workspace.",
       body: (
-        <div className="space-y-3 text-sm text-neutral-700">
-          <ul className="list-disc space-y-1 pl-5">
-            <li>
-              <strong>Click +</strong> in your workspace to create a new group
-              for related links.
-            </li>
-            <li>
-              Use the Mindful button (or right click &gt; “Save to Mindful”) to
-              add the current page.
-            </li>
-            <li>
-              Reorder groups and links with drag &amp; drop when you’re ready to
-              reorganize.
-            </li>
-          </ul>
-          <p className="text-xs text-neutral-500">
-            You can reopen this onboarding anytime from the settings menu.
-          </p>
-        </div>
+        <SmartImportStep
+          purposes={onboardingPurposes}
+        />
       ),
-      primaryLabel: "Start using Mindful",
+      primaryLabel: "Open Mindful",
       secondaryLabel: "Back",
       isFinal: true,
-    },
+      primaryDisabled: importPrimaryDisabled,  // Primary button is disabled while importing
+    }
   ];
   /* ---------------------------------------------------------- */
 
@@ -145,28 +169,6 @@ export const OnboardingOverlay: React.FC = () => {
   const step = STEPS[clampedIndex];
   const isFirst = clampedIndex === 0;
   const isLast = !!step.isFinal || clampedIndex === totalSteps - 1;
-
-  /* -------------------- Helper functions -------------------- */
-  const handlePrimary = async () => {
-    if (isLast) {
-      await completeOnboarding();
-      return;
-    }
-    setStepIndex((prev) => Math.min(prev + 1, totalSteps - 1));
-  };
-
-  const handleSecondary = async () => {
-    // On the first screen, secondary is "Skip for now"
-    if (isFirst && step.secondaryLabel === "Skip for now") {
-      await skipOnboarding();
-      return;
-    }
-    // Otherwise treat it as Back
-    if (!isFirst) {
-      setStepIndex((prev) => Math.max(prev - 1, 0));
-    }
-  };
-  /* ---------------------------------------------------------- */
 
   /* -------------------- Main component rendering -------------------- */
   return (

@@ -13,7 +13,7 @@ import {
   getActiveWorkspaceId,
   setActiveWorkspace,
   createLocalWorkspace,
-} from '@/workspaces/registry';
+} from '@/scripts/workspaces/registry';
 
 import {
   DEFAULT_LOCAL_WORKSPACE_ID,
@@ -36,7 +36,7 @@ import {
 const FIXED_NOW = 1_700_000_000_000;
 jest.spyOn(Date, 'now').mockReturnValue(FIXED_NOW);
 
-jest.mock('@/core/utils/utilities', () => ({
+jest.mock('@/core/utils/ids', () => ({
   __esModule: true,
   // ensure unique ids across calls in this suite so nothing gets overwritten
   createUniqueID: jest
