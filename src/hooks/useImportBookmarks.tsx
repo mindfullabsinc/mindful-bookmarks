@@ -5,7 +5,7 @@ import ImportBookmarksModal from '@/components/ImportBookmarksModal';
 import { useBookmarkManager } from '@/hooks/useBookmarkManager';
 
 /* Scripts */
-import { createUniqueID } from '@/core/utils/utilities';
+import { createUniqueID } from '@/core/utils/ids';
 import { EMPTY_GROUP_IDENTIFIER } from "@/core/constants/constants";
 import type { BookmarkGroupType } from '@/core/types/bookmarks';
 

@@ -22,7 +22,7 @@ import { useBookmarkManager } from '@/hooks/useBookmarkManager';
 import { ensureImportedGroup } from "@/hooks/useCopyTo"; 
 
 /* Utilities */
-import { getUserStorageKey } from '@/core/utils/utilities';
+import { getUserStorageKey } from '@/core/utils/storageKeys';
 
 /* Scripts */
 import { loadInitialBookmarks } from '@/scripts/bookmarksData';

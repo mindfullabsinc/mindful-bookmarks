@@ -22,7 +22,7 @@ import {
   refreshOtherMindfulTabs,
   refreshActiveMindfulTab,
   toE164,
-} from '@/core/utils/utilities';
+} from '@/core/utils/chrome';
 
 // Force a stable expected new tab URL for tests
 jest.mock('@/core/constants/constants', () => ({

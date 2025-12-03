@@ -7,7 +7,7 @@ import {
   createLocalWorkspace,
   renameWorkspace,
   archiveWorkspace,
-} from '@/workspaces/registry';
+} from '@/scripts/workspaces/registry';
 import { AppContext } from '@/scripts/AppContextProvider';
 import {
   clearSessionGroupsIndexExcept,

@@ -1,13 +1,21 @@
-import React, { useEffect, useState } from "react";
+/* -------------------- IMports -------------------- */
+import React, { useEffect, useState, useContext, Dispatch, SetStateAction } from "react";
 import { User, Briefcase, GraduationCap, Loader2 } from "lucide-react";
+
+/* Scripts */
+import { AppContext } from "@/scripts/AppContextProvider";
+
+/* Types */
+import type { PurposeId } from "@/core/types/purposeId";
+/* ---------------------------------------------------------- */
 
 /* -------------------- Local types -------------------- */
 type PurposeChipProps = {
-  id: string;
+  id: PurposeId;
   label: string;
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
-  selectedIds: string[];
-  setSelectedIds: (ids: string[]) => void;
+  selectedIds: PurposeId[];
+  setSelectedIds: Dispatch<SetStateAction<PurposeId[]>>;
 };
 
 type PurposeStepProps = {
@@ -27,11 +35,11 @@ const PurposeChip: React.FC<PurposeChipProps> = ({
   const active = selectedIds.includes(id);
 
   const handleClick = () => {
-    if (active) {
-      setSelectedIds(selectedIds.filter((x) => x !== id));
-    } else {
-      setSelectedIds([...selectedIds, id]);
-    }
+    setSelectedIds((prev) =>
+      prev.includes(id)
+        ? prev.filter((x) => x !== id)
+        : [...prev, id]
+    );
   };
 
   return (
@@ -53,13 +61,15 @@ export const PurposeStep: React.FC<PurposeStepProps> = ({
   onSelectionChange,
 }) => {
   /* -------------------- State -------------------- */
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [isThinking, setIsThinking] = useState(false);
+  const { onboardingPurposes, setOnboardingPurposes } = useContext(AppContext);
+  const [selectedIds, setSelectedIds] = useState<PurposeId[]>(
+    onboardingPurposes ?? []
+  );
 
   const singleSelection = selectedIds.length === 1 ? selectedIds[0] : null;
   const hasPurpose = selectedIds.length > 0;
 
-  const labelMap: Record<string, string> = {
+  const labelMap: Record<PurposeId, string> = {
     personal: "Personal",
     work: "Work",
     school: "School",
@@ -74,26 +84,10 @@ export const PurposeStep: React.FC<PurposeStepProps> = ({
     onSelectionChange?.(selectedIds);
   }, [selectedIds, setPrimaryDisabled, onSelectionChange]);
 
-  // Little "tailoring" thinking animation
+  // Whenever chips change, push the selection into global onboarding state
   useEffect(() => {
-    let timeoutId: number | undefined;
-
-    if (selectedIds.length > 0) {
-      setIsThinking(true);
-
-      timeoutId = window.setTimeout(() => {
-        setIsThinking(false);
-      }, 1200);
-    } else {
-      setIsThinking(false);
-    }
-
-    return () => {
-      if (timeoutId) {
-        window.clearTimeout(timeoutId);
-      }
-    };
-  }, [selectedIds]);
+    setOnboardingPurposes(selectedIds);
+  }, [selectedIds, setOnboardingPurposes]);
   /* ---------------------------------------------------------- */
 
   return (

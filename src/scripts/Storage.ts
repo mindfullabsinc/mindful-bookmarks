@@ -1,4 +1,4 @@
-import { getUserStorageKey } from '@/core/utils/utilities';
+import { getUserStorageKey } from '@/core/utils/storageKeys';
 import { StorageMode } from '@/core/constants/storageMode';
 import type { StorageModeType } from '@/core/constants/storageMode';
 import type { WorkspaceIdType } from '@/core/constants/workspaces';

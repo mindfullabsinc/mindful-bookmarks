@@ -47,6 +47,7 @@ const baseCtx: AppContextValue = {
 
   /* Onboarding */
   onboardingStatus: OnboardingStatus.NOT_STARTED,
+  setOnboardingStatus: async () => {},
   shouldShowOnboarding: false,
   completeOnboarding: async () => {},
   skipOnboarding: async () => {},

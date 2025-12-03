@@ -4,7 +4,7 @@ import {
   StorageMode,
   type StorageModeType 
 } from "@/core/constants/storageMode";
-import { createUniqueID } from "@/core/utils/utilities";
+import { createUniqueID } from "@/core/utils/ids";
 
 /* -------------------- Types -------------------- */
 export type WorkspaceIdType = string;

@@ -1,7 +1,7 @@
 /* -------------------- Imports -------------------- */
 /* Libraries */
 import React, { act } from 'react';
-import { createContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useState, useEffect, useCallback, useMemo } from 'react';
 import type { ReactNode, ReactElement, Dispatch, SetStateAction } from 'react';
 import {
   fetchAuthSession,
@@ -11,6 +11,7 @@ import {
 
 /* Types */
 import type { BookmarkGroupType } from "@/core/types/bookmarks";
+import type { PurposeId } from '@/core/types/purposeId';
 
 /* Scripts */
 import {
@@ -43,7 +44,7 @@ import {
   loadRegistry, 
   initializeLocalWorkspaceRegistry, 
   setActiveWorkspace, 
-} from "@/workspaces/registry";
+} from "@/scripts/workspaces/registry";
 
 /* Onboarding */
 import { ONBOARDING_STORAGE_KEY } from '@/core/constants/onboarding';
@@ -109,10 +110,13 @@ export interface AppContextValue {
 
   /* Onboarding */
   onboardingStatus: OnboardingStatus;
+  setOnboardingStatus: (status: OnboardingStatus) => void;
   shouldShowOnboarding: boolean;
   completeOnboarding: () => Promise<void>;
   skipOnboarding: () => Promise<void>;
   restartOnboarding: () => Promise<void>;
+  onboardingPurposes: PurposeId[];
+  setOnboardingPurposes: (purposes: PurposeId[]) => void;
 
   /* Theme (light/dark/system) for the UI */
   theme: ThemeChoice;
@@ -182,6 +186,7 @@ export function AppContextProvider({
   const shouldShowOnboarding =
     onboardingStatus === OnboardingStatus.IN_PROGRESS ||
     onboardingStatus === OnboardingStatus.NOT_STARTED;
+  const [onboardingPurposes, setOnboardingPurposes] = useState<PurposeId[]>([]);
 
   // Themes
   const [theme, setTheme] = useState<ThemeChoice>(ThemeChoice.SYSTEM);
@@ -915,10 +920,13 @@ export function AppContextProvider({
 
     // Onboarding
     onboardingStatus,
+    setOnboardingStatus,
     shouldShowOnboarding,
     completeOnboarding,
     skipOnboarding,
     restartOnboarding,
+    onboardingPurposes,
+    setOnboardingPurposes,
 
     // Themes
     theme,
