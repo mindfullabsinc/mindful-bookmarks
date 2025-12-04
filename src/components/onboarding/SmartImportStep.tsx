@@ -25,6 +25,7 @@ import { createWorkspaceServiceLocal } from "@/scripts/import/workspaceServiceLo
 import { chromeBrowserSourceService } from "@/scripts/import/browserSourceServiceChrome";
 import { basicNsfwFilter } from "@/scripts/import/nsfwFilter";
 import { stubGroupingLLM } from "@/scripts/import/groupingLLMStub";
+import { remoteGroupingLLM } from "@/scripts/import/groupingLLMRemote";
 /* ---------------------------------------------------------- */
 
 /* -------------------- Types -------------------- */
@@ -62,7 +63,7 @@ export const SmartImportStep: React.FC<SmartImportStepProps> = ({
       workspaceService,
       browserSourceService: chromeBrowserSourceService,
       nsfwFilter: basicNsfwFilter,
-      llm: stubGroupingLLM,
+      llm: remoteGroupingLLM, /*stubGroupingLLM,*/
     }),
     [workspaceService]
   );

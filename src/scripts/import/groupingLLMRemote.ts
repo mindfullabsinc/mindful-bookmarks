@@ -1,64 +1,64 @@
-import {
+// scripts/import/groupingLLMRemote.ts
+import type {
   GroupingLLM,
-  RawItem,
-  CategorizedGroup,
-} from "@/scripts/import/smartImport";
-import type { PurposeId } from "@/core/types/purposeId";
+  GroupingInput,
+  GroupingLLMResponse,
+} from "@/core/types/llmGrouping";
 
-type GroupingResponse = {
-  groups: {
-    id?: string;
-    name: string;
-    description?: string;
-    purpose: PurposeId;
-    itemIds: string[];
-  }[];
-};
+const API_BASE_URL =
+  process.env.MINDFUL_API_BASE_URL ?? "https://api.mindfulbookmarks.com";
+
+const MIN_ITEMS_FOR_LLM = 6; // below this, just make one group locally
 
 export const remoteGroupingLLM: GroupingLLM = {
-  async groupItemsIntoCategories(
-    items: RawItem[],
-    purposes: PurposeId[]
-  ): Promise<CategorizedGroup[]> {
-    const payload = {
-      purposes,
-      items: items.map((i) => ({
-        id: i.id,
-        name: i.name,
-        url: i.url,
-        source: i.source,
-        lastVisitedAt: i.lastVisitedAt,
-      })),
-    };
-
-    const res = await fetch(
-      "https://api.mindfulbookmarks.com/smart-import/group",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          // auth header if needed
-        },
-        body: JSON.stringify(payload),
-      }
-    );
-
-    if (!res.ok) {
-      throw new Error("Grouping LLM call failed");
+  async group(input: GroupingInput): Promise<GroupingLLMResponse> {
+    if (!input.bookmarks.length) {
+      return { groups: [] };
     }
 
-    const data: GroupingResponse = await res.json();
+    // Skip LLM for tiny imports to save money
+    if (input.bookmarks.length < MIN_ITEMS_FOR_LLM) {
+      return {
+        groups: [
+          {
+            id: "imported",
+            name: "Imported",
+            description: "All imported bookmarks",
+            bookmarkIds: input.bookmarks.map((b) => b.id),
+          },
+        ],
+      };
+    }
 
-    const byId = new Map(items.map((i) => [i.id, i]));
+    const MAX_ITEMS = 100;
+    const trimmedInput: GroupingInput = {
+      ...input,
+      bookmarks: input.bookmarks.slice(0, MAX_ITEMS),
+    };
 
-    return data.groups.map((g) => ({
-      id: g.id ?? `grp_${crypto.randomUUID()}`,
-      name: g.name,
-      description: g.description,
-      purpose: g.purpose,
-      items: g.itemIds
-        .map((id) => byId.get(id))
-        .filter((i): i is RawItem => Boolean(i)),
-    }));
+    const res = await fetch(`${API_BASE_URL}/groupBookmarks`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(trimmedInput),
+    });
+
+    if (!res.ok) {
+      console.error("remoteGroupingLLM error", res.status, await res.text());
+      return {
+        groups: [
+          {
+            id: "imported",
+            name: "Imported",
+            description: "All imported bookmarks",
+            bookmarkIds: input.bookmarks.map((b) => b.id),
+          },
+        ],
+      };
+    }
+
+    const data = (await res.json()) as GroupingLLMResponse;
+    return data;
   },
 };
