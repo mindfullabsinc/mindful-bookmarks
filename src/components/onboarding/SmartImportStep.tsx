@@ -49,7 +49,7 @@ const MIN_PHASE_DURATION_MS = 800;
 export const SmartImportStep: React.FC<SmartImportStepProps> = ({
   purposes
 }) => {
-  const { userId } = useContext(AppContext);
+  const { userId, bumpWorkspacesVersion } = useContext(AppContext);
 
   // Build a user-scoped WorkspaceService
   const workspaceService = useMemo(
@@ -90,8 +90,14 @@ export const SmartImportStep: React.FC<SmartImportStepProps> = ({
     (async () => {
       try {
         await start(purposes);
+        if (!cancelled) {
+          bumpWorkspacesVersion();  // Tell the rest of the app registry changed
+        }
       } catch (err) {
         console.error("[SmartImportStep] error during smart import", err);
+        if (!cancelled) {
+          bumpWorkspacesVersion();  // In case we created any workspaces before failing
+        }
       } finally {
         // Backend is finished; visual phase will "catch up" below
       }
@@ -100,7 +106,7 @@ export const SmartImportStep: React.FC<SmartImportStepProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [purposes, start]);
+  }, [purposes, start, bumpWorkspacesVersion]);
   /* ---------------------------------------------------------- */
 
   /* -------------------- Visual phase smoothing -------------------- */

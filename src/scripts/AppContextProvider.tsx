@@ -91,6 +91,8 @@ export interface AppContextValue {
   workspaces: Record<WorkspaceIdType, WorkspaceType>;
   activeWorkspaceId: WorkspaceIdType | null;  // allow null during boot
   setActiveWorkspaceId: (id: WorkspaceIdType) => void; 
+  workspacesVersion: number;
+  bumpWorkspacesVersion: () => void;
 
   groupsIndex: GroupsIndexEntry[];
   bookmarkGroups: BookmarkGroupType[];
@@ -160,6 +162,7 @@ export function AppContextProvider({
   // Workspaces
   const [workspaces, setWorkspaces] = useState<Record<WorkspaceIdType, WorkspaceType>>({});
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<WorkspaceIdType | null>(null);
+  const [workspacesVersion, setWorkspacesVersion] = useState(0);
 
   const [bookmarkGroups, setBookmarkGroups] = useState<BookmarkGroupType[]>([]);
   const [groupsIndex, setGroupsIndex] = useState<GroupsIndexEntry[]>([]); // [{ id, groupName }]
@@ -392,6 +395,10 @@ export function AppContextProvider({
     },
     []
   ); 
+
+  const bumpWorkspacesVersion = useCallback(() => {
+    setWorkspacesVersion((v) => v + 1);
+  }, []);
   /* ---------------------------------------------------------- */
 
   /* -------------------- Effects -------------------- */
@@ -896,11 +903,14 @@ export function AppContextProvider({
   }
 
   const contextValue: AppContextValue = {
+    // Workspaces
     workspaces,
     activeWorkspaceId,
     // Set wrapper so callers don't get a plain state setter, which could cause divergence
     // from the registry on disk.
     setActiveWorkspaceId: updateActiveWorkspaceId,
+    workspacesVersion,
+    bumpWorkspacesVersion, 
 
     groupsIndex,
     bookmarkGroups,

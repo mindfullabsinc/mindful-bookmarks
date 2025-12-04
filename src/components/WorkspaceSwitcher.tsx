@@ -24,9 +24,14 @@ import type { WorkspaceType } from '@/core/constants/workspaces';
  * WorkspaceSwitcher (Light-first with Dark support)
  */
 export const WorkspaceSwitcher: React.FC = () => {
-  const { setActiveWorkspaceId, activeWorkspaceId: ctxActiveId } = useContext(AppContext) as {
+  const { 
+    setActiveWorkspaceId, 
+    activeWorkspaceId: ctxActiveId,
+    workspacesVersion
+  } = useContext(AppContext) as {
     setActiveWorkspaceId: (id: string) => Promise<void> | void;
     activeWorkspaceId: string | null;
+    workspacesVersion: number;
   };
 
   const [panelOpen, setPanelOpen] = useState(false);
@@ -37,15 +42,23 @@ export const WorkspaceSwitcher: React.FC = () => {
   const openerRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+
     (async () => {
       const [list, active] = await Promise.all([
         listLocalWorkspaces(),
         getActiveWorkspaceId(),
       ]);
-      setWorkspaces(list);
-      setActiveId(active);
+      if (!cancelled) {
+        setWorkspaces(list);
+        setActiveId(active);
+      }
     })();
-  }, []);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [workspacesVersion]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
