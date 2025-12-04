@@ -39,27 +39,6 @@ const loadBookmarksFn = backend.loadBookmarks.resources.lambda as lambda.Functio
 const deleteBookmarksFn = backend.deleteBookmarks.resources.lambda as lambda.Function;
 const emailWaitlistFn = backend.emailWaitlist.resources.lambda as lambda.Function; 
 
-// ---------- Version + Alias + Provisioned Concurrency (loadBookmarks and saveBookmarks) ----------
-const loadVersion = new lambda.Version(stack, 'LoadBookmarksVersion', {
-  lambda: loadBookmarksFn,
-});
-const saveVersion = new lambda.Version(stack, 'SaveBookmarksVersion', {
-  lambda: saveBookmarksFn,
-});
-
-const loadAlias = new lambda.Alias(stack, 'LoadBookmarksLiveAlias', {
-  aliasName: 'live',
-  version: loadVersion,
-});
-const saveAlias = new lambda.Alias(stack, 'SaveBookmarksLiveAlias', {
-  aliasName: 'live',
-  version: saveVersion,
-});
-
-// Keep one warm container (bump to 2 if we see concurrent loads)
-loadAlias.addAutoScaling({ minCapacity: 1, maxCapacity: 1 });
-saveAlias.addAutoScaling({ minCapacity: 1, maxCapacity: 1 });
-
 // ---------- KMS key (ID or ARN both work for GenerateDataKey) ----------
 const kmsKeyId = 'arn:aws:kms:us-west-1:534861782220:key/51a54516-e016-4d00-a6da-7aff429418ed';
 const kmsKey = kms.Key.fromKeyArn(stack, 'BookmarksKmsKey', kmsKeyId);
@@ -120,14 +99,14 @@ const api = new apigwv2.HttpApi(stack, 'MyHttpApi', {
 api.addRoutes({
   path: '/bookmarks',
   methods: [apigwv2.HttpMethod.POST],
-  integration: new HttpLambdaIntegration('saveBookmarksIntegration', saveAlias), // use alias for provisioned concurrency 
+  integration: new HttpLambdaIntegration('saveBookmarksIntegration', saveBookmarksFn), 
   authorizer,
 });
 
 api.addRoutes({
   path: '/bookmarks',
   methods: [apigwv2.HttpMethod.GET],
-  integration: new HttpLambdaIntegration('loadBookmarksIntegration', loadAlias), // use alias for provisioned concurrency
+  integration: new HttpLambdaIntegration('loadBookmarksIntegration', loadBookmarksFn), 
   authorizer,
 });
 
