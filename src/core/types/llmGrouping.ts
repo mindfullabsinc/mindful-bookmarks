@@ -1,27 +1,29 @@
 import { PurposeId } from "./purposeId";
 
+export type RawSource = "bookmarks" | "tabs" | "history";
 
-export type GroupedBookmark = {
-  id: string;          // the internal bookmark id
+export type RawItem = {
+  id: string;
   name: string;
   url: string;
-  description?: string;
+  source: RawSource;
+  lastVisitedAt?: number;
 };
 
+export type CategorizedGroup = {
+  id: string;
+  name: string;
+  purpose: PurposeId;
+  description?: string;
+  items: RawItem[];
+};
 export type GroupingInput = {
-  bookmarks: GroupedBookmark[];
+  items: RawItem[];
   purposes: PurposeId[]; 
 };
 
-export type GroupResult = {
-  id: string;          // group id 
-  name: string;
-  description?: string;
-  bookmarkIds: string[];
-};
-
 export type GroupingLLMResponse = {
-  groups: GroupResult[];
+  groups: CategorizedGroup[];
 };
 
 // Interface the hook will call

@@ -15,6 +15,7 @@ import { saveBookmarks } from "./functions/saveBookmarks/resource";
 import { loadBookmarks } from "./functions/loadBookmarks/resource";
 import { deleteBookmarks } from "./functions/deleteBookmarks/resource";
 import { emailWaitlist } from "./functions/emailWaitlist/resource";
+import { groupBookmarks } from "./functions/groupBookmarks/resource";
 
 /**
  * Root Amplify backend definition with auth, storage, functions, and data resources.
@@ -27,6 +28,7 @@ export const backend = defineBackend({
   loadBookmarks,
   deleteBookmarks,
   emailWaitlist,           
+  groupBookmarks,
 });
 
 // ---------- Synthesized resources ----------
@@ -38,6 +40,7 @@ const saveBookmarksFn = backend.saveBookmarks.resources.lambda as lambda.Functio
 const loadBookmarksFn = backend.loadBookmarks.resources.lambda as lambda.Function;
 const deleteBookmarksFn = backend.deleteBookmarks.resources.lambda as lambda.Function;
 const emailWaitlistFn = backend.emailWaitlist.resources.lambda as lambda.Function; 
+const groupBookmarksFn = backend.groupBookmarks.resources.lambda as lambda.Function; 
 
 // ---------- KMS key (ID or ARN both work for GenerateDataKey) ----------
 const kmsKeyId = 'arn:aws:kms:us-west-1:534861782220:key/51a54516-e016-4d00-a6da-7aff429418ed';
@@ -122,6 +125,13 @@ api.addRoutes({
   methods: [apigwv2.HttpMethod.POST],
   integration: new HttpLambdaIntegration('emailWaitlistIntegration', emailWaitlistFn),
   // No authorizer -> public endpoint (safe because handler does its own validation & is write-only)
+});
+
+api.addRoutes({
+  path: '/groupBookmarks',
+  methods: [apigwv2.HttpMethod.POST],
+  integration: new HttpLambdaIntegration('groupBookmarksIntegration', groupBookmarksFn),
+  // No authorizer: public endpoint, safe because it only writes to OpenAI and returns JSON
 });
 
 // ---------- Lambda IAM for S3 + KMS ----------

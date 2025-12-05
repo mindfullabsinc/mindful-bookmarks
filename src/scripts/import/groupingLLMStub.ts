@@ -1,9 +1,9 @@
-// src/scripts/import/groupingLLMStub.ts
 import type {
   GroupingLLM,
-  RawItem,
+  GroupingInput,
+  GroupingLLMResponse,
   CategorizedGroup,
-} from "@/scripts/import/smartImport";
+} from "@/core/types/llmGrouping";
 import type { PurposeId } from "@/core/types/purposeId";
 
 function capitalize(purpose: PurposeId): string {
@@ -19,16 +19,18 @@ function capitalize(purpose: PurposeId): string {
  * - If multiple purposes: duplicate ALL items into one group per purpose
  */
 export const stubGroupingLLM: GroupingLLM = {
-  async groupItemsIntoCategories(
-    items: RawItem[],
-    purposes: PurposeId[]
-  ): Promise<CategorizedGroup[]> {
-    if (!items.length || !purposes.length) return [];
+  async group(input: GroupingInput): Promise<GroupingLLMResponse> {
+    const { items, purposes } = input;
+
+    // No items or no purposes → nothing to group
+    if (!items.length || !purposes.length) {
+      return { groups: [] };
+    }
 
     // Single purpose → one group
     if (purposes.length === 1) {
       const purpose = purposes[0];
-      return [
+      const groups: CategorizedGroup[] = [
         {
           id: `grp_${Date.now()}`,
           name: "Imported",
@@ -37,16 +39,19 @@ export const stubGroupingLLM: GroupingLLM = {
           items,
         },
       ];
+      return { groups };
     }
 
-    // Multiple purposes → one group per purpose (same items)
+    // Multiple purposes → one group per purpose (same items in each)
     const now = Date.now();
-    return purposes.map((purpose, idx) => ({
+    const groups: CategorizedGroup[] = purposes.map((purpose, idx) => ({
       id: `grp_${now}_${idx}`,
       name: `Imported – ${capitalize(purpose)}`,
       description: "All imported links",
       purpose,
       items,
     }));
+
+    return { groups };
   },
 };

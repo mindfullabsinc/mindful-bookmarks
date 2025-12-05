@@ -2,27 +2,16 @@
 /* Types */
 import type { SmartImportPhase } from "@/core/types/smartImportPhase";
 import type { PurposeId } from "@/core/types/purposeId";
+import type {
+  GroupingLLM,
+  GroupingInput,
+  GroupingLLMResponse,
+  CategorizedGroup,
+  RawItem,
+} from "@/core/types/llmGrouping";
 /* ---------------------------------------------------------- */
 
 /* -------------------- Types -------------------- */
-export type RawSource = "bookmarks" | "tabs" | "history";
-
-export type RawItem = {
-  id: string;
-  name: string;
-  url: string;
-  source: RawSource;
-  lastVisitedAt?: number;
-};
-
-export type CategorizedGroup = {
-  id: string;
-  name: string;
-  purpose: PurposeId;
-  description?: string;
-  items: RawItem[];
-};
-
 export type WorkspaceRef = {
   id: string;
   purpose: PurposeId;
@@ -55,17 +44,6 @@ export interface BrowserSourceService {
 export interface NsfwFilter {
   /** Returns TRUE if the URL is safe to import */
   isSafe(item: RawItem): Promise<boolean>;
-}
-
-export interface GroupingLLM {
-  /**
-   * Given a list of items + selected purposes, return groupings.
-   * This is where you call your backend / LLM API.
-   */
-  groupItemsIntoCategories(
-    items: RawItem[],
-    purposes: PurposeId[]
-  ): Promise<CategorizedGroup[]>;
 }
 
 export type SmartImportOptions = {
@@ -140,16 +118,17 @@ export async function runSmartImport(
     message: "Collecting bookmarks, tabs, and history…",
   });
 
-  const [bookmarkItems, tabItems, historyItems] = await Promise.all([
+  // TODO: Incorporate history
+  const [bookmarkItems, tabItems /*, historyItems*/] = await Promise.all([
     browserSourceService.collectBookmarks(),
     browserSourceService.collectTabs(),
-    browserSourceService.collectHistory(300), // tune this
+    //browserSourceService.collectHistory(300), // tune this
   ]);
 
   let allItems = uniqueByUrl([
     ...bookmarkItems,
     ...tabItems,
-    ...historyItems,
+    //...historyItems,
   ]);
 
   /* 4) Filter NSFW */
@@ -182,7 +161,11 @@ export async function runSmartImport(
     totalItems: safeItems.length,
   });
 
-  const groups = await llm.groupItemsIntoCategories(safeItems, purposes);
+  const groupingInput: GroupingInput = {
+    items: safeItems,
+    purposes,
+  };
+  const { groups }: GroupingLLMResponse = await llm.group(groupingInput);
 
   /* 6) Persist to workspaces */
   emit(options, {
