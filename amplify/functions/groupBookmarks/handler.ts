@@ -15,7 +15,6 @@ if (!apiKey) {
 }
 const openai = new OpenAI({ apiKey });
 
-
 // ----------- Types that match llmGrouping.ts -----------
 type RawSource = "bookmarks" | "tabs" | "history";
 type RawItem = {
@@ -52,7 +51,6 @@ type GroupingLLMResponse = {
 };
 
 // ----------- Core logic (wrapped in CORS) -----------
-// inside handler.ts
 
 const groupBookmarksCore = async (
   event: APIGatewayProxyEvent,
@@ -131,10 +129,12 @@ Return STRICT JSON ONLY using this structure:
 }
 
 Rules:
-- 3–8 groups total
-- Every item must appear in ≥1 group
-- purpose MUST be one of: ${purposes.join(", ")}
-- No commentary, just JSON
+- 3-20 groups total.
+- EVERY input item.id MUST appear in at least one group's itemIds array.
+- Do not invent new ids.
+- purpose MUST be one of: ${purposes.join(", ")}.
+- Do NOT wrap the JSON in markdown or backticks.
+- No commentary, no explanation text; return just the JSON object.
 `.trim();
 
   const itemLines = trimmedItems
@@ -145,10 +145,12 @@ Rules:
     .join("\n");
 
   const userPrompt = `
-Items:
+Here are the items:
+
 ${itemLines}
 
-Return JSON as specified above.
+Return ONLY a JSON object exactly matching the structure described above.
+Remember: every input id must appear in at least one group.
 `.trim();
 
   let categorized: CategorizedGroup[];
@@ -174,14 +176,12 @@ Return JSON as specified above.
     // Clean up common markdown wrappers like ```json ... ```
     let cleaned = jsonText.trim();
 
-    // Strip leading ``` or ```json fences
     if (cleaned.startsWith("```")) {
       const firstNewline = cleaned.indexOf("\n");
       if (firstNewline !== -1) {
         cleaned = cleaned.slice(firstNewline + 1);
       }
     }
-    // Strip trailing ``` fence
     if (cleaned.endsWith("```")) {
       cleaned = cleaned.slice(0, cleaned.lastIndexOf("```"));
     }
@@ -202,11 +202,7 @@ Return JSON as specified above.
       defaultPurpose
     );
   } catch (err) {
-    // Log the real cause for you in CloudWatch
     console.error("OpenAI grouping error, falling back to local group:", err);
-    console.info("OPENAI_API_KEY: ", process.env.OPENAI_API_KEY);
-    console.info("HAS_OPENAI_KEY", !!process.env.OPENAI_API_KEY);
-    console.info("OPENAI_KEY_LENGTH", process.env.OPENAI_API_KEY?.length ?? 0);
 
     // Safe fallback: one group with everything, so no 500
     categorized = [
@@ -223,8 +219,17 @@ Return JSON as specified above.
   return resp(cors, 200, { groups: categorized });
 };
 
-
 // ------------ Mapping helpers ------------
+
+function getHostname(url: string): string {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return host.startsWith("www.") ? host.slice(4) : host;
+  } catch {
+    return "";
+  }
+}
+
 function mapToCategorizedGroups(
   groups: GroupResult[],
   items: RawItem[],
@@ -258,8 +263,45 @@ function mapToCategorizedGroups(
     };
   });
 
-  // Add "ungrouped" fallback for any missing items
+  // --- Coverage + auto-assignment of leftovers ---
   const coveredIds = new Set(categorized.flatMap((g) => g.items.map((i) => i.id)));
+
+  // Build hostname index for each group
+  const groupHostMaps = categorized.map((group) => {
+    const hostCounts = new Map<string, number>();
+    for (const item of group.items) {
+      const host = getHostname(item.url);
+      if (!host) continue;
+      hostCounts.set(host, (hostCounts.get(host) ?? 0) + 1);
+    }
+    return hostCounts;
+  });
+
+  // Try to assign missing items to the most similar group by hostname
+  for (const item of items) {
+    if (coveredIds.has(item.id)) continue;
+
+    const itemHost = getHostname(item.url);
+    if (!itemHost) continue;
+
+    let bestGroupIndex = -1;
+    let bestScore = 0;
+
+    for (let gi = 0; gi < categorized.length; gi++) {
+      const score = groupHostMaps[gi].get(itemHost) ?? 0;
+      if (score > bestScore) {
+        bestScore = score;
+        bestGroupIndex = gi;
+      }
+    }
+
+    if (bestGroupIndex !== -1 && bestScore > 0) {
+      categorized[bestGroupIndex].items.push(item);
+      coveredIds.add(item.id);
+    }
+  }
+
+  // Remaining truly unassigned items → one Ungrouped group
   const missing = items.filter((i) => !coveredIds.has(i.id));
 
   if (missing.length) {
