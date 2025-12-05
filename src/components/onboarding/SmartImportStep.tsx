@@ -63,7 +63,7 @@ export const SmartImportStep: React.FC<SmartImportStepProps> = ({
       workspaceService,
       browserSourceService: chromeBrowserSourceService,
       nsfwFilter: basicNsfwFilter,
-      llm: remoteGroupingLLM, /*stubGroupingLLM,*/
+      llm: remoteGroupingLLM, 
     }),
     [workspaceService]
   );
