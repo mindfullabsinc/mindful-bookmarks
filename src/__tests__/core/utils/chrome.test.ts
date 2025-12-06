@@ -1,27 +1,17 @@
 /**
- * @file utilities.test.ts
- * Tests for core utils in "@/core/utils/utilities".
+ * @file chrome.test.ts
+ * Tests for utils in "@/core/utils/chrome".
  *
  * Covers:
- *  - getUserStorageKey
- *  - createUniqueID
- *  - constructValidURL
- *  - normalizeUrl
  *  - isCurrentTabTheNewTab
  *  - refreshOtherMindfulTabs
  *  - refreshActiveMindfulTab
- *  - toE164
  */
 
 import {
-  getUserStorageKey,
-  createUniqueID,
-  constructValidURL,
-  normalizeUrl,
   isCurrentTabTheNewTab,
   refreshOtherMindfulTabs,
   refreshActiveMindfulTab,
-  toE164,
 } from '@/core/utils/chrome';
 
 // Force a stable expected new tab URL for tests
@@ -97,60 +87,6 @@ afterAll(() => {
 });
 
 /* -------------------- Unit Tests -------------------- */
-
-describe('getUserStorageKey', () => {
-  it('builds namespaced key by workspace and user', () => {
-    expect(getUserStorageKey('user-1', 'ws-a')).toBe('WS_ws-a__bookmarks_user-1');
-  });
-});
-
-describe('createUniqueID', () => {
-  it('returns a 12-char lowercase base36 string (two 6-char chunks)', () => {
-    const id = createUniqueID();
-    expect(id).toMatch(/^[a-z0-9]{12}$/);
-  });
-
-  it('produces different values on multiple calls (very likely)', () => {
-    const set = new Set<string>(Array.from({ length: 20 }, () => createUniqueID()));
-    expect(set.size).toBe(20);
-  });
-});
-
-describe('constructValidURL', () => {
-  it('prepends http:// when protocol is missing', () => {
-    expect(constructValidURL('example.com')).toBe('http://example.com');
-  });
-
-  it('leaves http and https URLs unchanged', () => {
-    expect(constructValidURL('http://foo.com')).toBe('http://foo.com');
-    expect(constructValidURL('https://bar.org')).toBe('https://bar.org');
-  });
-});
-
-describe('normalizeUrl', () => {
-  it('normalizes case, strips default ports, removes hash, collapses slashes, sorts query', () => {
-    const input = 'HTTPS://Example.com:443//foo///bar/?b=2&a=1#frag';
-    const out = normalizeUrl(input);
-    expect(out).toBe('https://example.com/foo/bar?a=1&b=2');
-  });
-
-  it('keeps non-default ports', () => {
-    const input = 'http://EXAMPLE.com:8080/path/';
-    const out = normalizeUrl(input);
-    expect(out).toBe('http://example.com:8080/path');
-  });
-
-  it('returns trimmed input if URL parsing fails', () => {
-    const input = '   not a url   ';
-    expect(normalizeUrl(input)).toBe('not a url');
-  });
-
-  it('removes trailing slash from path except root', () => {
-    expect(normalizeUrl('https://example.com/')).toBe('https://example.com/');
-    expect(normalizeUrl('https://example.com/foo/')).toBe('https://example.com/foo');
-  });
-});
-
 describe('isCurrentTabTheNewTab', () => {
   it('resolves true when active tab URL matches CHROME_NEW_TAB', async () => {
     // @ts-ignore
@@ -240,24 +176,5 @@ describe('refreshActiveMindfulTab', () => {
     await refreshActiveMindfulTab();
 
     expect(reloadMock).not.toHaveBeenCalled();
-  });
-});
-
-describe('toE164', () => {
-  it('returns empty string for falsy input', () => {
-    expect(toE164('')).toBe('');
-  });
-
-  it('passes through when already E.164', () => {
-    expect(toE164('+15551234567')).toBe('+15551234567');
-  });
-
-  it('assumes +1 for 10-digit US numbers', () => {
-    expect(toE164('(555) 123-4567')).toBe('+15551234567');
-  });
-
-  it('prefixes + for non-10-digit numbers after stripping non-digits', () => {
-    // Note: this function intentionally does not try to interpret international prefixes
-    expect(toE164('011 44 20 7946 0958')).toBe('+011442079460958');
   });
 });

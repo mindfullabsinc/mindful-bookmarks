@@ -1,4 +1,5 @@
-import { NsfwFilter, RawItem } from "./smartImport";
+import { NsfwFilter } from "./smartImport";
+import { RawItem } from "@shared/types/llmGrouping";
 
 const BLOCKED_KEYWORDS = [
   "porn",

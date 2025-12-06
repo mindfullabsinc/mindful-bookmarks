@@ -13,7 +13,8 @@ import { AppContextProvider } from '@/scripts/AppContextProvider';
 import * as bookmarksData from '@/scripts/bookmarksData';
 import * as useBookmarkManager from '@/hooks/useBookmarkManager';
 import useImportBookmarksDefault from '@/hooks/useImportBookmarks';
-import * as Utilities from '@/core/utils/chrome';
+import * as ChromeUtils from '@/core/utils/chrome';
+import * as StorageKeysUtils from '@/core/utils/storageKeys';
 import { StorageMode, type StorageModeType } from '@/core/constants/storageMode'; 
 /* ---------------------------------------------------------- */
 
@@ -269,7 +270,8 @@ const chromeMock = {
 (globalThis as any).chrome = chromeMock;
 
 const useBookmarkManagerMock = useBookmarkManager as jest.Mocked<typeof useBookmarkManager>;
-const utilitiesMock = Utilities as jest.Mocked<typeof Utilities>;
+const chromeUtilsMock = ChromeUtils as jest.Mocked<typeof ChromeUtils>;
+const storageKeysUtilsMock = StorageKeysUtils as jest.Mocked<typeof StorageKeysUtils>;
 const bookmarksDataMock = bookmarksData as jest.Mocked<typeof bookmarksData>;
 const fetchUserAttributesMock = fetchUserAttributes as jest.MockedFunction<typeof fetchUserAttributes>;
 const fetchAuthSessionMock = fetchAuthSession as jest.MockedFunction<typeof fetchAuthSession>;
@@ -338,7 +340,7 @@ describe.each([
     bookmarksDataMock.loadInitialBookmarks.mockResolvedValue(mockBookmarkGroups);
 
     mockSignOut = jest.fn();
-    utilitiesMock.getUserStorageKey.mockReturnValue(`bookmarks_${mockUserId}`);
+    storageKeysUtilsMock.getUserStorageKey.mockReturnValue(`bookmarks_${mockUserId}`);
     fetchAuthSessionMock.mockResolvedValue({ identityId: mockUserId });
 
     // Configure mocks based on the current storageMode for the test run
@@ -452,7 +454,7 @@ describe.each([
 
       // Use the first listener (local storage-sync one is added early)
       const storageChangeHandler = addMock.mock.calls[0][0] as ChromeChangeListener;
-      const storageKey = utilitiesMock.getUserStorageKey.mock.results[0]?.value ?? `bookmarks_${mockUserId}`;
+      const storageKey = storageKeysUtilsMock.getUserStorageKey.mock.results[0]?.value ?? `bookmarks_${mockUserId}`;
       const changes = { [storageKey]: { oldValue: [], newValue: [] } };
 
       bookmarksDataMock.loadInitialBookmarks.mockClear();

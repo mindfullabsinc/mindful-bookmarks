@@ -17,6 +17,8 @@ const baseCtx: AppContextValue = {
   workspaces: {},
   activeWorkspaceId: DEFAULT_LOCAL_WORKSPACE_ID,
   setActiveWorkspaceId: () => {},
+  workspacesVersion: 0,
+  bumpWorkspacesVersion: () => {}, 
 
   /* Bookmarks */
   groupsIndex: [],
@@ -52,6 +54,8 @@ const baseCtx: AppContextValue = {
   completeOnboarding: async () => {},
   skipOnboarding: async () => {},
   restartOnboarding: async () => {},
+  onboardingPurposes: [],
+  setOnboardingPurposes: () => {},
 
   /* Theme */
   theme: ThemeChoice.SYSTEM,
