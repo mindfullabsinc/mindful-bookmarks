@@ -8,12 +8,43 @@ type GroupsIndex = Array<{ id: string; groupName: string }>;
 beforeAll(() => {
   (globalThis as any).chrome = {
     storage: {
-      local: { get: jest.fn(async () => ({})), set: jest.fn(async () => void 0), remove: jest.fn(async () => void 0) },
-      session: { get: jest.fn(async () => ({})), set: jest.fn(async () => void 0), remove: jest.fn(async () => void 0) },
+      local: {
+        get: jest.fn(async () => ({})),
+        set: jest.fn(async () => void 0),
+        remove: jest.fn(async () => void 0),
+      },
+      session: {
+        get: jest.fn(async () => ({})),
+        set: jest.fn(async () => void 0),
+        remove: jest.fn(async () => void 0),
+      },
     },
     runtime: { onMessage: { addListener: jest.fn(), removeListener: jest.fn() } },
   };
-  (globalThis as any).BroadcastChannel = class { constructor(_: string) {} onmessage: any = null; close() {} postMessage() {} };
+
+  (globalThis as any).BroadcastChannel = class {
+    constructor(_: string) {}
+    onmessage: any = null;
+    close() {}
+    postMessage() {}
+  };
+
+  // Mock matchMedia for the theme effect
+  if (!window.matchMedia) {
+    Object.defineProperty(window, "matchMedia", {
+      writable: true,
+      value: jest.fn().mockImplementation((query: string) => ({
+        matches: false, 
+        media: query,
+        onchange: null,
+        addListener: jest.fn(), // deprecated API still used in some code
+        removeListener: jest.fn(),
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+        dispatchEvent: jest.fn(),
+      })),
+    });
+  }
 });
 
 // Avoid real Amplify calls; keep us in LOCAL path
@@ -30,7 +61,7 @@ const mock_readBookmarkCacheSession = jest.fn();
 const mock_writeBookmarkCacheSession = jest.fn();
 
 // Workspace registry: make an active workspace available immediately
-jest.mock('@/workspaces/registry', () => {
+jest.mock('@/scripts/workspaces/registry', () => {
   return {
     initializeLocalWorkspaceRegistry: jest.fn(async () => void 0),
     loadRegistry: jest.fn(async () => ({

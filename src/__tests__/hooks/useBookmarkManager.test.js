@@ -30,7 +30,7 @@ jest.mock('uuid', () => ({
 }));
 
 // Mock the utilities module
-jest.mock('@/core/utils/utilities', () => ({
+jest.mock('@/core/utils/storageKeys', () => ({
   getUserStorageKey: (userId) => `bookmarks-${userId}`,
   refreshOtherMindfulTabs: jest.fn(),
 }));
@@ -59,7 +59,7 @@ jest.mock('@/scripts/Storage', () => ({
 
 // Import after mocks are defined to get a reference to the mock functions
 const { v4: mockV4 } = require('uuid');
-const { refreshOtherMindfulTabs } = require('@/core/utils/utilities');
+const { refreshOtherMindfulTabs } = require('@/core/utils/chrome');
 
 
 // --- Test Suite ---

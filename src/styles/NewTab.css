@@ -12,11 +12,11 @@ body, html {
 
 /* Card */
 .bookmark-group-box {
-  @apply relative rounded-lg p-6 pt-10 flex flex-col 
+  @apply relative rounded-lg p-6 pt-10 flex flex-col
          bg-white text-neutral-900 border border-neutral-200 shadow;
 }
-@media (prefers-color-scheme: dark) {
-  .bookmark-group-box { @apply bg-neutral-900 text-neutral-100 border-neutral-700; }
+.dark .bookmark-group-box {
+  @apply bg-neutral-900 text-neutral-100 border-neutral-700;
 }
 
 /* Header + content spacing */

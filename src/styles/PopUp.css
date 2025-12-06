@@ -1,0 +1,18 @@
+@layer components {
+  /* Base popup container */
+  .popup-root {
+    @apply border-none ring-0 shadow-none;
+  }
+
+  /* When the extension is in dark mode, make sure everything is truly dark */
+  .dark .popup-root {
+    @apply bg-neutral-950 text-neutral-50 border-none ring-0 shadow-none;
+  }
+
+  /* Also make sure there’s no light gutter from html/body/root in dark mode */
+  .dark,
+  .dark body,
+  .dark #root {
+    @apply bg-neutral-950;
+  }
+}

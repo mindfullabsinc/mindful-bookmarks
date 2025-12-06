@@ -1,3 +1,4 @@
+/* -------------------- Imports -------------------- */
 import { defineBackend } from '@aws-amplify/backend';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as apigwv2 from 'aws-cdk-lib/aws-apigatewayv2';
@@ -15,6 +16,8 @@ import { saveBookmarks } from "./functions/saveBookmarks/resource";
 import { loadBookmarks } from "./functions/loadBookmarks/resource";
 import { deleteBookmarks } from "./functions/deleteBookmarks/resource";
 import { emailWaitlist } from "./functions/emailWaitlist/resource";
+import { groupBookmarks } from "./functions/groupBookmarks/resource";
+/* ---------------------------------------------------------- */
 
 /**
  * Root Amplify backend definition with auth, storage, functions, and data resources.
@@ -27,9 +30,10 @@ export const backend = defineBackend({
   loadBookmarks,
   deleteBookmarks,
   emailWaitlist,           
+  groupBookmarks,
 });
 
-// ---------- Synthesized resources ----------
+/* -------------------- Synthesized resources -------------------- */
 const stack = backend.storage.resources.bucket.stack;
 const authenticatedUserRole = backend.auth.resources.authenticatedUserIamRole;
 const s3Bucket = backend.storage.resources.bucket;
@@ -38,23 +42,27 @@ const saveBookmarksFn = backend.saveBookmarks.resources.lambda as lambda.Functio
 const loadBookmarksFn = backend.loadBookmarks.resources.lambda as lambda.Function;
 const deleteBookmarksFn = backend.deleteBookmarks.resources.lambda as lambda.Function;
 const emailWaitlistFn = backend.emailWaitlist.resources.lambda as lambda.Function; 
+const groupBookmarksFn = backend.groupBookmarks.resources.lambda as lambda.Function; 
+/* ---------------------------------------------------------- */
 
-// ---------- KMS key (ID or ARN both work for GenerateDataKey) ----------
+/* -------------------- KMS key (ID or ARN both work for GenerateDataKey) -------------------- */
 const kmsKeyId = 'arn:aws:kms:us-west-1:534861782220:key/51a54516-e016-4d00-a6da-7aff429418ed';
 const kmsKey = kms.Key.fromKeyArn(stack, 'BookmarksKmsKey', kmsKeyId);
 
 // Grant only what each function needs
 kmsKey.grant(saveBookmarksFn, 'kms:GenerateDataKey');
 kmsKey.grant(loadBookmarksFn, 'kms:Decrypt');
+/* ---------------------------------------------------------- */
 
-// ---------- Lambda env ----------
+/* -------------------- Lambda environment -------------------- */
 for (const fn of [saveBookmarksFn, loadBookmarksFn, deleteBookmarksFn]) {
   fn.addEnvironment('S3_BUCKET_NAME', s3Bucket.bucketName);
 }
 saveBookmarksFn.addEnvironment('KMS_KEY_ID', kmsKeyId);
 loadBookmarksFn.addEnvironment('KMS_KEY_ID', kmsKeyId);
+/* ---------------------------------------------------------- */
 
-// ---------- S3 access for authenticated users ----------
+/* -------------------- S3 access for authenticated users -------------------- */
 const authenticatedUserPrincipal = new iam.ArnPrincipal(authenticatedUserRole.roleArn);
 
 s3Bucket.addToResourcePolicy(new iam.PolicyStatement({
@@ -73,14 +81,21 @@ s3Bucket.addToResourcePolicy(new iam.PolicyStatement({
     StringLike: { 's3:prefix': [`private/\${cognito-identity.amazonaws.com:sub}/*`] },
   },
 }));
+/* ---------------------------------------------------------- */
 
-// ---------- HTTP API + authorizer ----------
+/* -------------------- HTTP API + authorizer -------------------- */
+/**
+ * Cognito user-pool authorizer applied to private bookmark routes.
+ */
 const authorizer = new HttpUserPoolAuthorizer(
   'userPoolAuthorizer',
   backend.auth.resources.userPool,
   { userPoolClients: [backend.auth.resources.userPoolClient] }
 );
 
+/**
+ * Primary HTTP API used by the extension and marketing endpoints.
+ */
 const api = new apigwv2.HttpApi(stack, 'MyHttpApi', {
   apiName: 'bookmarksApi',
   corsPreflight: {
@@ -96,6 +111,9 @@ const api = new apigwv2.HttpApi(stack, 'MyHttpApi', {
 });
 
 // explicit authorizer per-route (safer than relying on defaultAuthorizer)
+/**
+ * Persist bookmarks (auth required).
+ */
 api.addRoutes({
   path: '/bookmarks',
   methods: [apigwv2.HttpMethod.POST],
@@ -103,6 +121,9 @@ api.addRoutes({
   authorizer,
 });
 
+/**
+ * Retrieve bookmarks (auth required).
+ */
 api.addRoutes({
   path: '/bookmarks',
   methods: [apigwv2.HttpMethod.GET],
@@ -110,6 +131,9 @@ api.addRoutes({
   authorizer,
 });
 
+/**
+ * Delete bookmarks (auth required).
+ */
 api.addRoutes({
   path: '/bookmarks',
   methods: [apigwv2.HttpMethod.DELETE],
@@ -117,6 +141,9 @@ api.addRoutes({
   authorizer,
 });
 
+/**
+ * Public waitlist endpoint invoked by the marketing site.
+ */
 api.addRoutes({
   path: '/waitlist',
   methods: [apigwv2.HttpMethod.POST],
@@ -124,7 +151,18 @@ api.addRoutes({
   // No authorizer -> public endpoint (safe because handler does its own validation & is write-only)
 });
 
-// ---------- Lambda IAM for S3 + KMS ----------
+/**
+ * Public LLM grouping endpoint.
+ */
+api.addRoutes({
+  path: '/groupBookmarks',
+  methods: [apigwv2.HttpMethod.POST],
+  integration: new HttpLambdaIntegration('groupBookmarksIntegration', groupBookmarksFn),
+  // No authorizer: public endpoint, safe because it only writes to OpenAI and returns JSON
+});
+/* ---------------------------------------------------------- */
+
+/* -------------------- Lambda IAM for S3 + KMS -------------------- */
 saveBookmarksFn.addToRolePolicy(new iam.PolicyStatement({
   effect: iam.Effect.ALLOW,
   actions: ['s3:GetObject','s3:PutObject','s3:DeleteObject'],
@@ -149,8 +187,9 @@ emailWaitlistFn.addToRolePolicy(new iam.PolicyStatement({
   actions: ['ses:SendEmail', 'ses:SendRawEmail'],
   resources: ['*'],
 }));
+/* ---------------------------------------------------------- */
 
-// ---------- Export the API endpoint to amplify_outputs.json ----------
+/* -------------------- Export the API endpoint to amplify_outputs.json -------------------- */
 backend.addOutput({
   custom: {
     API: {
@@ -169,3 +208,4 @@ backend.addOutput({
     },
   },
 });
+/* ---------------------------------------------------------- */

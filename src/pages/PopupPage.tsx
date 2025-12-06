@@ -9,9 +9,6 @@ import { AuthMode, AuthModeType, AMPLIFY_HUB_AUTH_CHANNEL } from '@/core/constan
 import PopUpComponent from '@/components/PopUpComponent';
 import PopupAutosize from "@/components/PopupAutosize";
 
-// CSS styling
-import '@/styles/amplify-auth-tailwind.css';
-
 /* ----------------------- Utilities ----------------------- */
 /**
  * Open the full new-tab authentication experience and close the popup window.
@@ -300,7 +297,7 @@ export default function PopupPage(): ReactElement | null {
   if (!ready) return null;
 
   return (
-    <div className="popup-root mindful-auth p-4">
+    <div className="popup-root mindful-auth p-4 bg-neutral-50 dark:bg-neutral-950">
       <PopupAutosize selector=".popup-root" maxH={600} />
 
       {/* Open Mindful button */}

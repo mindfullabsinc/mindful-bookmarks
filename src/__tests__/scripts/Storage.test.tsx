@@ -15,7 +15,7 @@ const API_BASE = amplifyOutputs.custom.API.bookmarks.endpoint;
 // ---- Mocks ----
 
 // 1) Deterministic storage key for tests
-jest.mock('@/core/utils/utilities', () => ({
+jest.mock('@/core/utils/storageKeys', () => ({
   getUserStorageKey: (userId: string, workspaceId: WorkspaceIdType) =>
     `bookmarks_${userId}_${String(workspaceId)}`,
 }));

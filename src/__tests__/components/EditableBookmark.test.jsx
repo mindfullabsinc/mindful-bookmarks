@@ -9,7 +9,7 @@ import { useBookmarkManager } from '@/hooks/useBookmarkManager';
 
 // Mocks
 jest.mock('@/hooks/useBookmarkManager');
-jest.mock('@/core/utils/utilities', () => ({
+jest.mock('@/core/utils/ids', () => ({
   createUniqueID: jest.fn(() => 'unique-id-123'),
 }));
 const mockOpenCopyTo = jest.fn();

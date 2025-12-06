@@ -4,7 +4,7 @@ import React, { useContext, useState, useEffect, useMemo, useRef } from 'react';
 /* Hooks and Utilities */
 import { AppContext } from "@/scripts/AppContextProvider";
 import type { AppContextValue } from "@/scripts/AppContextProvider";
-import { constructValidURL } from '@/core/utils/utilities';
+import { constructValidURL } from '@/core/utils/url';
 import { useBookmarkManager } from '@/hooks/useBookmarkManager';
 import { SELECT_NEW, lastGroupKey, writeLastSelectedGroup, broadcastLastSelectedGroup } from '@/core/utils/lastSelectedGroup';
 import { DEFAULT_LOCAL_WORKSPACE_ID } from '@/core/constants/workspaces';

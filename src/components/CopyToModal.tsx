@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { WorkspaceIdType } from "@/core/constants/workspaces";
-import { listLocalWorkspaces } from "@/workspaces/registry";
+import { listLocalWorkspaces } from "@/scripts/workspaces/registry";
 
 type Props = {
   open: boolean;

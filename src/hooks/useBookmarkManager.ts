@@ -8,7 +8,7 @@ import type { AppContextValue } from '@/scripts/AppContextProvider';
 import { EMPTY_GROUP_IDENTIFIER } from '@/core/constants/constants';
 import { StorageMode, type StorageModeType } from '@/core/constants/storageMode';
 import { DEFAULT_LOCAL_WORKSPACE_ID } from '@/core/constants/workspaces';
-import { refreshOtherMindfulTabs } from '@/core/utils/utilities';
+import { refreshOtherMindfulTabs } from '@/core/utils/chrome';
 import { Storage } from '@/scripts/Storage';
 import type { BookmarkGroupType, BookmarkType } from '@/core/types/bookmarks';
 import amplify_outputs from '../../amplify_outputs.json';

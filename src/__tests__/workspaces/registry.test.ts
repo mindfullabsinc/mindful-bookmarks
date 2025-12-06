@@ -15,7 +15,7 @@ import {
   renameWorkspace,
   archiveWorkspace,
   ensureDefaultWorkspace,
-} from '@/workspaces/registry';
+} from '@/scripts/workspaces/registry';
 
 import { StorageMode } from '@/core/constants/storageMode';
 import type { WorkspaceType, WorkspaceRegistryType, WorkspaceIdType } from '@/core/constants/workspaces';
@@ -32,7 +32,7 @@ const LEGACY_ACTIVE_KEY = 'mindful_active_workspace_v1';
 const FIXED_NOW_1 = 1_700_000_000_000; // arbitrary fixed timestamp
 const FIXED_NOW_2 = 1_700_000_100_000;
 
-jest.mock('@/core/utils/utilities', () => ({
+jest.mock('@/core/utils/ids', () => ({
   createUniqueID: jest.fn(() => 'mock-unique-id'),
 }));
 
@@ -243,7 +243,7 @@ describe('registry (PR-4, local-only)', () => {
     await initializeLocalWorkspaceRegistry();
     
     // Make ids unique for the two creations below
-    const { createUniqueID } = require('@/core/utils/utilities');
+    const { createUniqueID } = require('@/core/utils/ids');
     (createUniqueID as jest.Mock)
       .mockImplementationOnce(() => 'alpha-id')
       .mockImplementationOnce(() => 'beta-id');

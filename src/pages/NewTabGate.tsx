@@ -1,16 +1,23 @@
-// src/pages/NewTabGate.tsx
-import React, { Suspense } from "react";
+import React, { Suspense, useState, useEffect } from "react";
 import type { ReactElement } from "react";
 
+/* Authentication and storage mode */
 import { guessBootAuthMode } from "@/scripts/bootAuthMode";
-import { AppContextProvider } from "@/scripts/AppContextProvider";
 import { StorageMode } from "@/core/constants/storageMode";
 import { AuthMode, AuthModeType } from "@/core/constants/authMode";
+
+/* App context */
+import { AppContextProvider } from "@/scripts/AppContextProvider";
+
+/* Pages */
 import { NewTabPage } from "@/pages/NewTabPage";
 
+/* Components */ 
+import { OnboardingOverlay } from "@/components/onboarding/OnboardingOverlay";
+
+/* CSS styling */
 import "@/styles/Index.css";
 import "@/styles/NewTab.css";
-import "@/styles/amplify-auth-tailwind.css";
 
 /* -------------------- Boot probe (sync, no Amplify) -------------------- */
 const bootAuth = guessBootAuthMode();
@@ -148,10 +155,11 @@ const AuthContext = React.lazy(async () => {
  */
 export default function NewTabGate(): ReactElement | null {
   // We freeze boot decision for the very first paint; AppContext can refine later.
-  const [authMode, setAuthMode] = React.useState<AuthModeType | null>(null); // 'anon' | 'auth'
-  const [ready, setReady] = React.useState<boolean>(false);
+  const [authMode, setAuthMode] = useState<AuthModeType | null>(null); // 'anon' | 'auth'
+  const [ready, setReady] = useState<boolean>(false);
 
-  React.useEffect(() => {
+  /* -------------------- Effects -------------------- */
+  useEffect(() => {
     let cancelled = false;
 
     (async () => {
@@ -185,7 +193,9 @@ export default function NewTabGate(): ReactElement | null {
       cancelled = true;
     };
   }, []);
+  /* ---------------------------------------------------------- */
 
+  /* -------------------- Main component logic -------------------- */
   if (!ready) return null;
 
   const hasAuthHash = (window.location.hash || "").includes("auth=");
@@ -194,9 +204,12 @@ export default function NewTabGate(): ReactElement | null {
   if (authMode === AuthMode.ANON) {
     stripAuthHash();
     return (
-      <div className="newtab-root mindful-auth">
+      <div className="newtab-root mindful-auth bg-neutral-50 dark:bg-neutral-950">
         <AppContextProvider user={null} preferredStorageMode={StorageMode.LOCAL}>
           <NewTabPage />
+
+          {/* Onboarding overlay sits on top of everything */}
+          <OnboardingOverlay />
         </AppContextProvider>
       </div>
     );
@@ -209,4 +222,5 @@ export default function NewTabGate(): ReactElement | null {
       {hasAuthHash ? <AuthInline /> : <AuthContext />}
     </Suspense>
   );
+  /* ---------------------------------------------------------- */
 }

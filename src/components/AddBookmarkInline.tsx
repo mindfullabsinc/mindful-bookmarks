@@ -12,7 +12,7 @@ import { URL_PATTERN } from '@/core/constants/constants';
 import { useBookmarkManager } from '@/hooks/useBookmarkManager';
 import { AppContext } from '@/scripts/AppContextProvider';
 import type { AppContextValue } from '@/scripts/AppContextProvider';
-import { constructValidURL } from "@/core/utils/utilities";
+import { constructValidURL } from "@/core/utils/url";
 import { lastGroupKey, writeLastSelectedGroup, broadcastLastSelectedGroup } from '@/core/utils/lastSelectedGroup';
 
 /* Analytics */

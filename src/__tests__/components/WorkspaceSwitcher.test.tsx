@@ -12,7 +12,7 @@ const mock_createLocalWorkspace = jest.fn<Promise<{ id: string; name: string }>,
 const mock_renameWorkspace = jest.fn<Promise<void>, [string, string]>();
 const mock_archiveWorkspace = jest.fn<Promise<void>, [string]>();
 
-jest.mock('@/workspaces/registry', () => ({
+jest.mock('@/scripts/workspaces/registry', () => ({
   __esModule: true,
   getActiveWorkspaceId: () => mock_getActiveWorkspaceId(),
   listLocalWorkspaces: () => mock_listLocalWorkspaces(),
