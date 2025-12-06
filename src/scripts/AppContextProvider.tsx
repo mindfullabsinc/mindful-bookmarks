@@ -330,7 +330,6 @@ export function AppContextProvider({
     return full;
   }
 
-   // ----- storage type changes -----
   /**
    * Update storage mode, coercing anonymous users to LOCAL and persisting preferences back to Cognito
    * when the user is authenticated.
@@ -402,6 +401,12 @@ export function AppContextProvider({
   /* ---------------------------------------------------------- */
 
   /* -------------------- Effects -------------------- */
+  /**
+   * Wait for the workspace registry bootstrap to finish, then hydrate local state with the registered workspaces and active workspace identifier.
+   */
+  /**
+   * Persist onboarding IN_PROGRESS status once required prerequisites (empty state, hydrated workspace) are met.
+   */
   useEffect(() => {
     let cancelled = false;
 
@@ -435,6 +440,12 @@ export function AppContextProvider({
     };
   }, []);
 
+  /**
+   * Log when the storage mode stabilises so we can correlate downstream effects in devtools.
+   */
+  /**
+   * Log environment readiness (user + storage mode) for debugging.
+   */
   useEffect(() => {
     if (!activeWorkspaceId) return;
     if (!storageMode) return;
@@ -471,6 +482,9 @@ export function AppContextProvider({
    * Wait for the workspace registry bootstrap to finish, then hydrate local state with the
    * registered workspaces and active workspace identifier.
    */
+  /**
+   * Phase 0 bootstrap: resolve initial auth/storage context (handles anon override, silent auth, fallback to local).
+   */
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -493,19 +507,12 @@ export function AppContextProvider({
     return () => { cancelled = true; };
   }, []);  // empty deps → one-time on mount
 
-  /**
-   * Log when the storage mode stabilises so we can correlate downstream effects in devtools.
-   */
   useEffect(() => {
     if (storageMode) {
       console.debug('[AppContextProvider] ready:', { userId, storageMode });
     }
   }, [userId, storageMode]);
 
-  /**
-   * Phase 0 bootstrap: resolve the initial storage mode as fast as possible by checking
-   * for explicit anon overrides, silent Amplify sessions, or falling back to LOCAL.
-   */
   useEffect(() => {
     let cancelled = false;
     console.log('[AppContextProvider] phase0 start: user?', !!user);
@@ -649,10 +656,6 @@ export function AppContextProvider({
     };
   }, [user, preferredStorageMode]);
 
-  /**
-   * Phase 1a: once storage mode is known (and we're not gating on remote), synchronously
-   * hydrate bookmarks from localStorage to avoid first-paint flicker.
-   */
   useEffect(() => {
     if (!storageMode) return;
     if (!activeWorkspaceId) return;
@@ -677,10 +680,6 @@ export function AppContextProvider({
     }
   }, [authKey, storageMode, activeWorkspaceId]); // treat anon as stable key
 
-  /**
-   * Phase 1b: asynchronously read the session cache plus groups index so UI elements can render
-   * meaningful data while the full remote hydration runs in the background.
-   */
   useEffect(() => {
     let cancelled = false;
 
@@ -736,10 +735,6 @@ export function AppContextProvider({
     };
   }, [authKey, storageMode, user, activeWorkspaceId]);
 
-  /**
-   * Phase 2: load the authoritative bookmark list (remote or local) during idle time, update caches,
-   * and clear the remote hydration gate when complete.
-   */
   useEffect(() => {
     if (isMigrating) return;
     if (!storageMode || !activeWorkspaceId) return;
@@ -806,7 +801,6 @@ export function AppContextProvider({
       }
     };
 
-    // Runtime messages (e.g., popup saved/imported)
     /**
      * React to chrome runtime messages indicating bookmark mutations from other surfaces.
      *
@@ -863,7 +857,7 @@ export function AppContextProvider({
     })();
   }, [activeWorkspaceId, storageMode, isHydratingRemote]);
 
-    useEffect(() => {
+  useEffect(() => {
     let cancelled = false;
 
     (async () => {

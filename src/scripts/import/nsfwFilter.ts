@@ -14,7 +14,16 @@ const BLOCKED_DOMAINS = [
   // …
 ];
 
+/**
+ * Basic NSFW filter that blocks obvious keywords and domains before grouping/import.
+ */
 export const basicNsfwFilter: NsfwFilter = {
+  /**
+   * Inspect a raw item for NSFW keywords/domains.
+   *
+   * @param item Candidate bookmark/tab/history entry.
+   * @returns False when a blocked term/domain is detected, true otherwise.
+   */
   async isSafe(item: RawItem): Promise<boolean> {
     const url = item.url.toLowerCase();
     const name = (item.name ?? "").toLowerCase();

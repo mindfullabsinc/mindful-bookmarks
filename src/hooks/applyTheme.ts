@@ -1,8 +1,9 @@
-// src/hooks/applyTheme.ts
 import { ThemeChoice, THEME_STORAGE_KEY } from "@/core/constants/theme";
 
 /**
- * Apply the chosen theme to document root, honoring system preference when requested.
+ * Apply the chosen theme to the document root, honoring system preference when requested.
+ *
+ * @param choice Theme selection (light, dark, or system).
  */
 export function applyTheme(choice: ThemeChoice) {
   if (typeof document === "undefined") return;
@@ -29,7 +30,11 @@ export function applyTheme(choice: ThemeChoice) {
   }
 }
 
-/** Load stored theme, defaulting to SYSTEM */
+/**
+ * Load stored theme preference from chrome.storage/localStorage, defaulting to system if missing.
+ *
+ * @returns Resolved theme choice.
+ */
 export async function loadInitialTheme(): Promise<ThemeChoice> {
   try {
     const payload =
@@ -49,7 +54,11 @@ export async function loadInitialTheme(): Promise<ThemeChoice> {
   return ThemeChoice.SYSTEM;
 }
 
-/** Persist and immediately apply */
+/**
+ * Persist the theme preference to storage and immediately apply it to the DOM.
+ *
+ * @param choice Theme selection to store/apply.
+ */
 export async function persistAndApplyTheme(choice: ThemeChoice) {
   applyTheme(choice);
   try {

@@ -1,3 +1,5 @@
+/* -------------------- Imports -------------------- */
+/* Types */
 import type {
   GroupingLLM,
   GroupingInput,
@@ -5,7 +7,14 @@ import type {
   CategorizedGroup,
 } from "@shared/types/llmGrouping";
 import type { PurposeId } from "@shared/types/purposeId";
+/* ---------------------------------------------------------- */
 
+/**
+ * Simple helper to return a capitalized version of a purpose id.
+ *
+ * @param purpose Purpose identifier to convert.
+ * @returns Capitalized label.
+ */
 function capitalize(purpose: PurposeId): string {
   if (purpose === "work") return "Work";
   if (purpose === "school") return "School";
@@ -19,6 +28,12 @@ function capitalize(purpose: PurposeId): string {
  * - If multiple purposes: duplicate ALL items into one group per purpose
  */
 export const stubGroupingLLM: GroupingLLM = {
+  /**
+   * Produce deterministic fallback groupings when the remote LLM is unavailable.
+   *
+   * @param input Normalized grouping payload containing items and purposes.
+   * @returns Stubbed grouping response with either one or many groups.
+   */
   async group(input: GroupingInput): Promise<GroupingLLMResponse> {
     const { items, purposes } = input;
 

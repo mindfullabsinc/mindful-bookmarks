@@ -1,3 +1,4 @@
+/* -------------------- Imports -------------------- */
 import React, { useMemo, useState, useContext, useEffect, useRef } from 'react';
 
 /* Scripts and hooks */
@@ -19,6 +20,7 @@ import { openCopyTo } from "@/scripts/events/copyToBridge";
 
 /* Types */
 import type { WorkspaceType } from '@/core/constants/workspaces';
+/* ---------------------------------------------------------- */
 
 /**
  * WorkspaceSwitcher (Light-first with Dark support)
@@ -34,13 +36,19 @@ export const WorkspaceSwitcher: React.FC = () => {
     workspacesVersion: number;
   };
 
+  /* -------------------- Context / state -------------------- */
   const [panelOpen, setPanelOpen] = useState(false);
   const [workspaces, setWorkspaces] = useState<WorkspaceType[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
 
   const panelRef = useRef<HTMLDivElement | null>(null);
   const openerRef = useRef<HTMLButtonElement | null>(null);
+  /* ---------------------------------------------------------- */
 
+  /* -------------------- Effects -------------------- */
+  /**
+   * Load workspaces and active id whenever the registry version changes.
+   */
   useEffect(() => {
     let cancelled = false;
 
@@ -60,6 +68,9 @@ export const WorkspaceSwitcher: React.FC = () => {
     };
   }, [workspacesVersion]);
 
+  /**
+   * Close the panel on Escape and offer a quick keyboard toggle.
+   */
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') {
@@ -74,12 +85,17 @@ export const WorkspaceSwitcher: React.FC = () => {
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, []);
+  /* ---------------------------------------------------------- */
 
+  /* -------------------- Helper functions -------------------- */
   const activeName = useMemo(
     () => workspaces.find((w) => w.id === activeId)?.name ?? 'Workspace',
     [workspaces, activeId]
   );
 
+  /**
+   * Reload workspaces and active id from storage.
+   */
   const refresh = async () => {
     const [list, active] = await Promise.all([
       listLocalWorkspaces(),
@@ -89,6 +105,11 @@ export const WorkspaceSwitcher: React.FC = () => {
     setActiveId(active);
   };
 
+  /**
+   * Switch to a different workspace, refreshing caches and closing the panel.
+   *
+   * @param workspace_id Target workspace identifier selected by the user.
+   */
   async function handleSwitch(workspace_id: string) {
     if (!workspace_id || workspace_id === activeId || workspace_id === ctxActiveId) {
       setPanelOpen(false);
@@ -102,6 +123,9 @@ export const WorkspaceSwitcher: React.FC = () => {
     requestAnimationFrame(() => openerRef.current?.focus());
   }
 
+  /**
+   * Create a new local workspace and make it the active one.
+   */
   async function handleCreate() {
     const ws = await createLocalWorkspace('Local Workspace');
     await (setActiveWorkspaceId as any)(ws.id);
@@ -110,6 +134,11 @@ export const WorkspaceSwitcher: React.FC = () => {
     await refresh();
   }
 
+  /**
+   * Prompt rename dialog and persist the new name.
+   *
+   * @param id Workspace identifier whose name should be updated.
+   */
   async function onRename(id: string) {
     const current = workspaces.find((w) => w.id === id);
     const name = prompt('Rename workspace', current?.name ?? 'Local Workspace');
@@ -118,6 +147,11 @@ export const WorkspaceSwitcher: React.FC = () => {
     await refresh();
   }
 
+  /**
+   * Archive a workspace and ensure a new active workspace is selected.
+   *
+   * @param id Workspace identifier to archive.
+   */
   async function onArchive(id: string) {
     if (!confirm('Archive this workspace? You can restore it later.')) return;
     await archiveWorkspace(id);
@@ -128,7 +162,9 @@ export const WorkspaceSwitcher: React.FC = () => {
     await writeGroupsIndexSession(newActive, []);
     await refresh();
   }
+  /* ---------------------------------------------------------- */
 
+  /* -------------------- Main component logic -------------------- */
   return (
     <>
       {/* Backdrop */}
@@ -284,4 +320,5 @@ export const WorkspaceSwitcher: React.FC = () => {
       </div>
     </>
   );
+  /* ---------------------------------------------------------- */
 };

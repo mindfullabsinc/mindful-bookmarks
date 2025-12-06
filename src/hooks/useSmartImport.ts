@@ -1,15 +1,23 @@
+/* -------------------- Imports -------------------- */
 import { useCallback, useState } from "react";
 
+/* Scripts */
 import {
   runSmartImport,
   SmartImportProgress,
   SmartImportOptions,
 } from "@/scripts/import/smartImport";
-import { SmartImportPhase } from "@/core/types/smartImportPhase";
+
+/* Types */
+import type { SmartImportPhase } from "@/core/types/smartImportPhase";
 import type { PurposeId } from "@shared/types/purposeId";
+/* ---------------------------------------------------------- */
 
 /**
- * You can add more fields as needed (e.g. error states)
+ * Hook that orchestrates the smart import flow, exposing progress state and a start handler.
+ *
+ * @param baseOptions Static smart import options excluding purposes/onProgress.
+ * @returns State and handler for running the smart import pipeline.
  */
 export function useSmartImport(
   baseOptions: Omit<
@@ -22,6 +30,11 @@ export function useSmartImport(
   const [totalItems, setTotalItems] = useState<number | undefined>();
   const [processedItems, setProcessedItems] = useState<number | undefined>();
 
+  /**
+   * Start the smart import flow for the provided purposes, wiring progress updates to state.
+   *
+   * @param purposes Ordered list of selected purpose ids.
+   */
   const start = useCallback(
     async (purposes: PurposeId[]) => {
       setPhase("initializing");

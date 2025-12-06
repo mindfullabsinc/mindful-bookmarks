@@ -19,6 +19,9 @@ type ThemeOption = {
 };
 /* ---------------------------------------------------------- */
 
+/**
+ * Theme selection step that lets users pick light/dark/system during onboarding.
+ */
 export const ThemeSelectorStep: React.FC = () => {
   /* -------------------- Context / state -------------------- */
   const { theme, setThemePreference } = useContext(AppContext);
@@ -28,7 +31,9 @@ export const ThemeSelectorStep: React.FC = () => {
   /* ---------------------------------------------------------- */
 
   /* -------------------- Effects -------------------- */
-  /* Keep local selection in sync if theme changes elsewhere */
+  /**
+   * Keep local selection UI in sync with global theme preference changes.
+   */
   useEffect(() => {
     if (theme && theme !== selected) {
       setSelected(theme);

@@ -49,7 +49,7 @@ export const OnboardingOverlay: React.FC = () => {
   const [importPrimaryDisabled, setImportPrimaryDisabled] = useState(true);
   /* ---------------------------------------------------------- */
 
-    /* -------------------- Helper functions -------------------- */
+  /* -------------------- Helper functions -------------------- */
   const handlePrimary = async () => {
     if (isLast) {
       await completeOnboarding();

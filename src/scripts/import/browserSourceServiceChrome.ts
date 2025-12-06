@@ -1,9 +1,18 @@
 import { nanoid } from "nanoid";
 
-import { BrowserSourceService, RawItem } from "@/scripts/import/smartImport";
+import { BrowserSourceService } from "@/scripts/import/smartImport";
+import { RawItem } from "@shared/types/llmGrouping";
 
 
+/**
+ * Chrome-specific implementation of the BrowserSourceService that gathers bookmarks, tabs, and history.
+ */
 export const chromeBrowserSourceService: BrowserSourceService = {
+  /**
+   * Collects bookmark items from the chrome.bookmarks API.
+   *
+   * @returns Promise resolving to RawItems sourced from bookmarks.
+   */
   async collectBookmarks(): Promise<RawItem[]> {
     if (!chrome.bookmarks || typeof chrome.bookmarks.getTree !== "function") {
       console.warn("[SmartImport] chrome.bookmarks API not available; skipping bookmarks import");
@@ -31,6 +40,9 @@ export const chromeBrowserSourceService: BrowserSourceService = {
     return items;
   },
 
+  /**
+   * Collects currently open tabs via chrome.tabs.query.
+   */
   async collectTabs(): Promise<RawItem[]> {
     if (!chrome.tabs || typeof chrome.tabs.query !== "function") {
       console.warn("[SmartImport] chrome.tabs API not available; skipping tabs import");
@@ -48,6 +60,11 @@ export const chromeBrowserSourceService: BrowserSourceService = {
       }));
   },
 
+  /**
+   * Collects browsing history entries via chrome.history.search.
+   *
+   * @param limit Maximum number of history entries to fetch.
+   */
   async collectHistory(limit = 300): Promise<RawItem[]> {
     if (!chrome.history || typeof chrome.history.search !== "function") {
       console.warn("[SmartImport] chrome.history API not available; skipping history import");

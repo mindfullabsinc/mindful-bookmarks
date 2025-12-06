@@ -1,5 +1,4 @@
 import { CHROME_NEW_TAB } from '@/core/constants/constants';
-import { BrowserSourceService, RawItem } from "@/scripts/import/smartImport";
 
 /**
  * Determine whether the currently active tab is the Mindful new tab page.

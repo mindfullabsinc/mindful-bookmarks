@@ -28,7 +28,7 @@ import { stubGroupingLLM } from "@/scripts/import/groupingLLMStub";
 import { remoteGroupingLLM } from "@/scripts/import/groupingLLMRemote";
 /* ---------------------------------------------------------- */
 
-/* -------------------- Types -------------------- */
+/* -------------------- Local types -------------------- */
 type SmartImportStepProps = {
   purposes: PurposeId[];
 };
@@ -47,17 +47,28 @@ type VisualPhase = (typeof PHASE_SEQUENCE)[number];
 
 const MIN_PHASE_DURATION_MS = 800;
 
+/**
+ * Smart import progress step that orchestrates the background import and shows visual phase updates.
+ *
+ * @param props.purposes Ordered list of purposes selected in the onboarding flow.
+ */
 export const SmartImportStep: React.FC<SmartImportStepProps> = ({
   purposes
 }) => {
   const { userId, bumpWorkspacesVersion } = useContext(AppContext);
 
   // Build a user-scoped WorkspaceService
+  /**
+   * Memoize a user-scoped workspace service so imports land in the correct namespace.
+   */
   const workspaceService = useMemo(
     () => createWorkspaceServiceLocal(userId),
     [userId]
   );
 
+  /**
+   * Memoize base options passed to the smart import hook (source adapters, filters, etc.)
+   */
   const baseOptions = useMemo(
     () => ({
       workspaceService,
@@ -78,6 +89,9 @@ export const SmartImportStep: React.FC<SmartImportStepProps> = ({
   const visualPhase: VisualPhase = PHASE_SEQUENCE[visualPhaseIndex];
 
   /* -------------------- Kick off the import -------------------- */
+  /**
+   * Kick off the smart import job once the component mounts and purposes are available.
+   */
   useEffect(() => {
     if (!purposes || purposes.length === 0) {
       return;
@@ -114,6 +128,9 @@ export const SmartImportStep: React.FC<SmartImportStepProps> = ({
   // Whenever the backend phase moves ahead in the sequence, walk the
   // visual phase forward one step every MIN_PHASE_DURATION_MS until
   // it catches up. This guarantees intermediate steps are visible.
+  /**
+   * Smooth the UI progress by advancing one phase at a time until it catches up with the backend.
+   */
   useEffect(() => {
     const backendIndex = PHASE_SEQUENCE.indexOf(
       backendPhase as VisualPhase

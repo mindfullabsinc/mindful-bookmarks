@@ -1,14 +1,12 @@
 /* -------------------- Imports -------------------- */
 /* Types */
-import type {
-  WorkspaceService,
-  CategorizedGroup,
-} from "@/scripts/import/smartImport";
-import type { PurposeId } from "@shared/types/purposeId";
+import type { WorkspaceService } from "@/core/types/workspaces";
 import type {
   BookmarkGroupType,
   BookmarkType,
 } from "@/core/types/bookmarks";
+import type { PurposeId } from "@shared/types/purposeId";
+import type { CategorizedGroup } from "@shared/types/llmGrouping";
 
 /* Constants */
 import { wsKey } from "@/core/constants/workspaces";
@@ -19,6 +17,7 @@ import { getGroupsStorageKey } from "@/core/utils/storageKeys";
 import { LocalAdapter } from "@/scripts/storageAdapters/local";
 /* ---------------------------------------------------------- */
 
+/* -------------------- Helper functions -------------------- */
 function mapToBookmarkGroups(
   groups: CategorizedGroup[]
 ): BookmarkGroupType[] {
@@ -41,6 +40,7 @@ function mapToBookmarkGroups(
     return bookmarkGroup;
   });
 }
+/* ---------------------------------------------------------- */
 
 /**
  * Factory for a WorkspaceService that:

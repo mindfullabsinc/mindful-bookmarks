@@ -1,10 +1,15 @@
+/* -------------------- Imports -------------------- */
 import React from "react";
 import { Pin, Sparkles } from "lucide-react";
+/* ---------------------------------------------------------- */
 
+/* -------------------- Local types -------------------- */
 type FinishUpStepProps = {
   onDone?: () => void; // optional, in case we ever want an inline button
 };
+/* ---------------------------------------------------------- */
 
+/* -------------------- Main component logic -------------------- */
 export const FinishUpStep: React.FC<FinishUpStepProps> = ({ onDone }) => {
   return (
     <div className="flex flex-col items-center text-center p-8 min-h-[260px]">
@@ -44,4 +49,5 @@ export const FinishUpStep: React.FC<FinishUpStepProps> = ({ onDone }) => {
       )}
     </div>
   );
+  /* ---------------------------------------------------------- */
 };

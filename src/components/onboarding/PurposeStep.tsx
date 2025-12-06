@@ -1,4 +1,4 @@
-/* -------------------- IMports -------------------- */
+/* -------------------- Imports -------------------- */
 import React, { useEffect, useState, useContext, Dispatch, SetStateAction } from "react";
 import { User, Briefcase, GraduationCap, Loader2 } from "lucide-react";
 
@@ -77,14 +77,18 @@ export const PurposeStep: React.FC<PurposeStepProps> = ({
   /* ---------------------------------------------------------- */
 
   /* -------------------- Effects -------------------- */
-  // Disable "Next" when no purpose is set
+  /**
+   * Disable the primary button when no purpose is set and notify parent components.
+   */
   useEffect(() => {
     const disabled = selectedIds.length === 0;
     setPrimaryDisabled?.(disabled);
     onSelectionChange?.(selectedIds);
   }, [selectedIds, setPrimaryDisabled, onSelectionChange]);
 
-  // Whenever chips change, push the selection into global onboarding state
+  /**
+   * Whenever chips change, push the selection into global onboarding state.
+   */
   useEffect(() => {
     setOnboardingPurposes(selectedIds);
   }, [selectedIds, setOnboardingPurposes]);

@@ -1,12 +1,10 @@
+/* -------------------- Imports -------------------- */
 import React, { useEffect, useState } from "react";
 import {
-  User,
-  Briefcase,
-  GraduationCap,
-  Loader2,
   Wand2,
   PlusSquare,
 } from "lucide-react";
+/* ---------------------------------------------------------- */
 
 /* -------------------- Local types -------------------- */
 type ImportBookmarksStepProps = {
@@ -19,22 +17,31 @@ type ImportBookmarksStepProps = {
 type ImportChoice = "auto" | "manual" | null;
 /* ---------------------------------------------------------- */
 
+/**
+ * Onboarding step that lets users pick between smart or manual bookmark import flows.
+ *
+ * @param props.setPrimaryDisabled Callback exposed by the onboarding shell to disable progression.
+ * @param props.onSelectionChange Callback invoked when an import option is selected.
+ */
 export const ImportBookmarksStep: React.FC<ImportBookmarksStepProps> = ({
   setPrimaryDisabled,
   onSelectionChange,
 }) => {
-  /* -------------------- State -------------------- */
+  /* -------------------- Context / state -------------------- */
   const [importChoice, setImportChoice] = useState<ImportChoice>(null);
   /* ---------------------------------------------------------- */
 
   /* -------------------- Effects -------------------- */
-  // Disable "Next" when no import choice is selected
+  /**
+   * Disable the primary onboarding button whenever no import choice is selected.
+   */
   useEffect(() => {
     const disabled = importChoice === null;
     setPrimaryDisabled?.(disabled);
   }, [importChoice, setPrimaryDisabled, onSelectionChange]);
   /* ---------------------------------------------------------- */
 
+  /* -------------------- Main component logic -------------------- */
   return (
     <div className="space-y-3 text-sm text-neutral-700 dark:text-neutral-300">
       <div className="mt-4 space-y-3">
@@ -86,4 +93,5 @@ export const ImportBookmarksStep: React.FC<ImportBookmarksStepProps> = ({
       </div>
     </div>
   );
+  /* ---------------------------------------------------------- */
 };

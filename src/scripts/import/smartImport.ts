@@ -1,6 +1,7 @@
 /* -------------------- Imports -------------------- */
 /* Types */
 import type { SmartImportPhase } from "@/core/types/smartImportPhase";
+import type { WorkspaceRef, WorkspaceService } from "@/core/types/workspaces";
 import type { PurposeId } from "@shared/types/purposeId";
 import type {
   GroupingLLM,
@@ -11,12 +12,7 @@ import type {
 } from "@shared/types/llmGrouping";
 /* ---------------------------------------------------------- */
 
-/* -------------------- Types -------------------- */
-export type WorkspaceRef = {
-  id: string;
-  purpose: PurposeId;
-};
-
+/* -------------------- Local types -------------------- */
 export type SmartImportProgress = {
   phase: SmartImportPhase;
   message?: string;
@@ -24,17 +20,9 @@ export type SmartImportProgress = {
   totalItems?: number;
   processedItems?: number;
 };
+/* ---------------------------------------------------------- */
 
 /* -------------------- Abstractions -------------------- */
-
-export interface WorkspaceService {
-  createWorkspaceForPurpose(purpose: PurposeId): Promise<WorkspaceRef>;
-  saveGroupsToWorkspace(
-    workspaceId: string,
-    groups: CategorizedGroup[]
-  ): Promise<void>;
-}
-
 export interface BrowserSourceService {
   collectBookmarks(): Promise<RawItem[]>;
   collectTabs(): Promise<RawItem[]>;
@@ -55,9 +43,15 @@ export type SmartImportOptions = {
   /** Called on every phase transition / progress update */
   onProgress?: (progress: SmartImportProgress) => void;
 };
+/* ---------------------------------------------------------- */
 
-/* -------------------- Helpers -------------------- */
-
+/* -------------------- Helper functions -------------------- */
+/**
+ * Emit a progress update to the supplied onProgress handler when provided.
+ *
+ * @param opts Full smart import options including the optional onProgress callback.
+ * @param progress Progress payload describing current phase and counts.
+ */
 const emit = (
   opts: SmartImportOptions,
   progress: SmartImportProgress
@@ -65,6 +59,12 @@ const emit = (
   opts.onProgress?.(progress);
 };
 
+/**
+ * Deduplicate raw items by URL to avoid redundant grouping and network usage.
+ *
+ * @param items Incoming raw items from bookmarks/tabs/history.
+ * @returns Array of unique items by URL.
+ */
 const uniqueByUrl = (items: RawItem[]): RawItem[] => {
   const seen = new Set<string>();
   const result: RawItem[] = [];
@@ -76,9 +76,14 @@ const uniqueByUrl = (items: RawItem[]): RawItem[] => {
   }
   return result;
 };
+/* ---------------------------------------------------------- */
 
-/* -------------------- Main entry point -------------------- */
-
+/* -------------------- Main entrypoint -------------------- */
+/**
+ * Run the multi-phase smart import process, emitting progress updates throughout.
+ *
+ * @param options Configuration/options required to orchestrate the import pipeline.
+ */
 export async function runSmartImport(
   options: SmartImportOptions
 ): Promise<void> {
@@ -194,3 +199,4 @@ export async function runSmartImport(
     message: "Your workspace is ready.",
   });
 }
+/* ---------------------------------------------------------- */

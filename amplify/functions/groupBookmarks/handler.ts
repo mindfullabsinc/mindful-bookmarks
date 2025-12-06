@@ -1,7 +1,8 @@
+/* -------------------- Imports -------------------- */
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 import OpenAI from "openai";
 
-// Shared helpers (same as saveBookmarks)
+/* Shared Amplify helpers */
 import { withCorsAndErrors } from "../_shared/safe";
 import { resp } from "../_shared/http";
 import { evalCors } from "../_shared/cors"; // CorsPack type only
@@ -14,15 +15,9 @@ import type {
   CategorizedGroup,
 } from "@shared/types/llmGrouping";
 import type { PurposeId } from "@shared/types/purposeId";
+/* ---------------------------------------------------------- */
 
-// ----------- OpenAI client -----------
-const apiKey = process.env.OPENAI_API_KEY;
-if (!apiKey) {
-  throw new Error("OPENAI_API_KEY env var is missing at runtime");
-}
-const openai = new OpenAI({ apiKey });
-
-/* Types */
+/* -------------------- Local types -------------------- */
 type GroupResult = {
   id: string;
   name: string;
@@ -30,9 +25,137 @@ type GroupResult = {
   purpose?: PurposeId;
   itemIds: string[];
 };
+/* ---------------------------------------------------------- */
 
-// ----------- Core logic (wrapped in CORS) -----------
+/* -------------------- OpenAI client -------------------- */
+const apiKey = process.env.OPENAI_API_KEY;
+if (!apiKey) {
+  throw new Error("OPENAI_API_KEY env var is missing at runtime");
+}
+const openai = new OpenAI({ apiKey });
+/* ---------------------------------------------------------- */
 
+/* -------------------- Helper functions -------------------- */
+/**
+ * Extract and normalize the hostname from a URL (without protocol/www) used for grouping heuristics.
+ *
+ * @param url Raw URL string from the incoming payload.
+ * @returns Clean hostname or empty string when parsing fails.
+ */
+function getHostname(url: string): string {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return host.startsWith("www.") ? host.slice(4) : host;
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Convert LLM-provided group results to CategorizedGroup objects, filling gaps where needed.
+ *
+ * @param groups Group predictions returned by the LLM.
+ * @param items Raw bookmark items used to locate full metadata.
+ * @param purposes Allowable purpose ids supplied by the client.
+ * @param defaultPurpose Purpose to use when LLM omits/unknown.
+ * @returns Categorized groups with best-effort coverage for every item.
+ */
+function mapToCategorizedGroups(
+  groups: GroupResult[],
+  items: RawItem[],
+  purposes: PurposeId[],
+  defaultPurpose: PurposeId
+): CategorizedGroup[] {
+  const itemsById = new Map(items.map((i) => [i.id, i]));
+  const purposeSet = new Set<PurposeId>(purposes);
+
+  const categorized: CategorizedGroup[] = groups.map((g) => {
+    const groupItems = (g.itemIds ?? [])
+      .map((id) => itemsById.get(id))
+      .filter(Boolean) as RawItem[];
+
+    const cleanId =
+      g.id ||
+      g.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+
+    const purpose: PurposeId =
+      (g.purpose && purposeSet.has(g.purpose) && g.purpose) || defaultPurpose;
+
+    return {
+      id: cleanId,
+      name: g.name,
+      description: g.description,
+      purpose,
+      items: groupItems,
+    };
+  });
+
+  // --- Coverage + auto-assignment of leftovers ---
+  const coveredIds = new Set(categorized.flatMap((g) => g.items.map((i) => i.id)));
+
+  // Build hostname index for each group
+  const groupHostMaps = categorized.map((group) => {
+    const hostCounts = new Map<string, number>();
+    for (const item of group.items) {
+      const host = getHostname(item.url);
+      if (!host) continue;
+      hostCounts.set(host, (hostCounts.get(host) ?? 0) + 1);
+    }
+    return hostCounts;
+  });
+
+  // Try to assign missing items to the most similar group by hostname
+  for (const item of items) {
+    if (coveredIds.has(item.id)) continue;
+
+    const itemHost = getHostname(item.url);
+    if (!itemHost) continue;
+
+    let bestGroupIndex = -1;
+    let bestScore = 0;
+
+    for (let gi = 0; gi < categorized.length; gi++) {
+      const score = groupHostMaps[gi].get(itemHost) ?? 0;
+      if (score > bestScore) {
+        bestScore = score;
+        bestGroupIndex = gi;
+      }
+    }
+
+    if (bestGroupIndex !== -1 && bestScore > 0) {
+      categorized[bestGroupIndex].items.push(item);
+      coveredIds.add(item.id);
+    }
+  }
+
+  // Remaining truly unassigned items → one Ungrouped group
+  const missing = items.filter((i) => !coveredIds.has(i.id));
+
+  if (missing.length) {
+    categorized.push({
+      id: "ungrouped",
+      name: "Ungrouped",
+      description: "Items that did not fit other groups",
+      purpose: defaultPurpose,
+      items: missing,
+    });
+  }
+
+  return categorized;
+}
+/* ---------------------------------------------------------- */
+
+/* -------------------- Core logic (wrapped in CORS) -------------------- */
+/**
+ * Lambda entrypoint responsible for normalizing bookmark payloads and returning grouped output.
+ *
+ * @param event API Gateway request event containing bookmark data.
+ * @param cors Result from evalCors providing response helpers.
+ * @returns API Gateway response with grouped bookmarks payload.
+ */
 const groupBookmarksCore = async (
   event: APIGatewayProxyEvent,
   cors: ReturnType<typeof evalCors>
@@ -203,104 +326,8 @@ Remember: every input id must appear in at least one group.
 
   return resp(cors, 200, { groups: categorized });
 };
+/* ---------------------------------------------------------- */
 
-// ------------ Mapping helpers ------------
-
-function getHostname(url: string): string {
-  try {
-    const host = new URL(url).hostname.toLowerCase();
-    return host.startsWith("www.") ? host.slice(4) : host;
-  } catch {
-    return "";
-  }
-}
-
-function mapToCategorizedGroups(
-  groups: GroupResult[],
-  items: RawItem[],
-  purposes: PurposeId[],
-  defaultPurpose: PurposeId
-): CategorizedGroup[] {
-  const itemsById = new Map(items.map((i) => [i.id, i]));
-  const purposeSet = new Set<PurposeId>(purposes);
-
-  const categorized: CategorizedGroup[] = groups.map((g) => {
-    const groupItems = (g.itemIds ?? [])
-      .map((id) => itemsById.get(id))
-      .filter(Boolean) as RawItem[];
-
-    const cleanId =
-      g.id ||
-      g.name
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, "");
-
-    const purpose: PurposeId =
-      (g.purpose && purposeSet.has(g.purpose) && g.purpose) || defaultPurpose;
-
-    return {
-      id: cleanId,
-      name: g.name,
-      description: g.description,
-      purpose,
-      items: groupItems,
-    };
-  });
-
-  // --- Coverage + auto-assignment of leftovers ---
-  const coveredIds = new Set(categorized.flatMap((g) => g.items.map((i) => i.id)));
-
-  // Build hostname index for each group
-  const groupHostMaps = categorized.map((group) => {
-    const hostCounts = new Map<string, number>();
-    for (const item of group.items) {
-      const host = getHostname(item.url);
-      if (!host) continue;
-      hostCounts.set(host, (hostCounts.get(host) ?? 0) + 1);
-    }
-    return hostCounts;
-  });
-
-  // Try to assign missing items to the most similar group by hostname
-  for (const item of items) {
-    if (coveredIds.has(item.id)) continue;
-
-    const itemHost = getHostname(item.url);
-    if (!itemHost) continue;
-
-    let bestGroupIndex = -1;
-    let bestScore = 0;
-
-    for (let gi = 0; gi < categorized.length; gi++) {
-      const score = groupHostMaps[gi].get(itemHost) ?? 0;
-      if (score > bestScore) {
-        bestScore = score;
-        bestGroupIndex = gi;
-      }
-    }
-
-    if (bestGroupIndex !== -1 && bestScore > 0) {
-      categorized[bestGroupIndex].items.push(item);
-      coveredIds.add(item.id);
-    }
-  }
-
-  // Remaining truly unassigned items → one Ungrouped group
-  const missing = items.filter((i) => !coveredIds.has(i.id));
-
-  if (missing.length) {
-    categorized.push({
-      id: "ungrouped",
-      name: "Ungrouped",
-      description: "Items that did not fit other groups",
-      purpose: defaultPurpose,
-      items: missing,
-    });
-  }
-
-  return categorized;
-}
-
-// ------------ Export: with CORS wrapper ------------
+/* -------------------- Export: with CORS wrapper -------------------- */
 export const handler = withCorsAndErrors(groupBookmarksCore);
+/* ---------------------------------------------------------- */

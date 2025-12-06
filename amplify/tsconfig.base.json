@@ -1,7 +1,6 @@
 {
   "extends": "../tsconfig.json",
   "compilerOptions": {
-    // Any backend-specific overrides:
     "types": ["node"],
     "module": "ESNext",
     "moduleResolution": "node16"
