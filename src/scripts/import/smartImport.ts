@@ -1,14 +1,14 @@
 /* -------------------- Imports -------------------- */
 /* Types */
 import type { SmartImportPhase } from "@/core/types/smartImportPhase";
-import type { PurposeId } from "@/core/types/purposeId";
+import type { PurposeId } from "@shared/types/purposeId";
 import type {
   GroupingLLM,
   GroupingInput,
   GroupingLLMResponse,
   CategorizedGroup,
   RawItem,
-} from "@/core/types/llmGrouping";
+} from "@shared/types/llmGrouping";
 /* ---------------------------------------------------------- */
 
 /* -------------------- Types -------------------- */

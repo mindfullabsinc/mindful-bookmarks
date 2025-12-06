@@ -9,21 +9,23 @@
     "strict": true,
     "skipLibCheck": true,
     "baseUrl": ".",
-    "paths": { 
-      "@": ["src"],
-      "@/*": ["src/*"], 
-      "$amplify/*": ["../.amplify/generated/*"] 
+    "paths": {
+      "@/*": ["src/*"],
+      "@shared/*": ["shared/*"],
+      "$amplify/*": ["../.amplify/generated/*"]
     },
     "types": ["chrome", "vite/client", "react", "jest"],
     "allowJs": true,
     "jsx": "react-jsx",
     "lib": ["dom", "esnext"],
-    "isolatedModules": true,
+    "isolatedModules": true
   },
   "include": [
-    "src", 
+    "src",
+    "shared",
     "src/types",
-    "src/vite-env.d.ts", 
-    "jest.config.cjs"
+    "src/vite-env.d.ts",
+    "jest.config.cjs",
+    "amplify/**/*.ts"      // Important so handlers see this config in VS Code
   ]
 }

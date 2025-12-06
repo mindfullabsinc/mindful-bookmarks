@@ -3,8 +3,8 @@ import type {
   GroupingInput,
   GroupingLLMResponse,
   CategorizedGroup,
-} from "@/core/types/llmGrouping";
-import type { PurposeId } from "@/core/types/purposeId";
+} from "@shared/types/llmGrouping";
+import type { PurposeId } from "@shared/types/purposeId";
 
 function capitalize(purpose: PurposeId): string {
   if (purpose === "work") return "Work";

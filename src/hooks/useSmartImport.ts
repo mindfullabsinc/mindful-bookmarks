@@ -6,7 +6,7 @@ import {
   SmartImportOptions,
 } from "@/scripts/import/smartImport";
 import { SmartImportPhase } from "@/core/types/smartImportPhase";
-import type { PurposeId } from "@/core/types/purposeId";
+import type { PurposeId } from "@shared/types/purposeId";
 
 /**
  * You can add more fields as needed (e.g. error states)

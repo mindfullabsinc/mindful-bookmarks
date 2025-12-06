@@ -7,47 +7,28 @@ import { resp } from "../_shared/http";
 import { evalCors } from "../_shared/cors"; // CorsPack type only
 import { badRequest, serverError } from "../_shared/errors";
 
+/* Types */
+import type { 
+  RawSource, 
+  RawItem, 
+  CategorizedGroup,
+} from "@shared/types/llmGrouping";
+import type { PurposeId } from "@shared/types/purposeId";
+
 // ----------- OpenAI client -----------
 const apiKey = process.env.OPENAI_API_KEY;
 if (!apiKey) {
-  // optional, but nicer error than a mysterious 401
   throw new Error("OPENAI_API_KEY env var is missing at runtime");
 }
 const openai = new OpenAI({ apiKey });
 
-// ----------- Types that match llmGrouping.ts -----------
-type RawSource = "bookmarks" | "tabs" | "history";
-type RawItem = {
-  id: string;
-  name: string;
-  url: string;
-  source: RawSource;
-  lastVisitedAt?: number;
-};
-
-type GroupingInput = {
-  items: RawItem[];
-  purposes: string[];
-};
-
+/* Types */
 type GroupResult = {
   id: string;
   name: string;
   description?: string;
-  purpose?: string;
+  purpose?: PurposeId;
   itemIds: string[];
-};
-
-type CategorizedGroup = {
-  id: string;
-  name: string;
-  purpose: string;
-  description?: string;
-  items: RawItem[];
-};
-
-type GroupingLLMResponse = {
-  groups: CategorizedGroup[];
 };
 
 // ----------- Core logic (wrapped in CORS) -----------
@@ -71,11 +52,15 @@ const groupBookmarksCore = async (
 
   // Accept the new shape: { items, purposes }
   const rawItems: any[] | null = Array.isArray(parsed.items) ? parsed.items : null;
-  const purposes: string[] = Array.isArray(parsed.purposes) ? parsed.purposes : [];
-
   if (!rawItems) {
     throw badRequest("Missing items[]");
   }
+
+  const isPurposeId = (p: string): p is PurposeId =>
+    p === "work" || p === "school" || p === "personal";
+  const purposes: PurposeId[] = Array.isArray(parsed.purposes)
+    ? parsed.purposes.filter(isPurposeId)
+    : [];
   if (!purposes.length) {
     throw badRequest("Missing purposes[]");
   }
@@ -233,11 +218,11 @@ function getHostname(url: string): string {
 function mapToCategorizedGroups(
   groups: GroupResult[],
   items: RawItem[],
-  purposes: string[],
-  defaultPurpose: string
+  purposes: PurposeId[],
+  defaultPurpose: PurposeId
 ): CategorizedGroup[] {
   const itemsById = new Map(items.map((i) => [i.id, i]));
-  const purposeSet = new Set(purposes);
+  const purposeSet = new Set<PurposeId>(purposes);
 
   const categorized: CategorizedGroup[] = groups.map((g) => {
     const groupItems = (g.itemIds ?? [])
@@ -251,7 +236,7 @@ function mapToCategorizedGroups(
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-|-$/g, "");
 
-    const purpose =
+    const purpose: PurposeId =
       (g.purpose && purposeSet.has(g.purpose) && g.purpose) || defaultPurpose;
 
     return {

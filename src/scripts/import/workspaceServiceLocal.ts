@@ -4,7 +4,7 @@ import type {
   WorkspaceService,
   CategorizedGroup,
 } from "@/scripts/import/smartImport";
-import type { PurposeId } from "@/core/types/purposeId";
+import type { PurposeId } from "@shared/types/purposeId";
 import type {
   BookmarkGroupType,
   BookmarkType,

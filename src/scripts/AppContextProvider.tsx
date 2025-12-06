@@ -11,7 +11,7 @@ import {
 
 /* Types */
 import type { BookmarkGroupType } from "@/core/types/bookmarks";
-import type { PurposeId } from '@/core/types/purposeId';
+import type { PurposeId } from '@shared/types/purposeId';
 
 /* Scripts */
 import {

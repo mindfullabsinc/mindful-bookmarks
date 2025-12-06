@@ -1,4 +1,4 @@
-import { PurposeId } from "./purposeId";
+import { PurposeId } from "@shared/types/purposeId";
 
 export type RawSource = "bookmarks" | "tabs" | "history";
 
@@ -17,6 +17,7 @@ export type CategorizedGroup = {
   description?: string;
   items: RawItem[];
 };
+
 export type GroupingInput = {
   items: RawItem[];
   purposes: PurposeId[]; 

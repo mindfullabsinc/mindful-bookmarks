@@ -6,7 +6,7 @@ import { User, Briefcase, GraduationCap, Loader2 } from "lucide-react";
 import { AppContext } from "@/scripts/AppContextProvider";
 
 /* Types */
-import type { PurposeId } from "@/core/types/purposeId";
+import type { PurposeId } from "@shared/types/purposeId";
 /* ---------------------------------------------------------- */
 
 /* -------------------- Local types -------------------- */

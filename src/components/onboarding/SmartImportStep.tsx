@@ -9,7 +9,7 @@ import React, {
 import { Loader2, Wand2 } from "lucide-react";
 
 /* Types */
-import type { PurposeId } from "@/core/types/purposeId";
+import type { PurposeId } from "@shared/types/purposeId";
 
 /* Constants */
 import { PHASE_MESSAGES } from "@/core/constants/smartImportPhase";
