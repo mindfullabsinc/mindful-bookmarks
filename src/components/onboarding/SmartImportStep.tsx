@@ -24,13 +24,13 @@ import { AppContext } from "@/scripts/AppContextProvider";
 import { createWorkspaceServiceLocal } from "@/scripts/import/workspaceServiceLocal";
 import { chromeBrowserSourceService } from "@/scripts/import/browserSourceServiceChrome";
 import { basicNsfwFilter } from "@/scripts/import/nsfwFilter";
-import { stubGroupingLLM } from "@/scripts/import/groupingLLMStub";
 import { remoteGroupingLLM } from "@/scripts/import/groupingLLMRemote";
 /* ---------------------------------------------------------- */
 
 /* -------------------- Local types -------------------- */
 type SmartImportStepProps = {
   purposes: PurposeId[];
+  onDone: (primaryWorkspaceId: string) => void;
 };
 /* ---------------------------------------------------------- */
 
@@ -53,7 +53,8 @@ const MIN_PHASE_DURATION_MS = 800;
  * @param props.purposes Ordered list of purposes selected in the onboarding flow.
  */
 export const SmartImportStep: React.FC<SmartImportStepProps> = ({
-  purposes
+  purposes,
+  onDone,
 }) => {
   const { userId, bumpWorkspacesVersion } = useContext(AppContext);
 
@@ -74,7 +75,7 @@ export const SmartImportStep: React.FC<SmartImportStepProps> = ({
       workspaceService,
       browserSourceService: chromeBrowserSourceService,
       nsfwFilter: basicNsfwFilter,
-      llm: remoteGroupingLLM, 
+      llm: remoteGroupingLLM,
     }),
     [workspaceService]
   );
@@ -84,19 +85,22 @@ export const SmartImportStep: React.FC<SmartImportStepProps> = ({
   // Guard so we only kick off Smart Import once per mount
   const startedRef = useRef(false);
 
-  // 🔹 visual phase index for the loading UI
+  // Guard so we only call onDone once per mount
+  const notifiedRef = useRef(false);
+
+  // Visual phase index for the loading UI
   const [visualPhaseIndex, setVisualPhaseIndex] = useState(0);
+  const [primaryWorkspaceId, setPrimaryWorkspaceId] = useState<string | null>(
+    null
+  );
+
   const visualPhase: VisualPhase = PHASE_SEQUENCE[visualPhaseIndex];
 
-  /* -------------------- Kick off the import -------------------- */
   /**
    * Kick off the smart import job once the component mounts and purposes are available.
    */
   useEffect(() => {
-    if (!purposes || purposes.length === 0) {
-      return;
-    }
-
+    if (!purposes || purposes.length === 0) return;
     if (startedRef.current) return;
     startedRef.current = true;
 
@@ -104,24 +108,37 @@ export const SmartImportStep: React.FC<SmartImportStepProps> = ({
 
     (async () => {
       try {
-        await start(purposes);
+        const id = await start(purposes);
         if (!cancelled) {
-          bumpWorkspacesVersion();  // Tell the rest of the app registry changed
+          if (id) setPrimaryWorkspaceId(id);
+          bumpWorkspacesVersion();
         }
       } catch (err) {
         console.error("[SmartImportStep] error during smart import", err);
         if (!cancelled) {
-          bumpWorkspacesVersion();  // In case we created any workspaces before failing
+          bumpWorkspacesVersion();
         }
-      } finally {
-        // Backend is finished; visual phase will "catch up" below
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [purposes, start, bumpWorkspacesVersion]);
+  }, [purposes, start, bumpWorkspacesVersion]);  
+
+  /**
+   * After backend is done, tell parent which workspace to activate.
+   */
+  useEffect(() => {
+    if (
+      !notifiedRef.current &&
+      backendPhase === "done" &&
+      primaryWorkspaceId
+    ) {
+      notifiedRef.current = true;
+      onDone(primaryWorkspaceId);
+    }
+  }, [backendPhase, primaryWorkspaceId, onDone]);
   /* ---------------------------------------------------------- */
 
   /* -------------------- Visual phase smoothing -------------------- */

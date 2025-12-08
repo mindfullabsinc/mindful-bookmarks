@@ -90,7 +90,7 @@ export interface AppContextValue {
   /* Workspaces */
   workspaces: Record<WorkspaceIdType, WorkspaceType>;
   activeWorkspaceId: WorkspaceIdType | null;  // allow null during boot
-  setActiveWorkspaceId: (id: WorkspaceIdType) => void; 
+  setActiveWorkspaceId: (id: WorkspaceIdType) => Promise<void>; 
   workspacesVersion: number;
   bumpWorkspacesVersion: () => void;
 

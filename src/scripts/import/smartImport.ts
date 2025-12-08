@@ -20,18 +20,9 @@ export type SmartImportProgress = {
   totalItems?: number;
   processedItems?: number;
 };
-/* ---------------------------------------------------------- */
 
-/* -------------------- Abstractions -------------------- */
-export interface BrowserSourceService {
-  collectBookmarks(): Promise<RawItem[]>;
-  collectTabs(): Promise<RawItem[]>;
-  collectHistory(limit?: number): Promise<RawItem[]>;
-}
-
-export interface NsfwFilter {
-  /** Returns TRUE if the URL is safe to import */
-  isSafe(item: RawItem): Promise<boolean>;
+export type SmartImportResult = {
+  primaryWorkspaceId: string | null;
 }
 
 export type SmartImportOptions = {
@@ -43,6 +34,17 @@ export type SmartImportOptions = {
   /** Called on every phase transition / progress update */
   onProgress?: (progress: SmartImportProgress) => void;
 };
+
+export interface BrowserSourceService {
+  collectBookmarks(): Promise<RawItem[]>;
+  collectTabs(): Promise<RawItem[]>;
+  collectHistory(limit?: number): Promise<RawItem[]>;
+}
+
+export interface NsfwFilter {
+  /** Returns TRUE if the URL is safe to import */
+  isSafe(item: RawItem): Promise<boolean>;
+}
 /* ---------------------------------------------------------- */
 
 /* -------------------- Helper functions -------------------- */
@@ -86,7 +88,7 @@ const uniqueByUrl = (items: RawItem[]): RawItem[] => {
  */
 export async function runSmartImport(
   options: SmartImportOptions
-): Promise<void> {
+): Promise<SmartImportResult> {
   const {
     purposes,
     workspaceService,
@@ -101,7 +103,7 @@ export async function runSmartImport(
       phase: "done",
       message: "No purposes selected – skipping Smart Import.",
     });
-    return;
+    return { primaryWorkspaceId: null };
   }
 
   /* 1) Initialize */
@@ -112,9 +114,13 @@ export async function runSmartImport(
 
   /* 2) Create workspaces per purpose */
   const workspaceMap = new Map<PurposeId, WorkspaceRef>();
+  let primaryWorkspaceId: string | null = null;
   for (const purpose of purposes) {
     const workspace = await workspaceService.createWorkspaceForPurpose(purpose);
     workspaceMap.set(purpose, workspace);
+    if (!primaryWorkspaceId) {
+      primaryWorkspaceId = workspace.id;
+    }
   }
 
   /* 3) Collect raw items from sources */
@@ -183,8 +189,7 @@ export async function runSmartImport(
   for (const group of groups) {
     const workspaceRef = workspaceMap.get(group.purpose);
     if (!workspaceRef) continue;
-    const list =
-      groupsByWorkspace.get(workspaceRef.id) ?? [];
+    const list = groupsByWorkspace.get(workspaceRef.id) ?? [];
     list.push(group);
     groupsByWorkspace.set(workspaceRef.id, list);
   }
@@ -198,5 +203,7 @@ export async function runSmartImport(
     phase: "done",
     message: "Your workspace is ready.",
   });
+
+  return { primaryWorkspaceId };
 }
 /* ---------------------------------------------------------- */

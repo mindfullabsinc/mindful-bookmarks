@@ -16,7 +16,7 @@ const baseCtx: AppContextValue = {
   /* Workspaces */
   workspaces: {},
   activeWorkspaceId: DEFAULT_LOCAL_WORKSPACE_ID,
-  setActiveWorkspaceId: () => {},
+  setActiveWorkspaceId: async () => {},
   workspacesVersion: 0,
   bumpWorkspacesVersion: () => {}, 
 
