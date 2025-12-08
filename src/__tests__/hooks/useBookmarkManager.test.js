@@ -29,9 +29,13 @@ jest.mock('uuid', () => ({
   v4: jest.fn(),
 }));
 
-// Mock the utilities module
+// Mock the storageKeys utils module
 jest.mock('@/core/utils/storageKeys', () => ({
   getUserStorageKey: (userId) => `bookmarks-${userId}`,
+}));
+
+// Mock the chrome utils module
+jest.mock('@/core/utils/chrome', () => ({
   refreshOtherMindfulTabs: jest.fn(),
 }));
 

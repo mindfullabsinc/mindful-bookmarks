@@ -18,7 +18,7 @@ jest.mock("@/scripts/storageAdapters", () => ({
 }));
 
 // Keep normalizeUrl simple and predictable for tests
-jest.mock("@/core/utils/utilities", () => ({
+jest.mock("@/core/utils/url", () => ({
   normalizeUrl: (u: string) => u.toLowerCase().replace(/\/+$/, ""),
 }));
 

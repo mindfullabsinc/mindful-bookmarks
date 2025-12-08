@@ -135,10 +135,25 @@ describe('refreshOtherMindfulTabs', () => {
     expect(reloadMock).toHaveBeenNthCalledWith(1, 11);  
   });
 
+  let warnSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
+  });
+
   it('swallows query errors (no tabs permission) gracefully', async () => {
     // @ts-ignore
     global.chrome.tabs.query = jest.fn(() => Promise.reject(new Error('No permission')));
     await expect(refreshOtherMindfulTabs()).resolves.toBeUndefined();
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      'Unable to query tabs:',
+      expect.any(Error),
+    );
 
     // runtime message still attempted
     // @ts-ignore
