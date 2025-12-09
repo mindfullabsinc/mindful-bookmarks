@@ -1,5 +1,7 @@
+export type ImportSource = "bookmarks" | "tabs" | "json";
+
 export type ImportResult = {
-  source: "json" | "bookmarks" | "tabs";
+  source: ImportSource; 
   totalImported: number;
   groupsCreated?: number;
 };

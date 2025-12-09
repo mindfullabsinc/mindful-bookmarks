@@ -130,9 +130,9 @@ export const OnboardingOverlay: React.FC = () => {
   } else if (importFlow === "manual") {
     STEPS.push({
       id: "manualImport",
-      title: "Import bookmarks",
+      title: "Import what you need.",
       subtitle:
-        "Bring in what you need from Chrome, your open tabs, or a JSON file. You can always import more later from Settings.",
+        "You can always import more later from Settings.",
       body: (
         <ManualImportStep setPrimaryDisabled={setImportPrimaryDisabled} />
       ),
