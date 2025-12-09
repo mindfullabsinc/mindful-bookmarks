@@ -11,10 +11,10 @@ type ImportBookmarksStepProps = {
   /** Callback from the onboarding shell to control the primary button */
   setPrimaryDisabled?: (disabled: boolean) => void;
   /** Surface selected purposes back to parent */
-  onSelectionChange?: (ids: string[]) => void;
+  onSelectionChange?: (mode: "smart" | "manual") => void;
 };
 
-type ImportChoice = "auto" | "manual" | null;
+type ImportChoice = "smart" | "manual" | null;
 /* ---------------------------------------------------------- */
 
 /**
@@ -29,6 +29,18 @@ export const ImportBookmarksStep: React.FC<ImportBookmarksStepProps> = ({
 }) => {
   /* -------------------- Context / state -------------------- */
   const [importChoice, setImportChoice] = useState<ImportChoice>(null);
+  /* ---------------------------------------------------------- */
+
+  /* -------------------- Handler helper functions -------------------- */
+  const handleSmartClick = () => {
+    setImportChoice("smart");
+    onSelectionChange?.("smart");
+  };
+
+  const handleManualClick = () => {
+    setImportChoice("manual");
+    onSelectionChange?.("manual");
+  };
   /* ---------------------------------------------------------- */
 
   /* -------------------- Effects -------------------- */
@@ -50,9 +62,9 @@ export const ImportBookmarksStep: React.FC<ImportBookmarksStepProps> = ({
           {/* Smart Import */}
           <button
             type="button"
-            onClick={() => setImportChoice("auto")}
+            onClick={handleSmartClick}
             className={`chip import-chip ${
-              importChoice === "auto" ? "chip--active" : ""
+              importChoice === "smart" ? "chip--active" : ""
             }`}
           >
             <div className="import-chip__icon">
@@ -64,8 +76,8 @@ export const ImportBookmarksStep: React.FC<ImportBookmarksStepProps> = ({
                 <span className="import-chip__pill">Recommended</span>
               </div>
               <p className="import-chip__subtitle">
-                Let Mindful do the hard work to auto-import from your
-                bookmarks, tabs, and history.
+                Let Mindful do the hard work to auto-import from your bookmarks,
+                tabs, and history.
               </p>
             </div>
           </button>
@@ -73,7 +85,7 @@ export const ImportBookmarksStep: React.FC<ImportBookmarksStepProps> = ({
           {/* Manual Import */}
           <button
             type="button"
-            onClick={() => setImportChoice("manual")}
+            onClick={handleManualClick}
             className={`chip import-chip ${
               importChoice === "manual" ? "chip--active" : ""
             }`}
@@ -84,8 +96,8 @@ export const ImportBookmarksStep: React.FC<ImportBookmarksStepProps> = ({
             <div className="import-chip__body">
               <p className="import-chip__title">Manual import</p>
               <p className="import-chip__subtitle">
-                Manually decide exactly what you want to bring into
-                Mindful, one step at a time.
+                Manually decide exactly what you want to bring into Mindful,
+                one step at a time.
               </p>
             </div>
           </button>

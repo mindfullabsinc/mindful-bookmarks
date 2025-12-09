@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState, useCallback } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AppContext, OnboardingStatus } from "@/scripts/AppContextProvider";
 
@@ -7,6 +7,7 @@ import { ThemeSelectorStep } from "@/components/onboarding/ThemeSelectorStep";
 import { PurposeStep } from "@/components/onboarding/PurposeStep";
 import { ImportBookmarksStep } from "@/components/onboarding/ImportBookmarksStep";
 import { SmartImportStep } from "@/components/onboarding/SmartImportStep";
+import { ManualImportStep } from "@/components/onboarding/ManualImportStep";
 import { FinishUpStep } from "@/components/onboarding/FinishUpStep";
 
 type OnboardingStepId =
@@ -14,6 +15,7 @@ type OnboardingStepId =
   | "setPurpose"
   | "importBookmarks"
   | "smartImport"
+  | "manualImport"
   | "finishUp"
   | "tips";
 
@@ -43,49 +45,70 @@ export const OnboardingOverlay: React.FC = () => {
 
   // Local-only step index; AppContext just knows "in_progress vs done".
   const [stepIndex, setStepIndex] = useState(0);
+
+  // Shared "disable primary" flag that individual steps control
   const [importPrimaryDisabled, setImportPrimaryDisabled] = useState(true);
 
   // Track the primary workspace id produced by Smart Import
   const [smartImportPrimaryWorkspaceId, setSmartImportPrimaryWorkspaceId] =
     useState<string | null>(null);
 
-  const finishOnboarding = useCallback(() => {
+  // Track which import flow the user picked on the ImportBookmarksStep
+  const [importFlow, setImportFlow] = useState<"smart" | "manual" | null>(null);
+
+  const finishOnboarding = React.useCallback(() => {
     setOnboardingStatus(OnboardingStatus.COMPLETED);
   }, [setOnboardingStatus]);
 
-  /* -------------------- Step config -------------------- */
-  const STEPS: OnboardingStepConfig[] = [
-    {
-      id: "selectTheme",
-      title: "Welcome to Mindful!",
-      subtitle:
-        'Create visual groups for different projects, save pages into those groups, and see your "board" every time you open a new tab.',
-      body: <ThemeSelectorStep />,
-      primaryLabel: "Next",
-      secondaryLabel: "Skip for now",
-      hideBack: true,
-    },
-    {
-      id: "setPurpose",
-      title: "What brings you to Mindful?",
-      body: <PurposeStep setPrimaryDisabled={setImportPrimaryDisabled} />,
-      primaryLabel: "Next",
-      secondaryLabel: "Back",
-      primaryDisabled: importPrimaryDisabled,
-    },
-    {
-      id: "importBookmarks",
-      title: "Bring Mindful up to speed.",
-      subtitle:
-        "Choose how you'd like to get your existing web life into Mindful.",
-      body: (
-        <ImportBookmarksStep setPrimaryDisabled={setImportPrimaryDisabled} />
-      ),
-      primaryLabel: "Next",
-      secondaryLabel: "Back",
-      primaryDisabled: importPrimaryDisabled,
-    },
-    {
+  /* -------------------- Step config (dynamic) -------------------- */
+  const STEPS: OnboardingStepConfig[] = [];
+
+  // 1. Theme
+  STEPS.push({
+    id: "selectTheme",
+    title: "Welcome to Mindful!",
+    subtitle:
+      'Create visual groups for different projects, save pages into those groups, and see your "board" every time you open a new tab.',
+    body: <ThemeSelectorStep />,
+    primaryLabel: "Next",
+    secondaryLabel: "Skip for now",
+    hideBack: true,
+  });
+
+  // 2. Purpose
+  STEPS.push({
+    id: "setPurpose",
+    title: "What brings you to Mindful?",
+    body: <PurposeStep setPrimaryDisabled={setImportPrimaryDisabled} />,
+    primaryLabel: "Next",
+    secondaryLabel: "Back",
+    primaryDisabled: importPrimaryDisabled,
+  });
+
+  // 3. Choice between Smart vs Manual import
+  STEPS.push({
+    id: "importBookmarks",
+    title: "Bring Mindful up to speed.",
+    subtitle:
+      "Choose how you'd like to get your existing web life into Mindful.",
+    body: (
+      <ImportBookmarksStep
+        setPrimaryDisabled={setImportPrimaryDisabled}
+        // Surface the user's choice up to the shell
+        onSelectionChange={(mode) => {
+          // mode is "smart" or "manual"
+          setImportFlow(mode);
+        }}
+      />
+    ),
+    primaryLabel: "Next",
+    secondaryLabel: "Back",
+    primaryDisabled: importPrimaryDisabled,
+  });
+
+  // 4. Final step depends on importFlow
+  if (importFlow === "smart") {
+    STEPS.push({
       id: "smartImport",
       title: "Setting things up ...",
       subtitle:
@@ -103,8 +126,22 @@ export const OnboardingOverlay: React.FC = () => {
       secondaryLabel: "Back",
       isFinal: true,
       // We'll compute disabled dynamically for this step below
-    },
-  ];
+    });
+  } else if (importFlow === "manual") {
+    STEPS.push({
+      id: "manualImport",
+      title: "Import bookmarks",
+      subtitle:
+        "Bring in what you need from Chrome, your open tabs, or a JSON file. You can always import more later from Settings.",
+      body: (
+        <ManualImportStep setPrimaryDisabled={setImportPrimaryDisabled} />
+      ),
+      primaryLabel: "Open Mindful",
+      secondaryLabel: "Back",
+      isFinal: true,
+      primaryDisabled: importPrimaryDisabled,
+    });
+  }
   /* ---------------------------------------------------------- */
 
   // Reset step state when overlay opens
@@ -113,6 +150,7 @@ export const OnboardingOverlay: React.FC = () => {
       setStepIndex(0);
       setSmartImportPrimaryWorkspaceId(null);
       setImportPrimaryDisabled(true);
+      setImportFlow(null);
     }
   }, [shouldShowOnboarding]);
 
