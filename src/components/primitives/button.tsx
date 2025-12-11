@@ -1,4 +1,3 @@
-// src/components/ui/button.tsx
 import React from "react";
 
 const base =

@@ -189,39 +189,41 @@ export const SmartImportStep: React.FC<SmartImportStepProps> = ({
 
   /* -------------------- Main component logic -------------------- */
   return (
-    <div className="flex flex-col items-center text-center p-8 min-h-[300px]">
+    <div className="s_import-container">
+      
       {/* Icon */}
-      <div className="mb-6">
+      <div className="s_import-icon-container">
         {visualPhase === "done" ? (
-          <Wand2 className="h-10 w-10 text-blue-500 animate-in fade-in" />
+          <Wand2 className="s_import-icon s_import-icon-wand" />
         ) : (
-          <Loader2 className="h-10 w-10 animate-spin text-blue-500" />
+          <Loader2 className="s_import-icon s_import-icon-loader" />
         )}
       </div>
 
       {/* Title */}
-      <h2 className="text-xl font-semibold mb-2">
+      <h2 className="s_import-title">
         {visualPhase === "done" ? "You're all set!" : "Preparing your space ..."}
       </h2>
 
       {/* Dynamic message from backend/visual progress */}
-      <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-6">
+      <p className="s_import-dynamic-message">
         {effectiveMessage}
       </p>
 
       {/* Progress bar */}
-      <div className="w-full max-w-xs h-1 rounded-full bg-neutral-800/50 dark:bg-neutral-700/50 overflow-hidden">
+      <div className="s_import-progress-bar-container">
         <div
-          className={`h-full bg-blue-500 transition-all duration-700 ${progressWidthClass}`}
+          className={`s_import-progress-bar ${progressWidthClass}`}
         />
       </div>
 
       {/* Tiny reassurance text */}
       {visualPhase !== "done" && (
-        <p className="text-xs text-neutral-500 dark:text-neutral-500 mt-4">
+        <p className="s_import-reassurance-text">
           This only takes a few seconds.
         </p>
       )}
+
     </div>
   );
 };

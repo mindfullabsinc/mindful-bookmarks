@@ -94,7 +94,7 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
 
   /* -------------------- Main component rendering -------------------- */
   return (
-    <div className="mt-4 space-y-4">
+    <div className="m_import-container">
       <ImportBookmarksEmbedded
         onUploadJson={handleUploadJsonWithFlag}
         onImportChrome={handleImportChromeWithFlag}

@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import LogoComponent from "@/components/LogoComponent";
 
 // Mock Badge so we can assert props easily
-jest.mock("@/components/ui/badge", () => ({
+jest.mock("@/components/primitives/badge", () => ({
   Badge: ({ children, forceLight, ...rest }: any) => (
     <span
       data-testid="badge"

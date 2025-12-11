@@ -34,8 +34,8 @@ import TopBanner from "@/components/TopBanner";
 import DraggableGrid, { GridHandle } from '@/components/DraggableGrid';
 import EmptyBookmarksState from '@/components/EmptyBookmarksState';
 import { WorkspaceSwitcher } from "@/components/WorkspaceSwitcher";
-import CopyToModal from "@/components/CopyToModal";
-import { Toast } from "@/components/ui/Toast";
+import CopyToModal from "@/components/modals/CopyToModal";
+import { Toast } from "@/components/primitives/Toast";
 
 /* Events */
 import { openCopyTo, type CopyPayload } from "@/scripts/events/copyToBridge";

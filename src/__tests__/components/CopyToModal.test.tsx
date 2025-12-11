@@ -4,7 +4,7 @@ import React from "react";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import CopyToModal from "@/components/CopyToModal"; 
+import CopyToModal from "@/components/modals/CopyToModal"; 
 import { listLocalWorkspaces } from "@/scripts/workspaces/registry";
 
 jest.mock("@/scripts/workspaces/registry", () => ({

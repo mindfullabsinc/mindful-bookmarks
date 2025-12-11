@@ -55,10 +55,11 @@ export const ImportBookmarksStep: React.FC<ImportBookmarksStepProps> = ({
 
   /* -------------------- Main component logic -------------------- */
   return (
-    <div className="space-y-3 text-sm text-neutral-700 dark:text-neutral-300">
-      <div className="mt-4 space-y-3">
-        <div className="h-px w-full bg-neutral-200 dark:bg-neutral-800" />
-        <div className="space-y-2">
+    <div className="import-container">
+      <div className="import-top-margin">
+        <div className="divider" />
+        <div className="import-bottom-margin">
+
           {/* Smart Import */}
           <button
             type="button"
@@ -67,8 +68,8 @@ export const ImportBookmarksStep: React.FC<ImportBookmarksStepProps> = ({
               importChoice === "smart" ? "chip--active" : ""
             }`}
           >
-            <div className="import-chip__icon">
-              <Wand2 className="h-5 w-5" />
+            <div className="import-chip__icon_container">
+              <Wand2 className="import-chip__icon"/>
             </div>
             <div className="import-chip__body">
               <div className="flex items-center gap-2">
@@ -90,8 +91,8 @@ export const ImportBookmarksStep: React.FC<ImportBookmarksStepProps> = ({
               importChoice === "manual" ? "chip--active" : ""
             }`}
           >
-            <div className="import-chip__icon">
-              <PlusSquare className="h-5 w-5" />
+            <div className="import-chip__icon_container">
+              <PlusSquare className="import-chip__icon"/>
             </div>
             <div className="import-chip__body">
               <p className="import-chip__title">Manual import</p>

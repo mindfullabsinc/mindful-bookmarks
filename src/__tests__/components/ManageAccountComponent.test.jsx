@@ -23,7 +23,7 @@ jest.mock("react-phone-number-input", () => {
 });
 
 // 3) Mock Avatar (purely presentational)
-jest.mock("@/components/ui/Avatar", () => ({
+jest.mock("@/components/primitives/Avatar", () => ({
   Avatar: ({ initials }) => <div data-testid="avatar">{initials}</div>,
 }));
 

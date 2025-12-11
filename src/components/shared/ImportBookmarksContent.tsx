@@ -1,11 +1,14 @@
 /* -------------------- Imports -------------------- */
 import React, { useEffect, useRef, useState } from "react";
 
+/* Types */
 import type { 
-  ImportSource,
   ChromeImportOptions, 
   OpenTabsOptions 
 } from "@/core/types/import";
+
+/* Styles */
+import '@/styles/components/shared/ImportBookmarksContent.css'
 /* ---------------------------------------------------------- */
 
 /* -------------------- Local types and interfaces -------------------- */
@@ -202,6 +205,9 @@ export function ImportBookmarksContent({
     }
   }
 
+  /**
+   * Primary CTA click handler for navigating the wizard and kicking off imports.
+   */
   async function handlePrimary() {
     if (busy) return;
 
@@ -238,12 +244,18 @@ export function ImportBookmarksContent({
     }
   }
 
+  /**
+   * Navigate to the previous wizard step when possible.
+   */
   function handleBack() {
     if (busy) return;
     setError(null);
     setStep((prev) => (prev > 1 ? ((prev - 1) as WizardStep) : prev));
   }
 
+  /**
+   * Compute the primary button label based on the current wizard step and selections.
+   */
   const primaryLabel = (() => {
     if (busy) return "Importing…";
     if (step === 1) {
@@ -269,6 +281,9 @@ export function ImportBookmarksContent({
   const primaryDisabled =
     busy || (step === 1 && jsonYes && !jsonFile);
 
+  /**
+   * Render the wizard step header for the current step.
+   */
   function renderStepHeader() {
     const title =
       step === 1
@@ -284,50 +299,53 @@ export function ImportBookmarksContent({
 
     return (
       <>
-        <div className="mb-2 flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-500">
+        <div className="step-progress">
           <span>
             Step {step} of 3
           </span>
         </div>
-        <h3 className="text-sm font-medium text-neutral-50">
+        <h3 className="step-title">
           {title}
         </h3>
-        <p className="mt-1 text-xs text-neutral-400">
+        <p className="step-subtitle">
           {subtitle}
         </p>
       </>
     );
   }
 
+  /**
+   * Checkbox row component used to capture yes/no answers on each import step.
+   */
   function YesCheckboxRow({ checked, onToggle, label, description }: YesCheckboxRowProps) {
     return (
       <button
         type="button"
         onClick={onToggle}
         className={
-          "mt-4 w-full text-left flex items-start gap-3 rounded-xl px-4 py-3 text-sm cursor-pointer transition " +
+          "checkbox-row " +
           (checked
-            ? "bg-blue-500/10"
-            : "bg-transparent hover:bg-neutral-900/40")
+            ? "checkbox-row--checked"
+            : "checkbox-row--unchecked")
         }
       >
         {/* Square checkbox */}
         <span
           className={
-            "mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-[4px] border text-[11px] " +
+            "checkbox-box " +
             (checked
-              ? "border-blue-500 bg-blue-500 text-white"
-              : "border-neutral-500 bg-transparent text-transparent")
+              ? "checkbox-box--checked"
+              : "checkbox-box--unchecked")
           }
           aria-hidden="true"
         >
           ✓
         </span>
 
-        <span className="flex flex-col">
-          <span className="font-medium text-neutral-50">{label}</span>
+        <span className="checkbox-label-container">
+          <span className="checkbox-label">{label}</span>
           {description && (
-            <span className="mt-0.5 text-xs text-neutral-400">
+            <span className="checkbox-label-description">
               {description}
             </span>
           )}
@@ -336,10 +354,13 @@ export function ImportBookmarksContent({
     );
   }
 
+  /**
+   * Render the body content for the current wizard step.
+   */
   function renderBody() {
     if (step === 1) {
       return (
-        <div className="space-y-4">
+        <div className="body-container">
           {renderStepHeader()}
           <YesCheckboxRow
             checked={jsonYes}
@@ -348,20 +369,13 @@ export function ImportBookmarksContent({
           />
 
           {jsonYes && (
-            <div className="mt-4 rounded-xl border border-dashed border-neutral-700 p-4">
+            <div className="json-input-container">
               <input
                 id="json-file-input"
                 type="file"
                 accept="application/json,.json"
                 onChange={(e) => setJsonFile(e.target.files?.[0] ?? null)}
-                className="
-                  file:cursor-pointer
-                  block w-full text-xs
-                  text-neutral-100
-                  file:mr-3 file:rounded-lg file:border-0
-                  file:bg-neutral-800 file:px-3 file:py-1.5 file:text-neutral-100
-                  hover:file:bg-neutral-700
-                "
+                className="json-input"
               />
             </div>
           )}
@@ -371,7 +385,7 @@ export function ImportBookmarksContent({
 
     if (step === 2) {
       return (
-        <div className="space-y-4">
+        <div className="body-container">
           {renderStepHeader()}
           <YesCheckboxRow
             checked={bookmarksYes}
@@ -379,29 +393,8 @@ export function ImportBookmarksContent({
             label="Yes"
           />
 
-          {bookmarksYes && (
-            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-              <button
-                type="button"
-                className="cursor-pointer flex items-start gap-3 rounded-2xl border border-neutral-700 p-4 text-left transition hover:border-neutral-500"
-              >
-                <div className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-blue-500 ring-2 ring-blue-900" />
-                <div>
-                  <div className="text-sm font-medium text-neutral-50">
-                    Flat import
-                  </div>
-                  <div className="text-xs text-neutral-400">
-                    Put everything into a single group:{" "}
-                    <span className="italic">Imported from Chrome</span>.
-                  </div>
-                </div>
-              </button>
-              {/* Smart modes can come back later here */}
-            </div>
-          )}
-
           {permGranted === false && (
-            <div className="rounded-xl border border-rose-900/60 bg-rose-900/30 px-4 py-3 text-xs text-rose-200">
+            <div className="bookmarks-permissions-warning error-message">
               Permission to access Chrome bookmarks was not granted.
             </div>
           )}
@@ -411,7 +404,7 @@ export function ImportBookmarksContent({
 
     // step === 3
     return (
-      <div className="space-y-4">
+      <div className="body-container">
         {renderStepHeader()}
         <YesCheckboxRow
           checked={tabsYes}
@@ -420,33 +413,66 @@ export function ImportBookmarksContent({
         />
 
         {tabsYes && (
-          <div className="mt-4 max-w-md">
-            <div className="rounded-xl border border-neutral-700 p-4 text-left">
-              <div className="mb-2 text-xs font-medium text-neutral-100">
-                Which tabs?
-              </div>
-              <div className="flex flex-col items-start gap-1">
-                <label className="inline-flex items-center leading-tight text-xs text-neutral-300">
-                  <input
-                    type="radio"
-                    name="tabScope"
-                    checked={tabScope === "current"}
-                    onChange={() => setTabScope("current")}
-                    className="cursor-pointer h-3 w-3 accent-blue-500 mr-2.5"
-                  />
-                  Current window
-                </label>
-                <label className="inline-flex items-center leading-tight text-xs text-neutral-300">
-                  <input
-                    type="radio"
-                    name="tabScope"
-                    checked={tabScope === "all"}
-                    onChange={() => setTabScope("all")}
-                    className="cursor-pointer h-3 w-3 accent-blue-500 mr-2.5"
-                  />
-                  All windows
-                </label>
-              </div>
+          <div className="tabs-container">
+            <h3 className="tabs-header">
+              Which tabs?
+            </h3>
+
+            <div className="tabs-windows-container">
+
+              {/* All windows */}
+              <button
+                type="button"
+                onClick={() => setTabScope("all")}
+                className={`tabs-radio-button-row
+                  ${tabScope === "all"
+                    ? "tabs-radio-button-row--selected"
+                    : "tabs-radio-button-row--unselected"
+                  }
+                `}
+              >
+                <div
+                  className={`
+                    tabs-radio-button-outer-circle
+                    ${tabScope === "all"
+                      ? "tabs-radio-button-outer-circle--selected"
+                      : "tabs-radio-button-outer-circle--unselected"
+                    }
+                  `}
+                >
+                  {tabScope === "all" && (
+                    <div className="tabs-radio-button-inner-circle" />
+                  )}
+                </div>
+                <span className="tabs-radio-button-text">All windows</span>
+              </button>
+
+              {/* Current window */}
+              <button
+                type="button"
+                onClick={() => setTabScope("current")}
+                className={`tabs-radio-button-row
+                  ${tabScope === "current"
+                    ? "tabs-radio-button-row--selected"
+                    : "tabs-radio-button-row--unselected"
+                  }
+                `}
+              >
+                <div
+                  className={`
+                    tabs-radio-button-outer-circle 
+                    ${tabScope === "current"
+                      ? "tabs-radio-button-outer-circle--selected"
+                      : "tabs-radio-button-outer-circle--unselected"
+                    }
+                  `}
+                >
+                  {tabScope === "current" && (
+                    <div className="tabs-radio-button-inner-circle" />
+                  )}
+                </div>
+                <span className="tabs-radio-button-text">Current window</span>
+              </button>
             </div>
           </div>
         )}
@@ -464,22 +490,22 @@ export function ImportBookmarksContent({
       aria-labelledby="import-title"
       className={
         variant === "modal"
-          ? "relative z-10 w-[min(96vw,720px)] rounded-2xl border border-neutral-200 bg-white shadow-2xl dark:border-neutral-800 dark:bg-neutral-950 max-h-[85vh] overflow-hidden"
-          : "relative w-full rounded-2xl border border-neutral-800/70 bg-neutral-950/90 shadow-sm overflow-hidden"
+          ? "modal-container"
+          : "embedded-container"
       }
     >
-      <div className="grid grid-rows-[auto,1fr,auto] max-h-[85vh]">
+      <div className="modal-subcontainer">
         {variant === "modal" && (
-          <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-200 dark:border-neutral-800">
+          <div className="modal-header-container">
             <h2
               id="import-title"
-              className="text-lg font-semibold text-neutral-900 dark:text-neutral-100"
+              className="modal-title"
             >
               Import bookmarks
             </h2>
             <button
               onClick={() => !busy && onClose?.()}
-              className="cursor-pointer inline-flex h-9 w-9 items-center justify-center rounded-xl text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 dark:text-neutral-400 dark:hover:bg-neutral-900 dark:hover:text-neutral-200"
+              className="import-button close-button"
               aria-label="Close"
             >
               ✕
@@ -487,18 +513,18 @@ export function ImportBookmarksContent({
           </div>
         )}
 
-        <div className="px-5 pt-3 pb-1 overflow-y-auto">
+        <div className="body-container">
           {renderBody()}
 
           {error && (
-            <div className="mt-4 rounded-xl border border-rose-900/60 bg-rose-900/30 px-4 py-3 text-xs text-rose-200">
+            <div className="error-message">
               {error}
             </div>
           )}
         </div>
 
-        <div className="flex items-center justify-between gap-3 px-5 pt-1 pb-3">
-          <div className="text-[11px] text-neutral-500 dark:text-neutral-400">
+        <div className="footer-container">
+          <div className="busy-message">
             {busy
               ? "Importing… This may take a moment for large sets."
               : ""}
@@ -507,7 +533,7 @@ export function ImportBookmarksContent({
             {variant === "modal" && (
               <button
                 onClick={() => !busy && onClose?.()}
-                className="cursor-pointer inline-flex items-center justify-center rounded-xl border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-800 shadow-sm transition hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-850 dark:hover:text-neutral-800"
+                className="import-button cancel-button"
               >
                 Cancel
               </button>
@@ -518,7 +544,7 @@ export function ImportBookmarksContent({
                 type="button"
                 onClick={handleBack}
                 disabled={busy}
-                className="cursor-pointer inline-flex items-center justify-center rounded-xl border border-neutral-700 bg-transparent px-3 py-1.5 text-xs text-neutral-300 hover:bg-neutral-900 disabled:opacity-50"
+                className="import-button back-button"
               >
                 Back
               </button>
@@ -528,7 +554,7 @@ export function ImportBookmarksContent({
               type="button"
               onClick={handlePrimary}
               disabled={primaryDisabled}
-              className="cursor-pointer inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70"
+              className="import-button next-button"
             >
               {primaryLabel}
             </button>

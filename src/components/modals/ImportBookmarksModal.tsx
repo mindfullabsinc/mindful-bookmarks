@@ -2,11 +2,15 @@
 import React from "react";
 import { createPortal } from "react-dom";
 
-import {
-  ImportBookmarksContent,
-  type ImportBookmarksContentProps,
-} from "../ImportBookmarksContent";
+/* Types */
 import type { ChromeImportOptions, OpenTabsOptions } from "@/core/types/import";
+import type { ImportBookmarksContentProps } from "@/components/shared/ImportBookmarksContent";
+
+/* Styling */
+import '@/styles/components/modals/ImportBookmarksModal.css';
+
+/* Components */
+import { ImportBookmarksContent } from '@/components/shared/ImportBookmarksContent'
 /* ---------------------------------------------------------- */
 
 /* -------------------- Local types and interfaces -------------------- */
@@ -38,10 +42,10 @@ export default function ImportBookmarksModal({
   if (!isOpen) return null;
 
   const modal = (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center">
+    <div className="modal-container">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        className="modal-backdrop"
         onClick={onClose}
       />
 

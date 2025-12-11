@@ -11,7 +11,7 @@ import useImportBookmarks from '@/hooks/useImportBookmarks';
 
 /* Components */
 import LogoComponent from '@/components/LogoComponent';
-import Tooltip from "@/components/ui/Tooltip";
+import Tooltip from "@/components/primitives/Tooltip";
 
 
 const TopBanner = ({

@@ -1,6 +1,6 @@
 // CTAButton.tsx
 import React, { useEffect, useState } from "react";
-import { Button, type ButtonVariant } from "@/components/ui/button";
+import { Button, type ButtonVariant } from "@/components/primitives/button";
 import { Download } from "lucide-react";
 
 /* Utilities */

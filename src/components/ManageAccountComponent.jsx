@@ -18,7 +18,7 @@ import { toE164 } from "@/core/utils/phone";
 import { StorageMode, StorageLabel } from "@/core/constants/storageMode";
 
 /* Components */
-import { Avatar } from "@/components/ui/Avatar"; 
+import { Avatar } from "@/components/primitives/Avatar"; 
 
 
 export default function ManageAccountComponent({ user, signIn, signOut }) {

@@ -1,0 +1,211 @@
+@reference "tailwindcss";
+
+@layer components {
+  /* -------------------- Shared modal / embedded wizard styles -------------------- */
+  .body-container {
+    @apply px-5 pt-3 pb-1 overflow-y-auto;
+  }
+
+  .error-message {
+    @apply mt-4 rounded-xl px-4 py-3
+           border border-rose-100/60 dark:border-rose-900/60 
+           bg-rose-100/30 dark:bg-rose-900/30 
+           text-xs text-rose-800 dark:text-rose-200
+  }
+
+  .footer-container {
+    @apply flex items-center justify-between gap-3 px-5 pt-1 pb-3;
+  }
+
+  .busy-message {
+    @apply text-[11px] text-neutral-500 dark:text-neutral-400;
+  }
+
+  .import-button {
+    @apply cursor-pointer inline-flex items-center justify-center rounded-xl;
+  }
+
+  .back-button {
+    @apply px-3 py-1.5 text-xs 
+           border border-neutral-300 dark:border-neutral-700 
+           bg-transparent hover:bg-neutral-100 dark:hover:bg-neutral-900
+           text-neutral-700 dark:text-neutral-300
+           disabled:opacity-50;
+  }
+
+  .next-button {
+    @apply px-4 py-2 text-sm font-medium shadow-sm transition disabled:cursor-not-allowed
+           bg-blue-600 hover:bg-blue-700
+           text-white
+           disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 
+           focus-visible:ring-blue-500/70;
+  }
+  /* ---------------------------------------------------------- */
+
+  /* -------------------- Modal-specific styles -------------------- */
+  .modal-container {
+    @apply relative z-10 w-[min(96vw,720px)] 
+           rounded-2xl border border-neutral-200 dark:border-neutral-800 
+           bg-white dark:bg-neutral-950 
+           shadow-2xl max-h-[85vh] overflow-hidden;
+  }
+
+  .modal-subcontainer {
+    @apply grid grid-rows-[auto,1fr,auto] max-h-[85vh];
+  }
+
+  .modal-header-container {
+    @apply flex items-center justify-between px-5 py-4 border-b border-neutral-200 dark:border-neutral-800;
+  }
+
+  .modal-title {
+    @apply text-lg font-semibold text-neutral-900 dark:text-neutral-100;
+  }
+
+  .close-button {
+    @apply h-9 w-9 
+         hover:bg-neutral-100 dark:hover:bg-neutral-900
+         text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200
+         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70;
+  }
+
+  .cancel-button {
+    @apply px-4 py-2 text-sm shadow-sm transition
+           border border-neutral-300 dark:border-neutral-700 
+           bg-white dark:bg-neutral-900 hover:bg-neutral-50 dark:hover:bg-neutral-950
+           text-neutral-800 dark:text-neutral-200 dark:hover:text-neutral-800
+           focus-visible:outline-none focus-visible:ring-2 
+           focus-visible:ring-blue-500/70;
+  }
+  /* ---------------------------------------------------------- */
+
+  /* -------------------- Embedded wizard-specific styles -------------------- */
+  .embedded-container {
+    @apply relative w-full 
+           rounded-2xl border border-neutral-200/70 dark:border-neutral-800/70 
+           bg-neutral-50/90 dark:bg-neutral-950/90 
+           shadow-sm overflow-hidden;
+  }
+
+  /* Progress into the wizard */
+  .step-progress {
+    @apply mb-2 flex items-center justify-between 
+           text-xs text-neutral-500;
+  }
+
+  .step-title {
+    @apply text-sm font-medium text-neutral-950 dark:text-neutral-50;
+  }
+
+  .step-subtitle {
+    @apply mt-1 text-xs text-neutral-600 dark:text-neutral-400;
+  }
+
+  /* Yes/no checkbox per wizard step */
+  .checkbox-row {
+    @apply mt-4 w-full text-left flex items-start gap-3 rounded-xl px-4 py-3 text-sm cursor-pointer transition;
+  }
+
+  .checkbox-row--checked {
+    @apply bg-blue-500/10;
+  }
+
+  .checkbox-row--unchecked {
+    @apply bg-transparent hover:bg-neutral-100/40 dark:hover:bg-neutral-900/40; 
+  }
+
+  .checkbox-box {
+    @apply mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-[4px] border text-[11px];
+  }
+
+  .checkbox-box--checked {
+    @apply border-blue-500 bg-blue-500 text-white;
+  }
+
+  .checkbox-box--unchecked {
+    @apply border-neutral-500 bg-transparent text-transparent;
+  }
+
+  .checkbox-label-container {
+    @apply flex flex-col;
+  }
+  
+  .checkbox-label {
+    @apply font-medium text-neutral-950 dark:text-neutral-50;
+  }
+
+  .checkbox-label-description {
+    @apply mt-0.5 text-xs text-neutral-600 dark:text-neutral-400;
+  }
+
+  /* Wizard step body shared */
+  .body-container {
+    @apply space-y-4;
+  }
+
+  /* Step 1: JSON file input */
+  .json-input-container {
+    @apply mt-4 rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 p-4;
+  }
+
+  .json-input {
+    @apply file:cursor-pointer
+           block w-full text-xs
+           text-neutral-900 dark:text-neutral-100
+           file:mr-3 file:rounded-lg file:border-0
+           file:px-3 file:py-1.5 
+           file:bg-neutral-200 dark:file:bg-neutral-700 
+           hover:file:bg-neutral-300 dark:hover:file:bg-neutral-600
+           file:text-neutral-900 dark:file:text-neutral-100;
+  }
+
+  /* Step 2: Chrome bookmarks */
+  .bookmarks-permissions-warning {
+  }
+
+  /* Step 3: Open tabs */
+  .tabs-container {
+    @apply mt-4 max-w-md;
+  }
+
+  .tabs-header {
+    @apply text-sm font-medium text-neutral-950 dark:text-neutral-50 mb-3;
+  }
+
+  .tabs-windows-container {
+    @apply space-y-2;
+  }
+
+  .tabs-radio-button-row {
+    @apply w-full flex items-center gap-3 rounded-xl p-3 text-left transition cursor-pointer;
+  }
+
+  .tabs-radio-button-row--selected {
+    @apply bg-blue-500/10; /*bg-[rgb(15,23,42)]*/
+  }
+
+  .tabs-radio-button-row--unselected {
+    @apply bg-neutral-100/30 dark:bg-neutral-900/30;
+  }
+
+  .tabs-radio-button-outer-circle {
+    @apply h-4 w-4 rounded-full border flex items-center justify-center;
+  }
+
+  .tabs-radio-button-outer-circle--selected {
+    @apply border-blue-600 dark:border-blue-400 bg-blue-500;
+  }
+
+  .tabs-radio-button-outer-circle--unselected {
+    @apply border-neutral-600 dark:border-neutral-400;
+  }
+
+  .tabs-radio-button-inner-circle {
+    @apply h-2 w-2 bg-white rounded-full;
+  }
+
+  .tabs-radio-button-text {
+    @apply text-sm text-neutral-800 dark:text-neutral-200;
+  }
+  /* ---------------------------------------------------------- */
+}
