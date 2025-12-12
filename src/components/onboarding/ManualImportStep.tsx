@@ -7,8 +7,9 @@ import type {
   OpenTabsOptions,
 } from "@/core/types/import";
 
-/* Hooks */
+/* Import bookmarks hook */
 import useImportBookmarks from '@/hooks/useImportBookmarks';
+import { importChromeBookmarksAsSingleGroup, importOpenTabsAsSingleGroup } from '@/scripts/importers'; 
 
 /* Components */
 import { ImportBookmarksEmbedded } from "@/components/modals/ImportBookmarksModal";
@@ -36,7 +37,10 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
     handleUploadJson,
     handleImportChrome,
     handleImportOpenTabs,
-  } = useImportBookmarks();
+  } = useImportBookmarks({
+    importChromeBookmarksAsSingleGroup,       // bookmarks → flat
+    importOpenTabsAsSingleGroup,              // open tabs → flat   
+  });
   /* ---------------------------------------------------------- */
 
   /* -------------------- Helper functions -------------------- */

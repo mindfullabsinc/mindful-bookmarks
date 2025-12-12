@@ -111,13 +111,6 @@ export async function importOpenTabsAsSingleGroup(
 ): Promise<void> {
   const { scope = 'current', includePinned = true, includeDiscarded = true } = opts ?? {};
 
-  // ensure permission (ok to call even if already granted)
-  const has = await chrome.permissions.contains({ permissions: ['tabs'], origins: ['<all_urls>'] });
-  if (!has) {
-    const granted = await chrome.permissions.request({ permissions: ['tabs'], origins: ['<all_urls>'] });
-    if (!granted) throw new Error('Permission to read open tabs was not granted.');
-  }
-
   const q: chrome.tabs.QueryInfo = scope === 'current' ? { currentWindow: true } : {};
   const tabs = await chrome.tabs.query(q);
 

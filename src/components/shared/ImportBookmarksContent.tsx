@@ -123,28 +123,6 @@ export function ImportBookmarksContent({
   }
 
   /**
-   * Request/confirm permission to read open tabs.
-   *
-   * @returns True when permission is granted.
-   */
-  async function ensureTabsPermission(): Promise<boolean> {
-    try {
-      const has = await chrome.permissions.contains({
-        permissions: ["tabs"],
-        origins: ["<all_urls>"],
-      });
-      if (has) return true;
-      return await chrome.permissions.request({
-        permissions: ["tabs"],
-        origins: ["<all_urls>"],
-      });
-    } catch (e) {
-      console.warn("Tabs permission request failed", e);
-      return false;
-    }
-  }
-
-  /**
    * Handle the JSON import flow (button click + state updates).
    */
   async function runJsonImport(): Promise<boolean> {
@@ -195,8 +173,7 @@ export function ImportBookmarksContent({
     try {
       setBusy(true);
       setError(null);
-      const ok = await ensureTabsPermission();
-      if (!ok) throw new Error("Permission to read open tabs was not granted.");
+      // No ensureTabsPermission needed since tabs is required in manifest.json
       await onImportOpenTabs({ scope: tabScope });
       return true;
     } catch (e: any) {
@@ -228,7 +205,6 @@ export function ImportBookmarksContent({
 
     // Step 2: Chrome bookmarks
     if (step === 2) {
-      console.log("Got to step 2: Chrome bookmarks");
       if (!bookmarksYes) {
         // User said "No" --> genuinely skip bookmarks import
         setStep(3);
@@ -242,7 +218,6 @@ export function ImportBookmarksContent({
 
     // Step 3: open tabs
     if (step === 3) {
-      console.log("Got to step 3: open tabs");
       if (tabsYes) {
         const ok = await runTabsImport();
         if (!ok) return;
@@ -265,8 +240,6 @@ export function ImportBookmarksContent({
    * Centralized logic to notify that the manual import wizard is complete. 
    */
   function finishWizard() {
-    console.log("Calling finishWizard");
-
     // Always notify completion if provided
     onComplete?.();
 
