@@ -30,6 +30,7 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
 }) => {
   /* -------------------- Context / state -------------------- */
   const [hasImported, setHasImported] = useState(false);
+  const [wizardDone, setWizardDone] = useState(false);
 
    const {
     handleUploadJson,
@@ -85,11 +86,12 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
 
   /* -------------------- Effects -------------------- */
   /**
-   * Disable the primary button until an import pipeline succeeds.
+   * Disable primary until user *either* imported something or finished the wizard
    */
   useEffect(() => {
-    setPrimaryDisabled?.(!hasImported);
-  }, [hasImported, setPrimaryDisabled]);
+    const shouldDisable = !hasImported && !wizardDone;
+    setPrimaryDisabled?.(shouldDisable);
+  }, [hasImported, wizardDone, setPrimaryDisabled]);
   /* ---------------------------------------------------------- */
 
   /* -------------------- Main component rendering -------------------- */
@@ -99,7 +101,7 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
         onUploadJson={handleUploadJsonWithFlag}
         onImportChrome={handleImportChromeWithFlag}
         onImportOpenTabs={handleImportOpenTabsWithFlag}
-        onClose={undefined} // no-op; we’re embedded
+        onComplete={() => setWizardDone(true)}
       />
     </div>
   );

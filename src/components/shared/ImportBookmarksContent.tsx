@@ -14,7 +14,8 @@ import '@/styles/components/shared/ImportBookmarksContent.css'
 /* -------------------- Local types and interfaces -------------------- */
 export type ImportBookmarksContentProps = {
   variant: "modal" | "embedded";
-  onClose?: () => void;
+  onClose?: () => void;     // Closing the modal
+  onComplete?: () => void;  // Wizard finished (embedded or modal)
   onUploadJson: (file: File) => Promise<void> | void;
   onImportChrome: (options: ChromeImportOptions) => Promise<void> | void;
   onImportOpenTabs?: (options: OpenTabsOptions) => Promise<void> | void;
@@ -43,6 +44,7 @@ type YesCheckboxRowProps = {
 export function ImportBookmarksContent({
   variant,
   onClose,
+  onComplete,
   onUploadJson,
   onImportChrome,
   onImportOpenTabs,
@@ -213,10 +215,12 @@ export function ImportBookmarksContent({
 
     // Step 1: JSON
     if (step === 1) {
-      if (jsonYes) {
+      if (!jsonYes) {
+        // User said "No" --> genuinely skip JSON import
         setStep(2);
         return;
       }
+      // User said "Yes" --> try to import
       const ok = await runJsonImport();
       if (ok) setStep(2);
       return;
@@ -224,10 +228,13 @@ export function ImportBookmarksContent({
 
     // Step 2: Chrome bookmarks
     if (step === 2) {
-      if (bookmarksYes) {
+      console.log("Got to step 2: Chrome bookmarks");
+      if (!bookmarksYes) {
+        // User said "No" --> genuinely skip bookmarks import
         setStep(3);
         return;
       }
+      // User said "Yes" --> try to import
       const ok = await runBookmarksImport();
       if (ok) setStep(3);
       return;
@@ -235,12 +242,13 @@ export function ImportBookmarksContent({
 
     // Step 3: open tabs
     if (step === 3) {
+      console.log("Got to step 3: open tabs");
       if (tabsYes) {
         const ok = await runTabsImport();
         if (!ok) return;
       }
-      // Done – close modal if present
-      onClose?.();
+      // Done -- completes the manual onboarding process. If modal, also closes the modal.
+      finishWizard();
     }
   }
 
@@ -251,6 +259,21 @@ export function ImportBookmarksContent({
     if (busy) return;
     setError(null);
     setStep((prev) => (prev > 1 ? ((prev - 1) as WizardStep) : prev));
+  }
+
+  /**
+   * Centralized logic to notify that the manual import wizard is complete. 
+   */
+  function finishWizard() {
+    console.log("Calling finishWizard");
+
+    // Always notify completion if provided
+    onComplete?.();
+
+    // In modal mode, also close the dialog
+    if (variant === "modal") {
+      onClose?.();
+    }
   }
 
   /**
@@ -272,7 +295,7 @@ export function ImportBookmarksContent({
       if (tabsYes) {
         return tabScope === "all"
           ? "Import open tabs (all windows)"
-          : "Import open tabs";
+          : "Import open tabs (current window)";
       }
       return "Skip";
     }
