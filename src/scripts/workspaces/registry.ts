@@ -77,8 +77,15 @@ function looksLikeItemsMap(x: any): x is Record<WorkspaceIdType, WorkspaceType> 
  * @returns True when the object matches the registry shape/version.
  */
 function isRegistryObject(x: any): x is WorkspaceRegistryType {
-  return x && typeof x === "object" && x.version === 1 && x.items && x.activeId;
-}
+  return (
+    x &&
+    typeof x === "object" &&
+    x.version === 1 &&
+    x.items &&
+    typeof x.items === "object" &&
+    typeof x.activeId === "string"
+  );
+} 
 
 /**
  * Build a default Local workspace object, using PR-3 schema.
@@ -296,16 +303,19 @@ export async function ensureDefaultWorkspace(): Promise<void> {
 }
 
 /**
- * Create a new Local workspace with an empty dataset (adapter will hydrate later)
- * and switch the active workspace immediately.
+ * Create a new Local workspace with an empty dataset (adapter will hydrate later).
+ * Switches active workspace by default; can be disabled with { setActive: false }.
  *
  * @param name Display name to use for the new workspace.
  * @returns Newly created workspace metadata.
  */
-export async function createLocalWorkspace(name = "Local Workspace"): Promise<WorkspaceType> {
+export async function createLocalWorkspace(
+  name = "Local Workspace",
+  opts?: { setActive?: boolean }
+): Promise<WorkspaceType> {
   const reg = await ensureRegistry();
 
-  const id: WorkspaceIdType = `local-${createUniqueID()}`; // reuses your canonical helper
+  const id: WorkspaceIdType = `local-${createUniqueID()}`; 
   const now = Date.now();
   const ws: WorkspaceType = {
     id,
@@ -316,9 +326,13 @@ export async function createLocalWorkspace(name = "Local Workspace"): Promise<Wo
   };
 
   reg.items[id] = ws;
-  reg.activeId = id;
-  await saveRegistry(reg);
 
+  // Only switch active workspace if requested (default true to preserve existing behavior)
+  if (opts?.setActive !== false) {
+    reg.activeId = id;
+  }
+
+  await saveRegistry(reg);
   return ws;
 }
 

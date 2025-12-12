@@ -60,7 +60,7 @@ export function createWorkspaceServiceLocal(userId: string): WorkspaceService {
           ? "School"
           : "Personal";
 
-      const ws = await createLocalWorkspace(name);
+      const ws = await createLocalWorkspace(name, { setActive: false } );
 
       return { id: ws.id, purpose };
     },

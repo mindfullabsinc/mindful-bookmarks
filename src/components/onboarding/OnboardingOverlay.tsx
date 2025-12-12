@@ -134,7 +134,13 @@ export const OnboardingOverlay: React.FC = () => {
       subtitle:
         "You can always import more later from Settings.",
       body: (
-        <ManualImportStep setPrimaryDisabled={setImportPrimaryDisabled} />
+        <ManualImportStep
+          setPrimaryDisabled={setImportPrimaryDisabled}
+          purposes={onboardingPurposes}
+          onDone={(primaryWorkspaceId) => {
+            setSmartImportPrimaryWorkspaceId(primaryWorkspaceId);
+          }}
+        />
       ),
       primaryLabel: "Open Mindful",
       secondaryLabel: "Back",
@@ -193,8 +199,8 @@ export const OnboardingOverlay: React.FC = () => {
     if (primaryDisabled) return;
 
     if (isLast) {
-      // On the final Smart Import step, set the active workspace before completing onboarding
-      if (step.id === "smartImport" && smartImportPrimaryWorkspaceId) {
+      // On the final Smart or Manual Import step, set the active workspace before completing onboarding
+      if (smartImportPrimaryWorkspaceId) {
         await setActiveWorkspaceId(smartImportPrimaryWorkspaceId);
       }
       await completeOnboarding();

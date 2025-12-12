@@ -17,7 +17,7 @@ import { PHASE_MESSAGES } from "@/core/constants/smartImportPhase";
 /* Hooks */
 import { useSmartImport } from "@/hooks/useSmartImport";
 
-/* Context */
+/* App context */
 import { AppContext } from "@/scripts/AppContextProvider";
 
 /* Service implementations */

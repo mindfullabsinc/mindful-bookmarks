@@ -97,58 +97,55 @@ function normalizeGroups(incoming: any[]): BookmarkGroupType[] {
  * @param pipelines Optional pipeline adapters that define how to process each import path.
  * @returns Actions/state for opening/closing the modal and rendering it.
  */
-export function useImportBookmarks(pipelines?: ImportPipelines) {
+export function useImportBookmarks(
+  pipelines?: ImportPipelines,
+  opts?: {
+    insertGroupsOverride?: (groups: any[]) => Promise<void>;
+  }
+) {
   const [isOpen, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const { updateAndPersistGroups } = useBookmarkManager?.() ?? { updateAndPersistGroups: null };
 
-  /**
-   * Shared helper for inserting new groups into the bookmark state while preserving the empty placeholder behavior.
-   *
-   * @param groups Normalized group payloads to insert.
-   */
-  const insertGroups = useCallback(async (groups: any[]) => {
+  const defaultInsertGroups = useCallback(async (groups: any[]) => {
     if (typeof updateAndPersistGroups !== "function") {
       console.warn("updateAndPersistGroups not available; wire this to your state updater.");
       return;
     }
     await updateAndPersistGroups((prev: BookmarkGroupType[]) => {
       const normalized = normalizeGroups(groups);
-  
-      // insert before EMPTY, then collapse empties and move one to end
       const idx = prev.findIndex(isEmptyGroup);
       const merged =
         idx === -1
           ? [...prev, ...normalized]
           : [...prev.slice(0, idx), ...normalized, ...prev.slice(idx)];
-  
-      return ensureSingleEmpty(merged, /* moveToEnd */ true);
+
+      return ensureSingleEmpty(merged, true);
     });
   }, [updateAndPersistGroups]);
+
+  const insertGroups =
+    opts?.insertGroupsOverride ?? defaultInsertGroups; 
 
   /**
    * JSON import handler that appends groups to existing state.
    *
    * @param file Uploaded bookmarks HTML file.
    */
-  const handleUploadJson = useCallback(async (file: File) => {
-    const text = await file.text();
-    const raw = JSON.parse(text);
-    const normalized = normalizeGroups(raw);
-    await updateAndPersistGroups?.((prev: BookmarkGroupType[]) =>
-      ensureSingleEmpty(
-        // reuse your insert-before-empty behavior:
-        (() => {
-          const idx = prev.findIndex(isEmptyGroup);
-          return idx === -1
-            ? [...prev, ...normalized]
-            : [...prev.slice(0, idx), ...normalized, ...prev.slice(idx)];
-        })(),
-        true
-      )
-    );
-  }, [updateAndPersistGroups]);
+  const handleUploadJson = useCallback(
+    async (file: File) => {
+      const text = await file.text();
+      const raw = JSON.parse(text);
+      const normalized = normalizeGroups(raw);
+
+      if (opts?.insertGroupsOverride) {
+        await opts.insertGroupsOverride(normalized);
+      } else {
+        await defaultInsertGroups(normalized);
+      }
+    }, [defaultInsertGroups, opts]
+  );
 
   /**
    * Chrome import handler that dispatches to the selected pipeline.
