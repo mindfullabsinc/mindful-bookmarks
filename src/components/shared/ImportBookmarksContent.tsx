@@ -2,10 +2,7 @@
 import React, { useEffect, useRef, useState } from "react";
 
 /* Types */
-import type { 
-  ChromeImportOptions, 
-  OpenTabsOptions 
-} from "@/core/types/import";
+import { ManualImportSelection } from "@/core/types/import";
 
 /* Styles */
 import '@/styles/components/shared/ImportBookmarksContent.css'
@@ -16,9 +13,7 @@ export type ImportBookmarksContentProps = {
   variant: "modal" | "embedded";
   onClose?: () => void;     // Closing the modal
   onComplete?: () => void;  // Wizard finished (embedded or modal)
-  onUploadJson: (file: File) => Promise<void> | void;
-  onImportChrome: (options: ChromeImportOptions) => Promise<void> | void;
-  onImportOpenTabs?: (options: OpenTabsOptions) => Promise<void> | void;
+  onSelectionChange?: (selection: ManualImportSelection) => void;
 };
 
 type WizardStep = 1 | 2 | 3;
@@ -45,9 +40,7 @@ export function ImportBookmarksContent({
   variant,
   onClose,
   onComplete,
-  onUploadJson,
-  onImportChrome,
-  onImportOpenTabs,
+  onSelectionChange,
 }: ImportBookmarksContentProps) {
   /* -------------------- Context / state -------------------- */
   const dialogRef = useRef<HTMLDivElement | null>(null);
@@ -69,7 +62,6 @@ export function ImportBookmarksContent({
   // Bookmarks 
   const [mode] = useState<"flat" | "smart">("flat"); // still only flat for now
   const [smartStrategy] = useState<"folders" | "domain" | "topic">("folders");
-  const [permGranted, setPermGranted] = useState<boolean | null>(null);
 
   // Tabs 
   const [tabScope, setTabScope] = useState<"current" | "all">("current");
@@ -87,7 +79,6 @@ export function ImportBookmarksContent({
       setJsonYes(false);
       setBookmarksYes(false);
       setTabsYes(false);
-      setPermGranted(null);
       setTabScope("current");
       setStep(1);
     };
@@ -103,128 +94,30 @@ export function ImportBookmarksContent({
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [busy, onClose]);
+
+  useEffect(() => {
+    onSelectionChange?.({
+      jsonFile: jsonYes ? jsonFile : null,
+      importBookmarks: bookmarksYes,
+      tabScope: tabsYes ? tabScope : undefined,
+    });
+  }, [jsonYes, jsonFile, bookmarksYes, tabsYes, tabScope, onSelectionChange]);
   /* ---------------------------------------------------------- */
 
   /* -------------------- Helper functions -------------------- */
-  /**
-   * Request/confirm permission to read Chrome bookmarks.
-   *
-   * @returns True when permission is granted.
-   */
-  async function ensureBookmarksPermission(): Promise<boolean> {
-    try {
-      const has = await chrome.permissions.contains({ permissions: ["bookmarks"] });
-      if (has) return true;
-      return await chrome.permissions.request({ permissions: ["bookmarks"] });
-    } catch (e) {
-      console.warn("Permission check/request failed", e);
-      return false;
-    }
-  }
 
   /**
-   * Handle the JSON import flow (button click + state updates).
-   */
-  async function runJsonImport(): Promise<boolean> {
-    if (!jsonFile) return false;
-    try {
-      setBusy(true);
-      setError(null);
-      await onUploadJson(jsonFile);
-      return true;
-    } catch (e: any) {
-      setError(e?.message || "Import failed");
-      return false;
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  /**
-   * Handle Chrome bookmarks import flow.
-   */
-  async function runBookmarksImport(): Promise<boolean> {
-    try {
-      setBusy(true);
-      setError(null);
-      const ok = await ensureBookmarksPermission();
-      setPermGranted(ok);
-      if (!ok) throw new Error("Permission to read Chrome bookmarks was not granted.");
-
-      if (mode === "flat") {
-        await onImportChrome({ mode: "flat" });
-      } else {
-        await onImportChrome({ mode: "smart", smartStrategy });
-      }
-      return true;
-    } catch (e: any) {
-      setError(e?.message || "Import failed");
-      return false;
-    } finally {
-      setBusy(false);
-    }
-  }
-
-   /**
-   * Handle open tabs import flow.
-   */
-  async function runTabsImport(): Promise<boolean> {
-    if (!onImportOpenTabs) return true; // nothing to do
-    try {
-      setBusy(true);
-      setError(null);
-      // No ensureTabsPermission needed since tabs is required in manifest.json
-      await onImportOpenTabs({ scope: tabScope });
-      return true;
-    } catch (e: any) {
-      setError(e?.message || "Import failed");
-      return false;
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  /**
-   * Primary CTA click handler for navigating the wizard and kicking off imports.
+   * Primary CTA click handler for navigating the wizard.
    */
   async function handlePrimary() {
     if (busy) return;
 
-    // Step 1: JSON
-    if (step === 1) {
-      if (!jsonYes) {
-        // User said "No" --> genuinely skip JSON import
-        setStep(2);
-        return;
-      }
-      // User said "Yes" --> try to import
-      const ok = await runJsonImport();
-      if (ok) setStep(2);
+    if (step < 3) {
+      setStep((s) => (s + 1) as WizardStep);
       return;
     }
 
-    // Step 2: Chrome bookmarks
-    if (step === 2) {
-      if (!bookmarksYes) {
-        // User said "No" --> genuinely skip bookmarks import
-        setStep(3);
-        return;
-      }
-      // User said "Yes" --> try to import
-      const ok = await runBookmarksImport();
-      if (ok) setStep(3);
-      return;
-    }
-
-    // Step 3: open tabs
-    if (step === 3) {
-      if (tabsYes) {
-        const ok = await runTabsImport();
-        if (!ok) return;
-      }
-      // Done -- completes the manual onboarding process. If modal, also closes the modal.
-      finishWizard();
-    }
+    finishWizard();
   }
 
   /**
@@ -253,29 +146,19 @@ export function ImportBookmarksContent({
    * Compute the primary button label based on the current wizard step and selections.
    */
   const primaryLabel = (() => {
-    if (busy) return "Importing…";
+    if (busy) return "Thinking…";
     if (step === 1) {
-      return jsonYes 
-        ? "Import JSON & continue"
-        : "Skip";
+      return jsonYes ? "Continue" : "Skip";
     }
     if (step === 2) {
-      return bookmarksYes 
-      ? "Import bookmarks & continue"
-      : "Skip";
+      return bookmarksYes ? "Continue" : "Skip";
     }
     if (step === 3) {
-      if (tabsYes) {
-        return tabScope === "all"
-          ? "Import open tabs (all windows)"
-          : "Import open tabs (current window)";
-      }
-      return "Skip";
+      return tabsYes ? "Continue" : "Skip";
     }
   })();
 
-  const primaryDisabled =
-    busy || (step === 1 && jsonYes && !jsonFile);
+  const primaryDisabled = (step === 1 && jsonYes && !jsonFile);
 
   /**
    * Render the wizard step header for the current step.
@@ -360,7 +243,13 @@ export function ImportBookmarksContent({
           {renderStepHeader()}
           <YesCheckboxRow
             checked={jsonYes}
-            onToggle={() => setJsonYes((v) => !v)}
+            onToggle={() => {
+              setJsonYes((v) => {
+                const next = !v;
+                if (!next) setJsonFile(null);
+                return next;
+              });
+            }}
             label="Yes"
           />
 
@@ -388,12 +277,6 @@ export function ImportBookmarksContent({
             onToggle={() => setBookmarksYes((v) => !v)}
             label="Yes"
           />
-
-          {permGranted === false && (
-            <div className="bookmarks-permissions-warning error-message">
-              Permission to access Chrome bookmarks was not granted.
-            </div>
-          )}
         </div>
       );
     }
@@ -404,7 +287,13 @@ export function ImportBookmarksContent({
         {renderStepHeader()}
         <YesCheckboxRow
           checked={tabsYes}
-          onToggle={() => setTabsYes((v) => !v)}
+          onToggle={() => {
+            setTabsYes((v) => {
+              const next = !v;
+              if (!next) setTabScope("current");
+              return next;
+            });
+          }}
           label="Yes"
         />
 

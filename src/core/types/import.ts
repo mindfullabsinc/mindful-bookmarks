@@ -19,3 +19,9 @@ export type OpenTabsOptions = {
 };
 
 export type ImportChromeOpts = { mode: 'flat' | 'smart'; smartStrategy?: SmartStrategy };
+
+export type ManualImportSelection = {
+  jsonFile?: File | null;
+  importBookmarks?: boolean;
+  tabScope?: "current" | "all";
+};

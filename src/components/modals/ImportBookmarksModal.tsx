@@ -4,7 +4,6 @@ import { createPortal } from "react-dom";
 
 /* Types */
 import type { ChromeImportOptions, OpenTabsOptions } from "@/core/types/import";
-import type { ImportBookmarksContentProps } from "@/components/shared/ImportBookmarksContent";
 
 /* Styling */
 import '@/styles/components/modals/ImportBookmarksModal.css';
@@ -61,20 +60,4 @@ export default function ImportBookmarksModal({
   );
 
   return createPortal(modal, document.body);
-}
-
-/**
- * Embedded variant of the import flow used inside onboarding without overlays/cancel.
- *
- * @param props Import content props minus the variant, which is forced to "embedded".
- */
-export function ImportBookmarksEmbedded(
-  props: Omit<ImportBookmarksContentProps, "variant"> 
-) {
-  return (
-    <ImportBookmarksContent
-      {...props}
-      variant="embedded"
-    />
-  );
 }

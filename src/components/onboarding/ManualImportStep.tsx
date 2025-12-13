@@ -2,12 +2,12 @@
 import React, { useContext, useEffect, useMemo, useState, useCallback, useRef } from "react";
 
 /* Types */
-import type { ChromeImportOptions, OpenTabsOptions } from "@/core/types/import";
+import type { ChromeImportOptions, OpenTabsOptions, ManualImportSelection } from "@/core/types/import";
 import type { PurposeId } from "@shared/types/purposeId";
 import type { CategorizedGroup } from "@shared/types/llmGrouping";
 
 /* Components */
-import { ImportBookmarksEmbedded } from "@/components/modals/ImportBookmarksModal";
+import { ImportBookmarksEmbedded } from "@/components/modals/ImportBookmarksEmbedded";
 
 /* Context */
 import { AppContext } from "@/scripts/AppContextProvider";
@@ -71,35 +71,20 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
     [userId]
   );
 
-  const [hasImported, setHasImported] = useState(false);
   const [wizardDone, setWizardDone] = useState(false);
+  const [selection, setSelection] = useState<ManualImportSelection>({});
 
   const [workspaceRefs, setWorkspaceRefs] = useState<{ id: string; purpose: PurposeId }[]>([]);
   const primaryWorkspace = workspaceRefs[0] ?? null;
   const primaryWorkspaceId = primaryWorkspace?.id ?? null;
 
-  const importGuardRef = useRef<Record<ImportKind, { done: boolean; inFlight: boolean }>>({
-    json: { done: false, inFlight: false },
-    chrome: { done: false, inFlight: false },
-    openTabs: { done: false, inFlight: false },
-  });
+  const hasAnySelection =
+    !!selection.jsonFile ||
+    !!selection.importBookmarks ||
+    !!selection.tabScope;
   /* ---------------------------------------------------------- */
 
   /* -------------------- Helper functions -------------------- */
-  const runImportOnce = useCallback(async (kind: ImportKind, fn: () => Promise<void>) => {
-    const g = importGuardRef.current[kind];
-    if (g.done || g.inFlight) return;
-
-    g.inFlight = true;
-    try {
-      await fn();
-      g.done = true;
-      setHasImported(true);
-    } finally {
-      g.inFlight = false;
-    }
-  }, []);
-
   const insertIntoPrimaryWorkspace = useCallback(
     async (groups: any[]) => {
       if (!primaryWorkspace) {
@@ -111,39 +96,31 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
     },
     [primaryWorkspace, workspaceService, bumpWorkspacesVersion]
   );
-  /* ---------------------------------------------------------- */
 
-  /* -------------------- Handlers passed to ImportBookmarksEmbedded -------------------- */
-  const handleUploadJson = useCallback(
-    async (file: File) => {
-      await runImportOnce("json", async () => {
-        const raw = JSON.parse(await file.text());
-        await insertIntoPrimaryWorkspace(raw);
-        setHasImported(true);
-      });
-    },
-    [runImportOnce, insertIntoPrimaryWorkspace]
-  );
+  const handleCommit = useCallback(async () => {
+    if (!primaryWorkspace) return;
 
-  const handleImportChrome = useCallback(
-    async (_opts: ChromeImportOptions) => {
-      await runImportOnce("chrome", async () => {
-        await importChromeBookmarksAsSingleGroup(insertIntoPrimaryWorkspace);
-        setHasImported(true);
-      });
-    },
-    [runImportOnce, insertIntoPrimaryWorkspace]
-  );
+    // JSON
+    if (selection.jsonFile) {
+      const raw = JSON.parse(await selection.jsonFile.text());
+      await insertIntoPrimaryWorkspace(raw);
+    }
 
-  const handleImportOpenTabs = useCallback(
-    async (opts: OpenTabsOptions) => {
-      await runImportOnce("openTabs", async () => {
-        await importOpenTabsAsSingleGroup(insertIntoPrimaryWorkspace, opts);
-        setHasImported(true);
-      });
-    },
-    [runImportOnce, insertIntoPrimaryWorkspace]
-  );
+    // Chrome bookmarks
+    if (selection.importBookmarks) {
+      await importChromeBookmarksAsSingleGroup(insertIntoPrimaryWorkspace);
+    }
+
+    // Tabs
+    if (selection.tabScope) {
+      await importOpenTabsAsSingleGroup(
+        insertIntoPrimaryWorkspace,
+        { scope: selection.tabScope }
+      );
+    }
+
+    setWizardDone(true);
+  }, [selection, insertIntoPrimaryWorkspace]);
   /* ---------------------------------------------------------- */
 
   /* -------------------- Effects -------------------- */
@@ -173,8 +150,8 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
   }, [purposes, workspaceService, bumpWorkspacesVersion]);
 
   useEffect(() => {
-    setPrimaryDisabled?.(!hasImported && !wizardDone);
-  }, [hasImported, wizardDone, setPrimaryDisabled]);
+    setPrimaryDisabled?.(!hasAnySelection && !wizardDone);
+  }, [hasAnySelection, wizardDone, setPrimaryDisabled]);
 
   useEffect(() => {
     if (!wizardDone || !primaryWorkspaceId) return;
@@ -190,10 +167,8 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
   return (
     <div className="m_import-container">
       <ImportBookmarksEmbedded
-        onUploadJson={handleUploadJson}
-        onImportChrome={handleImportChrome}
-        onImportOpenTabs={handleImportOpenTabs}
-        onComplete={() => setWizardDone(true)}
+        onSelectionChange={setSelection}
+        onComplete={handleCommit} 
       />
     </div>
   );
