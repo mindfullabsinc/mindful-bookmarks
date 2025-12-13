@@ -1,5 +1,5 @@
 /* -------------------- Imports -------------------- */
-import React, { useContext, useEffect, useMemo, useState, useCallback } from "react";
+import React, { useContext, useEffect, useMemo, useState, useCallback, useRef } from "react";
 
 /* Types */
 import type { ChromeImportOptions, OpenTabsOptions } from "@/core/types/import";
@@ -28,9 +28,12 @@ import { createUniqueID } from "@/core/utils/ids";
 /* -------------------- Local types -------------------- */
 type ManualImportStepProps = {
   setPrimaryDisabled?: (disabled: boolean) => void;
-  purposes: PurposeId[];                     // NEW
-  onDone: (primaryWorkspaceId: string) => void; // NEW
+  purposes: PurposeId[];                    
+  onDone: (primaryWorkspaceId: string) => void; 
 };
+
+type ImportKind = "json" | "chrome" | "openTabs";
+type ImportOnceState = Record<ImportKind, { done: boolean; inFlight: boolean }>;
 /* ---------------------------------------------------------- */
 
 /* -------------------- Helper functions -------------------- */
@@ -74,10 +77,29 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
   const [workspaceRefs, setWorkspaceRefs] = useState<{ id: string; purpose: PurposeId }[]>([]);
   const primaryWorkspace = workspaceRefs[0] ?? null;
   const primaryWorkspaceId = primaryWorkspace?.id ?? null;
+
+  const importGuardRef = useRef<Record<ImportKind, { done: boolean; inFlight: boolean }>>({
+    json: { done: false, inFlight: false },
+    chrome: { done: false, inFlight: false },
+    openTabs: { done: false, inFlight: false },
+  });
   /* ---------------------------------------------------------- */
 
   /* -------------------- Helper functions -------------------- */
-  // Core: everything imports into the PRIMARY workspace (first purpose)
+  const runImportOnce = useCallback(async (kind: ImportKind, fn: () => Promise<void>) => {
+    const g = importGuardRef.current[kind];
+    if (g.done || g.inFlight) return;
+
+    g.inFlight = true;
+    try {
+      await fn();
+      g.done = true;
+      setHasImported(true);
+    } finally {
+      g.inFlight = false;
+    }
+  }, []);
+
   const insertIntoPrimaryWorkspace = useCallback(
     async (groups: any[]) => {
       if (!primaryWorkspace) {
@@ -94,27 +116,33 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
   /* -------------------- Handlers passed to ImportBookmarksEmbedded -------------------- */
   const handleUploadJson = useCallback(
     async (file: File) => {
-      const raw = JSON.parse(await file.text());
-      await insertIntoPrimaryWorkspace(raw);
-      setHasImported(true);
+      await runImportOnce("json", async () => {
+        const raw = JSON.parse(await file.text());
+        await insertIntoPrimaryWorkspace(raw);
+        setHasImported(true);
+      });
     },
-    [insertIntoPrimaryWorkspace]
+    [runImportOnce, insertIntoPrimaryWorkspace]
   );
 
   const handleImportChrome = useCallback(
     async (_opts: ChromeImportOptions) => {
-      await importChromeBookmarksAsSingleGroup(insertIntoPrimaryWorkspace);
-      setHasImported(true);
+      await runImportOnce("chrome", async () => {
+        await importChromeBookmarksAsSingleGroup(insertIntoPrimaryWorkspace);
+        setHasImported(true);
+      });
     },
-    [insertIntoPrimaryWorkspace]
+    [runImportOnce, insertIntoPrimaryWorkspace]
   );
 
   const handleImportOpenTabs = useCallback(
     async (opts: OpenTabsOptions) => {
-      await importOpenTabsAsSingleGroup(insertIntoPrimaryWorkspace, opts);
-      setHasImported(true);
+      await runImportOnce("openTabs", async () => {
+        await importOpenTabsAsSingleGroup(insertIntoPrimaryWorkspace, opts);
+        setHasImported(true);
+      });
     },
-    [insertIntoPrimaryWorkspace]
+    [runImportOnce, insertIntoPrimaryWorkspace]
   );
   /* ---------------------------------------------------------- */
 
