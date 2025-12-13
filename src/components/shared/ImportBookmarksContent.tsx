@@ -2,10 +2,17 @@
 import React, { useEffect, useRef, useState } from "react";
 
 /* Constants */
-import { ImportPostProcessMode } from "@/core/constants/import";
+import { 
+  ImportPostProcessMode,
+  OpenTabsScope,
+} from "@/core/constants/import";
 
 /* Types */
-import type { ManualImportSelectionType, ImportPostProcessModeType } from "@/core/types/import";
+import type { 
+  ManualImportSelectionType, 
+  ImportPostProcessModeType,
+  OpenTabsScopeType,
+} from "@/core/types/import";
 
 /* Styles */
 import '@/styles/components/shared/ImportBookmarksContent.css'
@@ -54,17 +61,17 @@ export function ImportBookmarksContent({
 
    // Sub-wizard state
   const [step, setStep] = useState<WizardStep>(1);
-  const isLastStep = step === LAST_STEP;
   const [jsonYes, setJsonYes] = useState(false);
   const [bookmarksYes, setBookmarksYes] = useState(false);
   const [tabsYes, setTabsYes] = useState(false);
   const [semanticGroupingYes, setSemanticGroupingYes] = useState(false);
   
   // JSON 
-  const [jsonFile, setJsonFile] = useState<File | null>(null);
+  const [jsonFileName, setJsonFileName] = useState<string | null>(null);
+  const [jsonData, setJsonData] = useState<string | null>(null);
 
   // Tabs 
-  const [tabScope, setTabScope] = useState<"current" | "all">("current");
+  const [tabScope, setTabScope] = useState<OpenTabsScopeType>(OpenTabsScope.All);
 
   // Post-process mode  
   const [postProcessMode, setPostProcessMode] =
@@ -77,10 +84,18 @@ export function ImportBookmarksContent({
    */
   useEffect(() => {
     return () => {
-      setJsonFile(null);      setJsonYes(false);
+      setJsonYes(false);
+      setJsonFileName(null);      
+      setJsonData(null);
+
       setBookmarksYes(false);
       setTabsYes(false);
-      setTabScope("current");
+      
+      setTabScope(OpenTabsScope.All);
+
+      setSemanticGroupingYes(false);
+      setPostProcessMode(ImportPostProcessMode.PreserveStructure);
+      
       setStep(1);
     };
   }, []);
@@ -98,15 +113,34 @@ export function ImportBookmarksContent({
 
   useEffect(() => {
     onSelectionChange?.({
-      jsonFile: jsonYes ? jsonFile : null,
+      jsonData: jsonYes ? jsonData : null,
       importBookmarks: bookmarksYes,
       tabScope: tabsYes ? tabScope : undefined,
       importPostProcessMode: postProcessMode,
     });
-  }, [jsonYes, jsonFile, bookmarksYes, tabsYes, tabScope, postProcessMode, onSelectionChange]);
+  }, [jsonYes, jsonData, bookmarksYes, tabsYes, tabScope, postProcessMode, onSelectionChange]);
   /* ---------------------------------------------------------- */
 
   /* -------------------- Helper functions -------------------- */
+
+  async function handleJsonFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] ?? null;
+    if (!file) {
+      setJsonFileName(null);
+      setJsonData(null);
+      return;
+    }
+
+    const text = await file.text();
+    JSON.parse(text); // throws if invalid
+    setJsonFileName(file.name);
+    setJsonData(text);
+  }
+
+  function clearJsonSelection() {
+    setJsonFileName(null);
+    setJsonData(null);
+  }
 
   /**
    * Primary CTA click handler for navigating the wizard.
@@ -156,7 +190,7 @@ export function ImportBookmarksContent({
     return "Finish";  // Step 4
   })();
 
-  const primaryDisabled = (step === 1 && jsonYes && !jsonFile);
+  const primaryDisabled = (step === 1 && jsonYes && !jsonData);
 
   /**
    * Render the wizard step header for the current step.
@@ -173,7 +207,7 @@ export function ImportBookmarksContent({
     const subtitles: Record<number, string> = {
       1: "If you exported from another bookmark manager (or from Mindful), you can bring that file in now. If you’re not sure what this is, just skip.",
     }
-    const subtitle = subtitles[step] ?? "";
+    const subtitle = subtitles[step];
 
     return (
       <>
@@ -185,9 +219,11 @@ export function ImportBookmarksContent({
         <h3 className="step-title">
           {title}
         </h3>
-        <p className="step-subtitle">
-          {subtitle}
-        </p>
+        {subtitle && 
+          <p className="step-subtitle">
+            {subtitle}
+          </p>
+        }
       </>
     );
   }
@@ -245,7 +281,7 @@ export function ImportBookmarksContent({
             onToggle={() => {
               setJsonYes((v) => {
                 const next = !v;
-                if (!next) setJsonFile(null);
+                if (!next) clearJsonSelection();
                 return next;
               });
             }}
@@ -254,13 +290,29 @@ export function ImportBookmarksContent({
 
           {jsonYes && (
             <div className="json-input-container">
-              <input
-                id="json-file-input"
-                type="file"
-                accept="application/json,.json"
-                onChange={(e) => setJsonFile(e.target.files?.[0] ?? null)}
-                className="json-input"
-              />
+              {jsonData ? (
+                <div className="json-selected-file-container">
+                  Selected:{" "}
+                  <span className="json-file-name">
+                    {jsonFileName ?? "file"}
+                  </span>
+                  <button
+                    type="button"
+                    className="json-file-remove"
+                    onClick={clearJsonSelection}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <input
+                  id="json-file-input"
+                  type="file"
+                  accept="application/json,.json"
+                  onChange={handleJsonFileChange}
+                  className="json-input"
+                />
+              )}
             </div>
           )}
         </div>
@@ -289,7 +341,7 @@ export function ImportBookmarksContent({
             onToggle={() => {
               setTabsYes((v) => {
                 const next = !v;
-                if (!next) setTabScope("current");
+                if (!next) setTabScope(OpenTabsScope.All);
                 return next;
               });
             }}
@@ -307,9 +359,9 @@ export function ImportBookmarksContent({
                 {/* All windows */}
                 <button
                   type="button"
-                  onClick={() => setTabScope("all")}
+                  onClick={() => setTabScope(OpenTabsScope.All)}
                   className={`tabs-radio-button-row
-                    ${tabScope === "all"
+                    ${tabScope === OpenTabsScope.All
                       ? "tabs-radio-button-row--selected"
                       : "tabs-radio-button-row--unselected"
                     }
@@ -318,13 +370,13 @@ export function ImportBookmarksContent({
                   <div
                     className={`
                       tabs-radio-button-outer-circle
-                      ${tabScope === "all"
+                      ${tabScope === OpenTabsScope.All
                         ? "tabs-radio-button-outer-circle--selected"
                         : "tabs-radio-button-outer-circle--unselected"
                       }
                     `}
                   >
-                    {tabScope === "all" && (
+                    {tabScope === OpenTabsScope.All && (
                       <div className="tabs-radio-button-inner-circle" />
                     )}
                   </div>
@@ -334,9 +386,9 @@ export function ImportBookmarksContent({
                 {/* Current window */}
                 <button
                   type="button"
-                  onClick={() => setTabScope("current")}
+                  onClick={() => setTabScope(OpenTabsScope.Current)}
                   className={`tabs-radio-button-row
-                    ${tabScope === "current"
+                    ${tabScope === OpenTabsScope.Current
                       ? "tabs-radio-button-row--selected"
                       : "tabs-radio-button-row--unselected"
                     }
@@ -345,13 +397,13 @@ export function ImportBookmarksContent({
                   <div
                     className={`
                       tabs-radio-button-outer-circle 
-                      ${tabScope === "current"
+                      ${tabScope === OpenTabsScope.Current
                         ? "tabs-radio-button-outer-circle--selected"
                         : "tabs-radio-button-outer-circle--unselected"
                       }
                     `}
                   >
-                    {tabScope === "current" && (
+                    {tabScope === OpenTabsScope.Current && (
                       <div className="tabs-radio-button-inner-circle" />
                     )}
                   </div>
@@ -371,8 +423,13 @@ export function ImportBookmarksContent({
           <YesCheckboxRow
             checked={semanticGroupingYes}
             onToggle={() => {
-              setSemanticGroupingYes((v) => !v);
-              setPostProcessMode(ImportPostProcessMode.SemanticGrouping);
+              setSemanticGroupingYes((v) => {
+                const next = !v;
+                setPostProcessMode(
+                  next ? ImportPostProcessMode.SemanticGrouping : ImportPostProcessMode.PreserveStructure
+                );
+                return next;
+              });
             }}
             label="Yes"
           />

@@ -21,7 +21,8 @@ export type ImportPostProcessModeType =
   (typeof ImportPostProcessMode)[keyof typeof ImportPostProcessMode]
 
 export type ManualImportSelectionType = {
-  jsonFile?: File | null;
+  jsonFileName?: string | null;
+  jsonData?: string | null;
   importBookmarks?: boolean;
   tabScope?: OpenTabsScopeType; 
   importPostProcessMode?: ImportPostProcessModeType;

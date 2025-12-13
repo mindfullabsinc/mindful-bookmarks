@@ -1,5 +1,5 @@
 /* -------------------- Imports -------------------- */
-import React, { useContext, useEffect, useMemo, useState, useCallback, useRef } from "react";
+import React, { useContext, useEffect, useMemo, useState, useCallback } from "react";
 
 /* Types */
 import type { ManualImportSelectionType } from "@/core/types/import";
@@ -28,8 +28,8 @@ import { createUniqueID } from "@/core/utils/ids";
 /* -------------------- Local types -------------------- */
 type ManualImportStepProps = {
   setPrimaryDisabled?: (disabled: boolean) => void;
-  purposes: PurposeIdType[];                    
-  onDone: (primaryWorkspaceId: string) => void; 
+  purposes: PurposeIdType[];
+  onDone: (primaryWorkspaceId: string) => void;
 };
 /* ---------------------------------------------------------- */
 
@@ -52,6 +52,30 @@ function mapImportedGroupsToCategorized(
     })),
   }));
 }
+
+function parseJsonImport(jsonText: string): any[] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(jsonText);
+  } catch {
+    throw new Error("That JSON file doesn’t look valid. Please re-export and try again.");
+  }
+
+  // Be permissive: accept array OR object with a known array field.
+  if (Array.isArray(parsed)) return parsed;
+
+  if (parsed && typeof parsed === "object") {
+    const obj = parsed as Record<string, unknown>;
+    const candidate =
+      (obj.groups as unknown) ??
+      (obj.items as unknown) ??
+      (obj.data as unknown);
+
+    if (Array.isArray(candidate)) return candidate;
+  }
+
+  throw new Error("JSON format not recognized. Expected an array of groups.");
+}
 /* ---------------------------------------------------------- */
 
 /* -------------------- Main component -------------------- */
@@ -71,14 +95,20 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
   const [wizardDone, setWizardDone] = useState(false);
   const [selection, setSelection] = useState<ManualImportSelectionType>({});
 
-  const [workspaceRefs, setWorkspaceRefs] = useState<{ id: string; purpose: PurposeIdType }[]>([]);
+  const [workspaceRefs, setWorkspaceRefs] = useState<
+    { id: string; purpose: PurposeIdType }[]
+  >([]);
+
   const primaryWorkspace = workspaceRefs[0] ?? null;
   const primaryWorkspaceId = primaryWorkspace?.id ?? null;
 
   const hasAnySelection =
-    !!selection.jsonFile ||
+    !!selection.jsonData ||
     !!selection.importBookmarks ||
-    !!selection.tabScope;
+    selection.tabScope !== undefined; // tabScope can be a stringy enum; check explicitly
+
+  const [commitError, setCommitError] = useState<string | null>(null);
+  const [isCommitting, setIsCommitting] = useState(false);
   /* ---------------------------------------------------------- */
 
   /* -------------------- Helper functions -------------------- */
@@ -87,7 +117,10 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
       if (!primaryWorkspace) {
         throw new Error("Workspace not ready yet.");
       }
-      const categorized = mapImportedGroupsToCategorized(groups, primaryWorkspace.purpose);
+      const categorized = mapImportedGroupsToCategorized(
+        groups,
+        primaryWorkspace.purpose
+      );
       await workspaceService.appendGroupsToWorkspace(primaryWorkspace.id, categorized);
       bumpWorkspacesVersion();
     },
@@ -97,27 +130,49 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
   const handleCommit = useCallback(async () => {
     if (!primaryWorkspace) return;
 
-    // JSON
-    if (selection.jsonFile) {
-      const raw = JSON.parse(await selection.jsonFile.text());
-      await insertIntoPrimaryWorkspace(raw);
+    // If they hit Finish but selected nothing, just complete.
+    if (!hasAnySelection) {
+      setWizardDone(true);
+      return;
     }
 
-    // Chrome bookmarks
-    if (selection.importBookmarks) {
-      await importChromeBookmarksAsSingleGroup(insertIntoPrimaryWorkspace);
-    }
+    setCommitError(null);
+    setIsCommitting(true);
 
-    // Tabs
-    if (selection.tabScope) {
-      await importOpenTabsAsSingleGroup(
-        insertIntoPrimaryWorkspace,
-        { scope: selection.tabScope }
-      );
-    }
+    try {
+      // JSON
+      if (selection.jsonData) {
+        const rawGroups = parseJsonImport(selection.jsonData);
+        await insertIntoPrimaryWorkspace(rawGroups);
+      }
 
-    setWizardDone(true);
-  }, [selection, insertIntoPrimaryWorkspace]);
+      // Chrome bookmarks
+      if (selection.importBookmarks) {
+        await importChromeBookmarksAsSingleGroup(insertIntoPrimaryWorkspace);
+      }
+
+      // Tabs
+      if (selection.tabScope !== undefined) {
+        await importOpenTabsAsSingleGroup(insertIntoPrimaryWorkspace, {
+          scope: selection.tabScope,
+        });
+      }
+
+      setWizardDone(true);
+    } catch (e) {
+      console.error("[ManualImportStep] commit failed", e);
+      setCommitError(e instanceof Error ? e.message : "Import failed. Please try again.");
+    } finally {
+      setIsCommitting(false);
+    }
+  }, [
+    primaryWorkspace,
+    hasAnySelection,
+    selection.jsonData,
+    selection.importBookmarks,
+    selection.tabScope,
+    insertIntoPrimaryWorkspace,
+  ]);
   /* ---------------------------------------------------------- */
 
   /* -------------------- Effects -------------------- */
@@ -128,7 +183,7 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
       if (!purposes || purposes.length === 0) return;
 
       try {
-        const refs = [];
+        const refs: { id: string; purpose: PurposeIdType }[] = [];
         for (const p of purposes) {
           refs.push(await workspaceService.createWorkspaceForPurpose(p));
         }
@@ -147,6 +202,8 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
   }, [purposes, workspaceService, bumpWorkspacesVersion]);
 
   useEffect(() => {
+    // Disable primary button until:
+    // - they’ve made a selection AND wizard is not done
     setPrimaryDisabled?.(!hasAnySelection && !wizardDone);
   }, [hasAnySelection, wizardDone, setPrimaryDisabled]);
 
@@ -157,16 +214,28 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
   /* ---------------------------------------------------------- */
 
   /* -------------------- Main component rendering-------------------- */
-  // Optional: block UI until workspace exists so imports can’t race
   if (!primaryWorkspaceId) {
     return <div className="m_import-container">Preparing your workspaces…</div>;
   }
+
   return (
     <div className="m_import-container">
+      {commitError && (
+        <div className="mb-3 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
+          {commitError}
+        </div>
+      )}
+
       <ImportBookmarksEmbedded
         onSelectionChange={setSelection}
-        onComplete={handleCommit} 
+        onComplete={handleCommit}
       />
+
+      {isCommitting && (
+        <div className="mt-3 text-xs text-neutral-400">
+          Importing…
+        </div>
+      )}
     </div>
   );
   /* ---------------------------------------------------------- */
