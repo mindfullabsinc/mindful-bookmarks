@@ -84,7 +84,7 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
         throw new Error("Workspace not ready yet.");
       }
       const categorized = mapImportedGroupsToCategorized(groups, primaryWorkspace.purpose);
-      await workspaceService.saveGroupsToWorkspace(primaryWorkspace.id, categorized);
+      await workspaceService.appendGroupsToWorkspace(primaryWorkspace.id, categorized);
       bumpWorkspacesVersion();
     },
     [primaryWorkspace, workspaceService, bumpWorkspacesVersion]

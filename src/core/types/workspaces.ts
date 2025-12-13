@@ -8,8 +8,6 @@ export type WorkspaceRef = {
 
 export interface WorkspaceService {
   createWorkspaceForPurpose(purpose: PurposeId): Promise<WorkspaceRef>;
-  saveGroupsToWorkspace(
-    workspaceId: string,
-    groups: CategorizedGroup[]
-  ): Promise<void>;
+  saveGroupsToWorkspace(workspaceId: string, groups: CategorizedGroup[]): Promise<void>;
+  appendGroupsToWorkspace(workspaceId: string, groups: CategorizedGroup[]):Promise<void>;
 }

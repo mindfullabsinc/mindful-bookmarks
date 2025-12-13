@@ -18,6 +18,12 @@ import { LocalAdapter } from "@/scripts/storageAdapters/local";
 /* ---------------------------------------------------------- */
 
 /* -------------------- Helper functions -------------------- */
+/**
+ * Convert CategorizedGroup entries into BookmarkGroupType arrays for persistence.
+ *
+ * @param groups Grouping results returned by the LLM.
+ * @returns BookmarkGroupType array ready to save.
+ */
 function mapToBookmarkGroups(
   groups: CategorizedGroup[]
 ): BookmarkGroupType[] {
@@ -49,8 +55,20 @@ function mapToBookmarkGroups(
  *  - writes bookmark groups via LocalAdapter into chrome.storage.local
  *  - keeps first-paint + session mirrors in sync
  */
+/**
+ * Construct a WorkspaceService bound to the current userId that persists via LocalAdapter.
+ *
+ * @param userId Resolved user identifier (LOCAL_USER_ID when anonymous).
+ * @returns WorkspaceService implementation for smart import.
+ */
 export function createWorkspaceServiceLocal(userId: string): WorkspaceService {
   return {
+    /**
+     * Create a new workspace for a given purpose without activating it.
+     *
+     * @param purpose User-selected purpose ("work" | "school" | "personal").
+     * @returns Workspace reference containing id and purpose.
+     */
     async createWorkspaceForPurpose(purpose: PurposeId) {
       // Friendly default names per purpose
       const name =
@@ -65,6 +83,12 @@ export function createWorkspaceServiceLocal(userId: string): WorkspaceService {
       return { id: ws.id, purpose };
     },
 
+    /**
+     * Replace all groups in the workspace by writing with LocalAdapter + refreshing caches.
+     *
+     * @param workspaceId Target workspace identifier.
+     * @param groups Categorized groups to persist.
+     */
     async saveGroupsToWorkspace(
       workspaceId: string,
       groups: CategorizedGroup[]
@@ -92,5 +116,28 @@ export function createWorkspaceServiceLocal(userId: string): WorkspaceService {
         bookmarkGroups
       );
     },
+
+    /**
+     * Append new groups to existing workspace data.
+     *
+     * @param workspaceId Target workspace identifier.
+     * @param groups Categorized groups to append.
+     */
+    async appendGroupsToWorkspace(workspaceId: string, groups: CategorizedGroup[]): Promise<void> {
+      const newGroups = mapToBookmarkGroups(groups);
+      if (!newGroups.length) return;
+
+      const groupsKey = getGroupsStorageKey(userId);
+      const fullStorageKey = wsKey(workspaceId as any, groupsKey);
+
+      // Read existing groups (whatever LocalAdapter.writeAllGroups stores)
+      const obj = await chrome.storage.local.get(fullStorageKey);
+      const existing = (obj?.[fullStorageKey] as BookmarkGroupType[] | undefined) ?? [];
+
+      const merged = [...existing, ...newGroups];
+
+      await LocalAdapter.writeAllGroups(workspaceId as any, fullStorageKey, merged);
+      await LocalAdapter.persistCachesIfNonEmpty(workspaceId as any, merged);
+    }
   };
 }
