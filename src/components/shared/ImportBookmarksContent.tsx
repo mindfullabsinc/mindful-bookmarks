@@ -52,10 +52,6 @@ export function ImportBookmarksContent({
   const [bookmarksYes, setBookmarksYes] = useState(false);
   const [tabsYes, setTabsYes] = useState(false);
  
-  // Busy + errors
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
   // JSON 
   const [jsonFile, setJsonFile] = useState<File | null>(null);
 
@@ -73,10 +69,7 @@ export function ImportBookmarksContent({
    */
   useEffect(() => {
     return () => {
-      setError(null);
-      setBusy(false);
-      setJsonFile(null);
-      setJsonYes(false);
+      setJsonFile(null);      setJsonYes(false);
       setBookmarksYes(false);
       setTabsYes(false);
       setTabScope("current");
@@ -85,15 +78,15 @@ export function ImportBookmarksContent({
   }, []);
 
   /**
-   * Close the modal on Escape key when not busy (embedded variant ignores because onClose may be undefined).
+   * Close the modal on Escape key (embedded variant ignores because onClose may be undefined).
    */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !busy) onClose?.();
+      if (e.key === "Escape") onClose?.();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [busy, onClose]);
+  }, [onClose]);
 
   useEffect(() => {
     onSelectionChange?.({
@@ -110,8 +103,6 @@ export function ImportBookmarksContent({
    * Primary CTA click handler for navigating the wizard.
    */
   async function handlePrimary() {
-    if (busy) return;
-
     if (step < 3) {
       setStep((s) => (s + 1) as WizardStep);
       return;
@@ -124,8 +115,6 @@ export function ImportBookmarksContent({
    * Navigate to the previous wizard step when possible.
    */
   function handleBack() {
-    if (busy) return;
-    setError(null);
     setStep((prev) => (prev > 1 ? ((prev - 1) as WizardStep) : prev));
   }
 
@@ -146,7 +135,6 @@ export function ImportBookmarksContent({
    * Compute the primary button label based on the current wizard step and selections.
    */
   const primaryLabel = (() => {
-    if (busy) return "Thinking…";
     if (step === 1) {
       return jsonYes ? "Continue" : "Skip";
     }
@@ -389,7 +377,7 @@ export function ImportBookmarksContent({
               Import bookmarks
             </h2>
             <button
-              onClick={() => !busy && onClose?.()}
+              onClick={() => onClose?.()}
               className="import-button close-button"
               aria-label="Close"
             >
@@ -400,24 +388,13 @@ export function ImportBookmarksContent({
 
         <div className="body-container">
           {renderBody()}
-
-          {error && (
-            <div className="error-message">
-              {error}
-            </div>
-          )}
         </div>
 
         <div className="footer-container">
-          <div className="busy-message">
-            {busy
-              ? "Importing… This may take a moment for large sets."
-              : ""}
-          </div>
-          <div className="flex items-center gap-2">
+          <div className="flex w-full items-center justify-end gap-2">
             {variant === "modal" && (
               <button
-                onClick={() => !busy && onClose?.()}
+                onClick={() => onClose?.()}
                 className="import-button cancel-button"
               >
                 Cancel
@@ -428,7 +405,6 @@ export function ImportBookmarksContent({
               <button
                 type="button"
                 onClick={handleBack}
-                disabled={busy}
                 className="import-button back-button"
               >
                 Back
