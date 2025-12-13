@@ -53,6 +53,10 @@ export const OnboardingOverlay: React.FC = () => {
   const [smartImportPrimaryWorkspaceId, setSmartImportPrimaryWorkspaceId] =
     useState<string | null>(null);
 
+  // Track the primary workspace id produced by Manual Import
+  const [manualImportPrimaryWorkspaceId, setManualImportPrimaryWorkspaceId] =
+    useState<string | null>(null);
+
   // Track which import flow the user picked on the ImportBookmarksStep
   const [importFlow, setImportFlow] = useState<"smart" | "manual" | null>(null);
 
@@ -138,7 +142,7 @@ export const OnboardingOverlay: React.FC = () => {
           setPrimaryDisabled={setImportPrimaryDisabled}
           purposes={onboardingPurposes}
           onDone={(primaryWorkspaceId) => {
-            setSmartImportPrimaryWorkspaceId(primaryWorkspaceId);
+            setManualImportPrimaryWorkspaceId(primaryWorkspaceId);
           }}
         />
       ),
@@ -155,6 +159,7 @@ export const OnboardingOverlay: React.FC = () => {
     if (shouldShowOnboarding) {
       setStepIndex(0);
       setSmartImportPrimaryWorkspaceId(null);
+      setManualImportPrimaryWorkspaceId(null);
       setImportPrimaryDisabled(true);
       setImportFlow(null);
     }
@@ -186,11 +191,13 @@ export const OnboardingOverlay: React.FC = () => {
   const isLast = !!step.isFinal || clampedIndex === totalSteps - 1;
 
   // Primary button disabled logic:
-  //   - For Smart Import step: disabled until we have a primary workspace id
+  //   - For Smart and Manual Import steps: disabled until we have a primary workspace id
   //   - For others: use step.primaryDisabled
   const primaryDisabled =
     step.id === "smartImport"
       ? !smartImportPrimaryWorkspaceId
+      : step.id === "manualImport"
+      ? !manualImportPrimaryWorkspaceId || !!step.primaryDisabled
       : !!step.primaryDisabled;
 
   /* -------------------- Handlers -------------------- */
@@ -200,8 +207,11 @@ export const OnboardingOverlay: React.FC = () => {
 
     if (isLast) {
       // On the final Smart or Manual Import step, set the active workspace before completing onboarding
-      if (smartImportPrimaryWorkspaceId) {
-        await setActiveWorkspaceId(smartImportPrimaryWorkspaceId);
+      if (step.id === "smartImport" && smartImportPrimaryWorkspaceId) {
+        await setActiveWorkspaceId(smartImportPrimaryWorkspaceId as any);
+      }
+      if (step.id === "manualImport" && manualImportPrimaryWorkspaceId) {
+        await setActiveWorkspaceId(manualImportPrimaryWorkspaceId as any);
       }
       await completeOnboarding();
       return;

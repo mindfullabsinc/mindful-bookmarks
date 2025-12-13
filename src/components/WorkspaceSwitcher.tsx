@@ -39,7 +39,6 @@ export const WorkspaceSwitcher: React.FC = () => {
   /* -------------------- Context / state -------------------- */
   const [panelOpen, setPanelOpen] = useState(false);
   const [workspaces, setWorkspaces] = useState<WorkspaceType[]>([]);
-  const [activeId, setActiveId] = useState<string | null>(null);
 
   const panelRef = useRef<HTMLDivElement | null>(null);
   const openerRef = useRef<HTMLButtonElement | null>(null);
@@ -53,14 +52,8 @@ export const WorkspaceSwitcher: React.FC = () => {
     let cancelled = false;
 
     (async () => {
-      const [list, active] = await Promise.all([
-        listLocalWorkspaces(),
-        getActiveWorkspaceId(),
-      ]);
-      if (!cancelled) {
-        setWorkspaces(list);
-        setActiveId(active);
-      }
+      const list = await listLocalWorkspaces();
+      if (!cancelled) setWorkspaces(list);
     })();
 
     return () => {
@@ -89,20 +82,15 @@ export const WorkspaceSwitcher: React.FC = () => {
 
   /* -------------------- Helper functions -------------------- */
   const activeName = useMemo(
-    () => workspaces.find((w) => w.id === activeId)?.name ?? 'Workspace',
-    [workspaces, activeId]
+    () => workspaces.find((w) => w.id === ctxActiveId)?.name ?? 'Workspace',
+    [workspaces, ctxActiveId]
   );
 
   /**
    * Reload workspaces and active id from storage.
    */
   const refresh = async () => {
-    const [list, active] = await Promise.all([
-      listLocalWorkspaces(),
-      getActiveWorkspaceId(),
-    ]);
-    setWorkspaces(list);
-    setActiveId(active);
+    setWorkspaces(await listLocalWorkspaces());
   };
 
   /**
@@ -111,7 +99,7 @@ export const WorkspaceSwitcher: React.FC = () => {
    * @param workspace_id Target workspace identifier selected by the user.
    */
   async function handleSwitch(workspace_id: string) {
-    if (!workspace_id || workspace_id === activeId || workspace_id === ctxActiveId) {
+    if (!workspace_id || workspace_id === ctxActiveId|| workspace_id === ctxActiveId) {
       setPanelOpen(false);
       return;
     }
@@ -245,7 +233,7 @@ export const WorkspaceSwitcher: React.FC = () => {
           )}
 
           {workspaces.map((w) => {
-            const isActive = w.id === activeId;
+            const isActive = w.id === ctxActiveId;
             return (
               <div
                 key={w.id}

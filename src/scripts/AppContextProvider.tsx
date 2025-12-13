@@ -12,6 +12,7 @@ import {
 /* Types */
 import type { BookmarkGroupType } from "@/core/types/bookmarks";
 import type { PurposeId } from '@shared/types/purposeId';
+import type { WorkspaceType, WorkspaceIdType } from '@/core/constants/workspaces';
 
 /* Scripts */
 import {
@@ -39,7 +40,6 @@ import {
 import type { BookmarkSnapshot } from '@/scripts/caching/bookmarkCache';
 
 /* Workspaces */
-import { WorkspaceType, WorkspaceIdType } from '@/core/constants/workspaces';
 import { 
   loadRegistry, 
   initializeLocalWorkspaceRegistry, 
@@ -52,6 +52,9 @@ import { ONBOARDING_STORAGE_KEY } from '@/core/constants/onboarding';
 /* Themes */
 import { applyTheme, loadInitialTheme, persistAndApplyTheme } from "@/hooks/applyTheme";
 import { ThemeChoice } from "@/core/constants/theme";
+
+/* Constants */
+import { WORKSPACE_REGISTRY_KEY } from "@/core/constants/workspaces";
 /* ---------------------------------------------------------- */
 
 /* -------------------- Class-level helpers -------------------- */
@@ -161,7 +164,7 @@ export function AppContextProvider({
 
   // Workspaces
   const [workspaces, setWorkspaces] = useState<Record<WorkspaceIdType, WorkspaceType>>({});
-  const [activeWorkspaceId, setActiveWorkspaceId] = useState<WorkspaceIdType | null>(null);
+  const [activeWorkspaceId, setActiveWorkspaceIdState] = useState<WorkspaceIdType | null>(null);
   const [workspacesVersion, setWorkspacesVersion] = useState(0);
 
   const [bookmarkGroups, setBookmarkGroups] = useState<BookmarkGroupType[]>([]);
@@ -174,6 +177,18 @@ export function AppContextProvider({
 
   const [isLoading, setIsLoading] = useState<boolean>(true); // only for the very first paint
   const [isMigrating, setIsMigrating] = useState<boolean>(false);
+
+  const setActiveWorkspaceId = useCallback(async (id: WorkspaceIdType) => {
+    // 1) persist single source of truth
+    await setActiveWorkspace(id);
+
+    // 2) update UI immediately (switcher highlight)
+    setActiveWorkspaceIdState(id);
+
+    // 3) optional: refresh workspaces map in case updatedAt changed
+    const reg = await loadRegistry();
+    if (reg) setWorkspaces(reg.items);
+  }, []);
 
   // Authentication
   const resolvedUserId = userId ?? LOCAL_USER_ID;
@@ -211,21 +226,6 @@ export function AppContextProvider({
       return false;
     }
   };
-
-  /**
-   * Persist the active workspace change to the registry and mirror it into local state.
-   *
-   * @param id Workspace identifier selected by the user.
-   * @returns Promise that resolves once the registry has been updated.
-   */
-  const updateActiveWorkspaceId = useCallback(async (id: WorkspaceIdType) => {
-    try {
-      await setActiveWorkspace(id);     // persist to registry
-      setActiveWorkspaceId(id);         // reflect in state
-    } catch (e) {
-      console.error("Failed to set active workspace:", e);
-    }
-  }, []);
 
   /**
    * Resolve a lightweight groups index by probing session and local caches before falling back to
@@ -362,6 +362,11 @@ export function AppContextProvider({
     [user],
   );
 
+  /**
+   * Persist onboarding status to chrome.storage for future sessions.
+   *
+   * @param status Onboarding status value to store.
+   */
   const persistOnboardingStatus = async (status: OnboardingStatus) => {
     try {
       await chrome?.storage?.local?.set?.({
@@ -372,21 +377,35 @@ export function AppContextProvider({
     }
   };
 
+  /**
+   * Mark onboarding as completed and persist the status.
+   */
   const completeOnboarding = useCallback(async () => {
     setOnboardingStatus(OnboardingStatus.COMPLETED);
     await persistOnboardingStatus(OnboardingStatus.COMPLETED);
   }, []);
 
+  /**
+   * Skip onboarding entirely and persist the status.
+   */
   const skipOnboarding = useCallback(async () => {
     setOnboardingStatus(OnboardingStatus.SKIPPED);
     await persistOnboardingStatus(OnboardingStatus.SKIPPED);
   }, []);
 
+  /**
+   * Restart onboarding from scratch and persist the status.
+   */
   const restartOnboarding = useCallback(async () => {
     setOnboardingStatus(OnboardingStatus.IN_PROGRESS);
     await persistOnboardingStatus(OnboardingStatus.IN_PROGRESS);
   }, []);
 
+  /**
+   * Update theme preference state and persist/apply it globally.
+   *
+   * @param choice Theme selection.
+   */
   const setThemePreference = useCallback(
     async (choice: ThemeChoice): Promise<void> => {
       setTheme(choice);
@@ -395,6 +414,9 @@ export function AppContextProvider({
     []
   ); 
 
+  /**
+   * Increment a version counter so subscribers know workspace data changed.
+   */
   const bumpWorkspacesVersion = useCallback(() => {
     setWorkspacesVersion((v) => v + 1);
   }, []);
@@ -402,10 +424,7 @@ export function AppContextProvider({
 
   /* -------------------- Effects -------------------- */
   /**
-   * Wait for the workspace registry bootstrap to finish, then hydrate local state with the registered workspaces and active workspace identifier.
-   */
-  /**
-   * Persist onboarding IN_PROGRESS status once required prerequisites (empty state, hydrated workspace) are met.
+   * Load any previously stored onboarding status from chrome.storage on mount.
    */
   useEffect(() => {
     let cancelled = false;
@@ -441,10 +460,7 @@ export function AppContextProvider({
   }, []);
 
   /**
-   * Log when the storage mode stabilises so we can correlate downstream effects in devtools.
-   */
-  /**
-   * Log environment readiness (user + storage mode) for debugging.
+   * Persist onboarding IN_PROGRESS status once required prerequisites (empty state, hydrated workspace) are met.
    */
   useEffect(() => {
     if (!activeWorkspaceId) return;
@@ -479,11 +495,7 @@ export function AppContextProvider({
   ]);
 
   /**
-   * Wait for the workspace registry bootstrap to finish, then hydrate local state with the
-   * registered workspaces and active workspace identifier.
-   */
-  /**
-   * Phase 0 bootstrap: resolve initial auth/storage context (handles anon override, silent auth, fallback to local).
+   * Wait for the workspace registry bootstrap to finish, then hydrate local state with the registered workspaces and active workspace identifier.
    */
   useEffect(() => {
     let cancelled = false;
@@ -494,7 +506,7 @@ export function AppContextProvider({
         if (!reg || cancelled) return;
 
         setWorkspaces(reg.items);
-        setActiveWorkspaceId(reg.activeId);
+        setActiveWorkspaceIdState(reg.activeId);
 
         if (process.env.NODE_ENV !== "production") {
           console.debug("[Mindful] Active workspace:", reg.activeId);
@@ -507,12 +519,18 @@ export function AppContextProvider({
     return () => { cancelled = true; };
   }, []);  // empty deps → one-time on mount
 
+  /**
+   * Log environment readiness (user + storage mode) for debugging.
+   */
   useEffect(() => {
     if (storageMode) {
       console.debug('[AppContextProvider] ready:', { userId, storageMode });
     }
   }, [userId, storageMode]);
 
+  /**
+   * Phase 0 bootstrap: resolve initial auth/storage context (handles anon override, silent auth, fallback to local).
+   */
   useEffect(() => {
     let cancelled = false;
     console.log('[AppContextProvider] phase0 start: user?', !!user);
@@ -889,6 +907,24 @@ export function AppContextProvider({
       return () => mq.removeListener?.(handler);
     }
   }, [theme]);
+
+  useEffect(() => {
+    const onChanged = (changes: Record<string, chrome.storage.StorageChange>, area: string) => {
+      if (area !== "local") return;
+
+      const regChange = changes[WORKSPACE_REGISTRY_KEY];
+      if (!regChange?.newValue) return;
+
+      const reg = regChange.newValue as any;
+      if (reg?.version === 1 && reg.items && reg.activeId) {
+        setWorkspaces(reg.items);
+        setActiveWorkspaceIdState(prev => (prev === reg.activeId ? prev : reg.activeId));
+      }
+    };
+
+    chrome.storage.onChanged.addListener(onChanged);
+    return () => chrome.storage.onChanged.removeListener(onChanged);
+  }, []);
   /* ---------------------------------------------------------- */
 
   // ----- render gate: only block first paint if we truly have nothing -----
@@ -900,9 +936,7 @@ export function AppContextProvider({
     // Workspaces
     workspaces,
     activeWorkspaceId,
-    // Set wrapper so callers don't get a plain state setter, which could cause divergence
-    // from the registry on disk.
-    setActiveWorkspaceId: updateActiveWorkspaceId,
+    setActiveWorkspaceId,
     workspacesVersion,
     bumpWorkspacesVersion, 
 
