@@ -8,13 +8,17 @@ import { resp } from "../_shared/http";
 import { evalCors } from "../_shared/cors"; // CorsPack type only
 import { badRequest, serverError } from "../_shared/errors";
 
+/* Constants */
+import { PurposeId } from "@shared/constants/purposeId";
+import { ImportSource } from "@/core/constants/import";
+
 /* Types */
 import type { 
-  RawSource, 
   RawItem, 
   CategorizedGroup,
 } from "@shared/types/llmGrouping";
-import type { PurposeId } from "@shared/types/purposeId";
+import type { PurposeIdType} from "@shared/types/purposeId";
+import type { ImportSourceType } from "@/core/types/import";
 /* ---------------------------------------------------------- */
 
 /* -------------------- Local types -------------------- */
@@ -22,7 +26,7 @@ type GroupResult = {
   id: string;
   name: string;
   description?: string;
-  purpose?: PurposeId;
+  purpose?: PurposeIdType;
   itemIds: string[];
 };
 /* ---------------------------------------------------------- */
@@ -63,11 +67,11 @@ function getHostname(url: string): string {
 function mapToCategorizedGroups(
   groups: GroupResult[],
   items: RawItem[],
-  purposes: PurposeId[],
-  defaultPurpose: PurposeId
+  purposes: PurposeIdType[],
+  defaultPurpose: PurposeIdType
 ): CategorizedGroup[] {
   const itemsById = new Map(items.map((i) => [i.id, i]));
-  const purposeSet = new Set<PurposeId>(purposes);
+  const purposeSet = new Set<PurposeIdType>(purposes);
 
   const categorized: CategorizedGroup[] = groups.map((g) => {
     const groupItems = (g.itemIds ?? [])
@@ -81,7 +85,7 @@ function mapToCategorizedGroups(
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-|-$/g, "");
 
-    const purpose: PurposeId =
+    const purpose: PurposeIdType =
       (g.purpose && purposeSet.has(g.purpose) && g.purpose) || defaultPurpose;
 
     return {
@@ -179,16 +183,16 @@ const groupBookmarksCore = async (
     throw badRequest("Missing items[]");
   }
 
-  const isPurposeId = (p: string): p is PurposeId =>
-    p === "work" || p === "school" || p === "personal";
-  const purposes: PurposeId[] = Array.isArray(parsed.purposes)
+  const isPurposeId = (p: string): p is PurposeIdType =>
+    p === PurposeId.Personal || p === PurposeId.School || p === PurposeId.Work;
+  const purposes: PurposeIdType[] = Array.isArray(parsed.purposes)
     ? parsed.purposes.filter(isPurposeId)
     : [];
   if (!purposes.length) {
     throw badRequest("Missing purposes[]");
   }
 
-  const defaultPurpose = purposes[0] ?? "personal";
+  const defaultPurpose = purposes[0] ?? PurposeId.Personal;
 
   // Normalize into RawItem[]
   const items: RawItem[] = rawItems
@@ -196,7 +200,7 @@ const groupBookmarksCore = async (
       id: String(it.id),
       name: it.name ?? it.title ?? "",
       url: it.url,
-      source: (it.source ?? "bookmarks") as RawSource,
+      source: (it.source ?? ImportSource.Bookmarks) as ImportSourceType,
       lastVisitedAt: it.lastVisitedAt,
     }))
     .filter((it) => it.id && it.url);

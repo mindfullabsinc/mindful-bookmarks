@@ -9,10 +9,16 @@ import {
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+/* Constants */
+import { PurposeId } from "@shared/constants/purposeId";
+
+/* Scripts */
 import {
   AppContext,
   OnboardingStatus,
 } from "@/scripts/AppContextProvider";
+
+/* Components */
 import { OnboardingOverlay } from "@/components/onboarding/OnboardingOverlay";
 
 // ---- Mocks ----
@@ -72,7 +78,7 @@ function createAppContextValue(overrides: CtxOverrides = {}) {
     completeOnboarding: jest.fn().mockResolvedValue(undefined),
     skipOnboarding: jest.fn().mockResolvedValue(undefined),
     restartOnboarding: jest.fn().mockResolvedValue(undefined),
-    onboardingPurposes: ["work"],
+    onboardingPurposes: [PurposeId.Work],
     setActiveWorkspaceId: jest.fn().mockResolvedValue(undefined),
     ...overrides,
   } as any;

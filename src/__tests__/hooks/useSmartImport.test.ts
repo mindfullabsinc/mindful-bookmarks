@@ -1,8 +1,9 @@
 import { renderHook, act } from "@testing-library/react";
 import { useSmartImport } from "@/hooks/useSmartImport";
 import { runSmartImport } from "@/scripts/import/smartImport";
+import { PurposeId } from "@shared/constants/purposeId";
 import type { SmartImportPhase } from "@/core/types/smartImportPhase";
-import type { PurposeId } from "@shared/types/purposeId";
+import type { PurposeIdType } from "@shared/types/purposeId";
 
 jest.mock("@/scripts/import/smartImport", () => ({
   runSmartImport: jest.fn(),
@@ -45,7 +46,7 @@ describe("useSmartImport", () => {
     let returnedWorkspaceId: string | null = null;
     await act(async () => {
       returnedWorkspaceId = await result.current.start([
-        "personal" as PurposeId,
+        PurposeId.Personal as PurposeIdType,
       ]);
     });
 
@@ -54,7 +55,7 @@ describe("useSmartImport", () => {
     const callArg = mockedRunSmartImport.mock.calls[0][0];
 
     expect(callArg).toMatchObject({
-      purposes: ["personal"],
+      purposes: [PurposeId.Personal],
     });
     expect(typeof callArg.onProgress).toBe("function");
 
@@ -76,7 +77,7 @@ describe("useSmartImport", () => {
     let returnedWorkspaceId: string | null = "dummy";
     await act(async () => {
       returnedWorkspaceId = await result.current.start([
-        "work" as PurposeId,
+        PurposeId.Work as PurposeIdType,
       ]);
     });
 

@@ -5,7 +5,7 @@ import type {
   BookmarkGroupType,
   BookmarkType,
 } from "@/core/types/bookmarks";
-import type { PurposeId } from "@shared/types/purposeId";
+import type { PurposeIdType } from "@shared/types/purposeId";
 import type { CategorizedGroup } from "@shared/types/llmGrouping";
 
 /* Constants */
@@ -15,6 +15,7 @@ import { wsKey } from "@/core/constants/workspaces";
 import { createLocalWorkspace } from "@/scripts/workspaces/registry";
 import { getGroupsStorageKey } from "@/core/utils/storageKeys";
 import { LocalAdapter } from "@/scripts/storageAdapters/local";
+import { capitalize } from "@/core/utils/stringUtils";
 /* ---------------------------------------------------------- */
 
 /* -------------------- Helper functions -------------------- */
@@ -66,17 +67,12 @@ export function createWorkspaceServiceLocal(userId: string): WorkspaceService {
     /**
      * Create a new workspace for a given purpose without activating it.
      *
-     * @param purpose User-selected purpose ("work" | "school" | "personal").
+     * @param purpose User-selected purpose.
      * @returns Workspace reference containing id and purpose.
      */
-    async createWorkspaceForPurpose(purpose: PurposeId) {
+    async createWorkspaceForPurpose(purpose: PurposeIdType) {
       // Friendly default names per purpose
-      const name =
-        purpose === "work"
-          ? "Work"
-          : purpose === "school"
-          ? "School"
-          : "Personal";
+      const name = capitalize(purpose);
 
       const ws = await createLocalWorkspace(name, { setActive: false } );
 

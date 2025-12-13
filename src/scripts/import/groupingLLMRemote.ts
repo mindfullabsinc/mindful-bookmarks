@@ -1,4 +1,7 @@
 /* -------------------- Imports -------------------- */
+/* Constants */
+import { PurposeId } from "@shared/constants/purposeId";
+
 /* Types */
 import type {
   GroupingLLM,
@@ -6,7 +9,7 @@ import type {
   GroupingLLMResponse,
   CategorizedGroup,
 } from "@shared/types/llmGrouping";
-import type { PurposeId } from "@shared/types/purposeId";
+import type { PurposeIdType } from "@shared/types/purposeId";
 /* ---------------------------------------------------------- */
 
 /* -------------------- Constants -------------------- */
@@ -30,7 +33,7 @@ export const remoteGroupingLLM: GroupingLLM = {
     }
 
     // Choose a default purpose for fallback / tiny imports
-    const defaultPurpose: PurposeId = input.purposes[0] ?? "personal";
+    const defaultPurpose: PurposeIdType = input.purposes[0] ?? PurposeId.Personal;
 
     // Skip LLM for tiny imports to save costs 
     if (input.items.length < MIN_ITEMS_FOR_LLM) {

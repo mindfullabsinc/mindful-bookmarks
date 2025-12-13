@@ -1,8 +1,18 @@
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { PurposeStep } from "@/components/onboarding/PurposeStep";
+
+/* Scripts */
 import { AppContext } from "@/scripts/AppContextProvider";
-import type { PurposeId } from "@shared/types/purposeId";
+
+/* Constants */
+import { PurposeId } from "@shared/constants/purposeId";
+
+/* Types */
+import type { PurposeIdType } from "@shared/types/purposeId";
+
+/* Components */
+import { PurposeStep } from "@/components/onboarding/PurposeStep";
+
 
 // Optional: keep lucide-react simple in tests
 jest.mock("lucide-react", () => ({
@@ -12,7 +22,7 @@ jest.mock("lucide-react", () => ({
 }));
 
 type AppContextValuePartial = {
-  onboardingPurposes: PurposeId[] | null;
+  onboardingPurposes: PurposeIdType[] | null;
   setOnboardingPurposes: jest.Mock;
 };
 
@@ -58,7 +68,7 @@ describe("PurposeStep", () => {
   });
 
   it("uses onboardingPurposes from context as the initial selection", () => {
-    renderWithContext({ onboardingPurposes: ["work"] });
+    renderWithContext({ onboardingPurposes: [PurposeId.Work] });
 
     const personalButton = screen.getByRole("button", { name: /personal/i });
     const workButton = screen.getByRole("button", { name: /work/i });
@@ -107,11 +117,11 @@ describe("PurposeStep", () => {
     // Primary should now be enabled (not disabled)
     expect(setPrimaryDisabled).toHaveBeenLastCalledWith(false);
 
-    // onSelectionChange should have been called with ["personal"]
-    expect(onSelectionChange).toHaveBeenLastCalledWith(["personal"]);
+    // onSelectionChange should have been called with [PurposeId.Personal]
+    expect(onSelectionChange).toHaveBeenLastCalledWith([PurposeId.Personal]);
 
-    // Context setter should have been called with ["personal"] last
-    expect(setOnboardingPurposes).toHaveBeenLastCalledWith(["personal"]);
+    // Context setter should have been called with [PurposeId.Personal] last
+    expect(setOnboardingPurposes).toHaveBeenLastCalledWith([PurposeId.Personal]);
   });
 
   it("supports selecting multiple purposes", () => {
@@ -135,11 +145,11 @@ describe("PurposeStep", () => {
     expect(personalButton).toHaveClass("chip--active");
     expect(workButton).toHaveClass("chip--active");
 
-    // Last selection should be ["personal", "work"] (order matches toggle logic)
-    expect(onSelectionChange).toHaveBeenLastCalledWith(["personal", "work"]);
+    // Last selection should be [PurposeId.Personal, PurposeId.Work] (order matches toggle logic)
+    expect(onSelectionChange).toHaveBeenLastCalledWith([PurposeId.Personal, PurposeId.Work]);
     expect(setOnboardingPurposes).toHaveBeenLastCalledWith([
-      "personal",
-      "work",
+      PurposeId.Personal,
+      PurposeId.Work,
     ]);
   });
 
@@ -150,7 +160,7 @@ describe("PurposeStep", () => {
 
     renderWithContext(
       {
-        onboardingPurposes: ["personal"],
+        onboardingPurposes: [PurposeId.Personal],
         setOnboardingPurposes,
       },
       { setPrimaryDisabled, onSelectionChange }

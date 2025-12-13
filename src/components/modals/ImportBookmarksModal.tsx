@@ -3,7 +3,7 @@ import React from "react";
 import { createPortal } from "react-dom";
 
 /* Types */
-import type { ChromeImportOptions, OpenTabsOptions } from "@/core/types/import";
+import type { OpenTabsOptionsType } from "@/core/types/import";
 
 /* Styling */
 import '@/styles/components/modals/ImportBookmarksModal.css';
@@ -18,7 +18,7 @@ interface ImportBookmarksModalProps {
   onClose: () => void;
   onUploadJson: (file: File) => Promise<void> | void;
   onImportChrome: (options: ChromeImportOptions) => Promise<void> | void;
-  onImportOpenTabs?: (options: OpenTabsOptions) => Promise<void> | void;
+  onImportOpenTabs?: (options: OpenTabsOptionsType) => Promise<void> | void;
 }
 /* ---------------------------------------------------------- */
 

@@ -9,7 +9,7 @@ import React, {
 import { Loader2, Wand2 } from "lucide-react";
 
 /* Types */
-import type { PurposeId } from "@shared/types/purposeId";
+import type { PurposeIdType } from "@shared/types/purposeId";
 
 /* Constants */
 import { PHASE_MESSAGES } from "@/core/constants/smartImportPhase";
@@ -29,7 +29,7 @@ import { remoteGroupingLLM } from "@/scripts/import/groupingLLMRemote";
 
 /* -------------------- Local types -------------------- */
 type SmartImportStepProps = {
-  purposes: PurposeId[];
+  purposes: PurposeIdType[];
   onDone: (primaryWorkspaceId: string) => void;
 };
 /* ---------------------------------------------------------- */

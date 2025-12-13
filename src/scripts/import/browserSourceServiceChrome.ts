@@ -1,8 +1,12 @@
 import { nanoid } from "nanoid";
 
 import { BrowserSourceService } from "@/scripts/import/smartImport";
-import { RawItem } from "@shared/types/llmGrouping";
 
+/* Types */
+import { type RawItem } from "@shared/types/llmGrouping";
+
+/* Constants */
+import { ImportSource } from "@/core/constants/import";
 
 /**
  * Chrome-specific implementation of the BrowserSourceService that gathers bookmarks, tabs, and history.
@@ -29,7 +33,7 @@ export const chromeBrowserSourceService: BrowserSourceService = {
             id: node.id,
             name: node.title || node.url,
             url: node.url,
-            source: "bookmarks",
+            source: ImportSource.Bookmarks,
           });
         }
         if (node.children) walk(node.children);
@@ -56,7 +60,7 @@ export const chromeBrowserSourceService: BrowserSourceService = {
         id: String(t.id ?? nanoid()),
         name: t.title ?? t.url!,
         url: t.url!,
-        source: "tabs",
+        source: ImportSource.Tabs,
       }));
   },
 
@@ -81,7 +85,7 @@ export const chromeBrowserSourceService: BrowserSourceService = {
       id: h.id ?? nanoid(),
       name: h.title?? h.url!,
       url: h.url!,
-      source: "history",
+      source: ImportSource.History,
       lastVisitedAt: h.lastVisitTime ?? undefined,
     }));
   },

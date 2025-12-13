@@ -1,3 +1,5 @@
+import { PurposeId } from "@shared/constants/purposeId";
+
 /**
  * Supported purpose identifiers that instruct the grouping LLM about user intent.
  *
@@ -5,4 +7,5 @@
  * - `school`  → academic study or coursework
  * - `personal`→ general life organization
  */
-export type PurposeId = "work" | "school" | "personal";
+export type PurposeIdType = 
+  (typeof PurposeId)[keyof typeof PurposeId];

@@ -9,7 +9,7 @@ import {
 
 /* Types */
 import type { SmartImportPhase } from "@/core/types/smartImportPhase";
-import type { PurposeId } from "@shared/types/purposeId";
+import type { PurposeIdType } from "@shared/types/purposeId";
 
 /**
  * Hook that orchestrates the smart import flow, exposing progress state and a start handler.
@@ -26,7 +26,7 @@ export function useSmartImport(
   const [processedItems, setProcessedItems] = useState<number | undefined>();
 
   const start = useCallback(
-    async (purposes: PurposeId[]): Promise<string | null> => {
+    async (purposes: PurposeIdType[]): Promise<string | null> => {
       setPhase("initializing");
       setMessage("Starting Smart Import…");
       setTotalItems(undefined);

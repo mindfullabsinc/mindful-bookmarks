@@ -9,8 +9,11 @@ import { AppContext } from "@/scripts/AppContextProvider";
 import { useSmartImport } from "@/hooks/useSmartImport";
 import { createWorkspaceServiceLocal } from "@/scripts/import/workspaceServiceLocal";
 
+/* Constants */
+import { PurposeId } from "@shared/constants/purposeId";
+
 /* Types */
-import type { PurposeId } from "@shared/types/purposeId";
+import type { PurposeIdType } from "@shared/types/purposeId";
 
 /* -------------------- Mocks -------------------- */
 
@@ -95,7 +98,7 @@ afterEach(() => {
 
 describe("SmartImportStep", () => {
   it("starts smart import on mount and notifies parent when done", async () => {
-    type StartFn = (purposes: PurposeId[]) => Promise<string | null>;
+    type StartFn = (purposes: PurposeIdType[]) => Promise<string | null>;
     const startMock = jest.fn<ReturnType<StartFn>, Parameters<StartFn>>();
     startMock.mockResolvedValue("ws-123");
 
@@ -109,14 +112,14 @@ describe("SmartImportStep", () => {
 
     const onDone = jest.fn();
     const { bumpWorkspacesVersion } = renderWithContext(
-      <SmartImportStep purposes={["work"] as PurposeId[]} onDone={onDone} />
+      <SmartImportStep purposes={[PurposeId.Work] as PurposeIdType[]} onDone={onDone} />
     );
 
     // Workspace service should be created for the current user
     expect(mockedCreateWorkspaceServiceLocal).toHaveBeenCalledWith("user-123");
 
     // Smart import should be started with selected purposes
-    expect(startMock).toHaveBeenCalledWith(["work"]);
+    expect(startMock).toHaveBeenCalledWith([PurposeId.Work]);
 
     // When the promise resolves, we should bump the version and notify parent
     await waitFor(() => {
@@ -129,7 +132,7 @@ describe("SmartImportStep", () => {
   });
 
   it("does not start smart import when purposes array is empty", () => {
-    type StartFn = (purposes: PurposeId[]) => Promise<string | null>;
+    type StartFn = (purposes: PurposeIdType[]) => Promise<string | null>;
     const startMock = jest.fn<ReturnType<StartFn>, Parameters<StartFn>>();
 
     mockedUseSmartImport.mockReturnValue({
@@ -150,7 +153,7 @@ describe("SmartImportStep", () => {
   });
 
   it("advances visual phase towards backend phase over time", () => {
-    type StartFn = (purposes: PurposeId[]) => Promise<string | null>;
+    type StartFn = (purposes: PurposeIdType[]) => Promise<string | null>;
     const startMock = jest.fn<ReturnType<StartFn>, Parameters<StartFn>>();
     startMock.mockResolvedValue(null);
 
@@ -163,7 +166,7 @@ describe("SmartImportStep", () => {
     });
 
     const { container } = renderWithContext(
-      <SmartImportStep purposes={["work"] as PurposeId[]} onDone={jest.fn()} />
+      <SmartImportStep purposes={[PurposeId.Work] as PurposeIdType[]} onDone={jest.fn()} />
     );
 
     const bar = container.querySelector(
@@ -190,7 +193,7 @@ describe("SmartImportStep", () => {
   });
 
   it("handles errors from start, still bumps workspace version, and does not notify parent", async () => {
-    type StartFn = (purposes: PurposeId[]) => Promise<string | null>;
+    type StartFn = (purposes: PurposeIdType[]) => Promise<string | null>;
     const startMock = jest
       .fn<ReturnType<StartFn>, Parameters<StartFn>>()
       .mockRejectedValue(new Error("boom"));
@@ -208,11 +211,11 @@ describe("SmartImportStep", () => {
 
     const onDone = jest.fn();
     const { bumpWorkspacesVersion } = renderWithContext(
-      <SmartImportStep purposes={["work"] as PurposeId[]} onDone={onDone} />
+      <SmartImportStep purposes={[PurposeId.Work] as PurposeIdType[]} onDone={onDone} />
     );
 
     await waitFor(() => {
-      expect(startMock).toHaveBeenCalledWith(["work"]);
+      expect(startMock).toHaveBeenCalledWith([PurposeId.Work]);
       expect(bumpWorkspacesVersion).toHaveBeenCalled();
     });
 

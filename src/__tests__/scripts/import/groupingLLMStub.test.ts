@@ -1,14 +1,19 @@
-// src/__tests__/scripts/import/stubGroupingLLM.test.ts
-
+/* Scripts */
 import { stubGroupingLLM } from "@/scripts/import/groupingLLMStub";
+
+/* Constants */
+import { PurposeId } from "@shared/constants/purposeId";
+import { ImportSource } from "@/core/constants/import";
+
+/* Types */
 import type { GroupingInput } from "@shared/types/llmGrouping";
-import type { PurposeId } from "@shared/types/purposeId";
+import type { PurposeIdType } from "@shared/types/purposeId";
 
 const makeItem = (id: string, overrides: Partial<GroupingInput["items"][number]> = {}) => ({
   id,
   name: `Item ${id}`,
   url: `https://example.com/${id}`,
-  source: "bookmarks" as const,
+  source: ImportSource.Bookmarks,
   lastVisitedAt: 1_700_000_000_000,
   ...overrides,
 });
@@ -17,7 +22,7 @@ describe("stubGroupingLLM", () => {
   it("returns no groups when there are no items", async () => {
     const input: GroupingInput = {
       items: [],
-      purposes: ["work" as PurposeId],
+      purposes: [PurposeId.Work as PurposeIdType],
     };
 
     const result = await stubGroupingLLM.group(input);
@@ -40,7 +45,7 @@ describe("stubGroupingLLM", () => {
     const items = [makeItem("1"), makeItem("2")];
     const input: GroupingInput = {
       items,
-      purposes: ["work" as PurposeId],
+      purposes: [PurposeId.Work as PurposeIdType],
     };
 
     const result = await stubGroupingLLM.group(input);
@@ -52,18 +57,18 @@ describe("stubGroupingLLM", () => {
     expect(group.id).toMatch(/^grp_\d+$/);
     expect(group.name).toBe("Imported");
     expect(group.description).toBe("All imported links");
-    expect(group.purpose).toBe("work");
+    expect(group.purpose).toBe(PurposeId.Work);
     // all items should be included as-is
     expect(group.items).toBe(items);
   });
 
   it("creates one group per purpose and duplicates all items when there are multiple purposes", async () => {
     const items = [makeItem("1"), makeItem("2")];
-    const purposes: PurposeId[] = [
-      "work",
-      "school",
-      "personal",
-      "side-project" as PurposeId, // example of a non-special purpose id
+    const purposes: PurposeIdType[] = [
+      PurposeId.Work,
+      PurposeId.School,
+      PurposeId.Personal,
+      "side-project" as PurposeIdType, // example of a non-special purpose id
     ];
 
     const input: GroupingInput = {

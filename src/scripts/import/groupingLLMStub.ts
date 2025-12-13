@@ -1,4 +1,7 @@
 /* -------------------- Imports -------------------- */
+/* Utils */
+import { capitalize } from "@/core/utils/stringUtils";
+
 /* Types */
 import type {
   GroupingLLM,
@@ -6,21 +9,7 @@ import type {
   GroupingLLMResponse,
   CategorizedGroup,
 } from "@shared/types/llmGrouping";
-import type { PurposeId } from "@shared/types/purposeId";
 /* ---------------------------------------------------------- */
-
-/**
- * Simple helper to return a capitalized version of a purpose id.
- *
- * @param purpose Purpose identifier to convert.
- * @returns Capitalized label.
- */
-function capitalize(purpose: PurposeId): string {
-  if (purpose === "work") return "Work";
-  if (purpose === "school") return "School";
-  if (purpose === "personal") return "Personal";
-  return purpose;
-}
 
 /**
  * Very simple stub:

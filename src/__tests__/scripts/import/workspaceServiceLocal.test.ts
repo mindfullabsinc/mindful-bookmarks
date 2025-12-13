@@ -1,6 +1,13 @@
+/* Scripts */
 import { createWorkspaceServiceLocal } from "@/scripts/import/workspaceServiceLocal";
+
+/* Constants */
+import { PurposeId } from "@shared/constants/purposeId";
+import { ImportSource } from "@/core/constants/import";
+
+/* Types */
 import type { CategorizedGroup } from "@shared/types/llmGrouping";
-import type { PurposeId } from "@shared/types/purposeId";
+import type { PurposeIdType } from "@shared/types/purposeId";
 
 /* ---- Mocks ---- */
 const mockCreateLocalWorkspace = jest.fn();
@@ -49,11 +56,11 @@ describe("createWorkspaceServiceLocal", () => {
 
   describe("createWorkspaceForPurpose", () => {
     it.each<
-      [PurposeId, string]
+      [PurposeIdType, string]
     >([
-      ["work", "Work"],
-      ["school", "School"],
-      ["personal", "Personal"],
+      [PurposeId.Work, "Work"],
+      [PurposeId.School, "School"],
+      [PurposeId.Personal, "Personal"],
     ])(
       "creates a Local workspace with a friendly name for purpose '%s'",
       async (purpose, expectedName) => {
@@ -86,14 +93,14 @@ describe("createWorkspaceServiceLocal", () => {
         {
           id: "group-1",
           name: "Reading list",
-          purpose: "work",
+          purpose: PurposeId.Work,
           description: "Some description",
           items: [
             {
               id: "item-1",
               name: "Example site",
               url: "https://example.com",
-              source: "bookmarks",
+              source: ImportSource.Bookmarks,
               lastVisitedAt: 1234567890,
             },
             {
@@ -101,7 +108,7 @@ describe("createWorkspaceServiceLocal", () => {
               // No name: should fall back to url
               name: "",
               url: "https://no-name.com",
-              source: "history",
+              source: ImportSource.History,
               // No lastVisitedAt: should fall back to Date.now()
             },
           ],

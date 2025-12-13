@@ -2,7 +2,7 @@
 /* Types */
 import type { SmartImportPhase } from "@/core/types/smartImportPhase";
 import type { WorkspaceRef, WorkspaceService } from "@/core/types/workspaces";
-import type { PurposeId } from "@shared/types/purposeId";
+import type { PurposeIdType } from "@shared/types/purposeId";
 import type {
   GroupingLLM,
   GroupingInput,
@@ -26,7 +26,7 @@ export type SmartImportResult = {
 }
 
 export type SmartImportOptions = {
-  purposes: PurposeId[];
+  purposes: PurposeIdType[];
   workspaceService: WorkspaceService;
   browserSourceService: BrowserSourceService;
   nsfwFilter: NsfwFilter;
@@ -113,7 +113,7 @@ export async function runSmartImport(
   });
 
   /* 2) Create workspaces per purpose */
-  const workspaceMap = new Map<PurposeId, WorkspaceRef>();
+  const workspaceMap = new Map<PurposeIdType, WorkspaceRef>();
   let primaryWorkspaceId: string | null = null;
   for (const purpose of purposes) {
     const workspace = await workspaceService.createWorkspaceForPurpose(purpose);

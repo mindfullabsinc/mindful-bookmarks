@@ -2,8 +2,8 @@
 import React, { useContext, useEffect, useMemo, useState, useCallback, useRef } from "react";
 
 /* Types */
-import type { ChromeImportOptions, OpenTabsOptions, ManualImportSelection } from "@/core/types/import";
-import type { PurposeId } from "@shared/types/purposeId";
+import type { ManualImportSelectionType } from "@/core/types/import";
+import type { PurposeIdType } from "@shared/types/purposeId";
 import type { CategorizedGroup } from "@shared/types/llmGrouping";
 
 /* Components */
@@ -28,19 +28,16 @@ import { createUniqueID } from "@/core/utils/ids";
 /* -------------------- Local types -------------------- */
 type ManualImportStepProps = {
   setPrimaryDisabled?: (disabled: boolean) => void;
-  purposes: PurposeId[];                    
+  purposes: PurposeIdType[];                    
   onDone: (primaryWorkspaceId: string) => void; 
 };
-
-type ImportKind = "json" | "chrome" | "openTabs";
-type ImportOnceState = Record<ImportKind, { done: boolean; inFlight: boolean }>;
 /* ---------------------------------------------------------- */
 
 /* -------------------- Helper functions -------------------- */
 /** Convert "flat" imported groups into CategorizedGroup[] for WorkspaceService. */
 function mapImportedGroupsToCategorized(
   groups: any[],
-  purpose: PurposeId
+  purpose: PurposeIdType
 ): CategorizedGroup[] {
   return (groups || []).map((g) => ({
     id: String(g.id ?? createUniqueID()),
@@ -74,7 +71,7 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
   const [wizardDone, setWizardDone] = useState(false);
   const [selection, setSelection] = useState<ManualImportSelection>({});
 
-  const [workspaceRefs, setWorkspaceRefs] = useState<{ id: string; purpose: PurposeId }[]>([]);
+  const [workspaceRefs, setWorkspaceRefs] = useState<{ id: string; purpose: PurposeIdType }[]>([]);
   const primaryWorkspace = workspaceRefs[0] ?? null;
   const primaryWorkspaceId = primaryWorkspace?.id ?? null;
 

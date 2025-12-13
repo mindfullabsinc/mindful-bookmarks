@@ -1,9 +1,5 @@
-import { PurposeId } from "@shared/types/purposeId";
-
-/**
- * Allowed origins for bookmark payloads reaching the grouping service.
- */
-export type RawSource = "bookmarks" | "tabs" | "history";
+import { type PurposeIdType } from "@shared/types/purposeId";
+import { type ImportSourceType } from "@/core/types/import";
 
 /**
  * Minimal bookmark/tabs/history shape sent to the LLM for grouping.
@@ -12,7 +8,7 @@ export type RawItem = {
   id: string;
   name: string;
   url: string;
-  source: RawSource;
+  source: ImportSourceType;
   lastVisitedAt?: number;
 };
 
@@ -22,7 +18,7 @@ export type RawItem = {
 export type CategorizedGroup = {
   id: string;
   name: string;
-  purpose: PurposeId;
+  purpose: PurposeIdType;
   description?: string;
   items: RawItem[];
 };
@@ -32,7 +28,7 @@ export type CategorizedGroup = {
  */
 export type GroupingInput = {
   items: RawItem[];
-  purposes: PurposeId[];
+  purposes: PurposeIdType[];
 };
 
 /**

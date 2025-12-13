@@ -1,4 +1,11 @@
+/* Scripts */
 import { remoteGroupingLLM } from "@/scripts/import/groupingLLMRemote"; 
+
+/* Constants */
+import { PurposeId } from "@shared/constants/purposeId";
+import { ImportSource } from "@/core/constants/import";
+
+/* Types */
 import type { GroupingInput, GroupingLLMResponse } from "@shared/types/llmGrouping";
 
 describe("remoteGroupingLLM.group", () => {
@@ -20,14 +27,14 @@ describe("remoteGroupingLLM.group", () => {
       id: `id-${i}`,
       name: `Item ${i}`,
       url: `https://example.com/${i}`,
-      source: "bookmarks" as const,
+      source: ImportSource.Bookmarks as const,
       lastVisitedAt: 1_700_000_000_000 + i,
     }));
 
   it("returns empty groups and does not call fetch when there are no items", async () => {
     const input: GroupingInput = {
       items: [],
-      purposes: ["personal"],
+      purposes: [PurposeId.Personal],
     };
 
     const result = await remoteGroupingLLM.group(input);
@@ -40,7 +47,7 @@ describe("remoteGroupingLLM.group", () => {
     const items = makeItems(3); // MIN_ITEMS_FOR_LLM is 6
     const input: GroupingInput = {
       items,
-      purposes: ["work", "personal"],
+      purposes: [PurposeId.Work, PurposeId.Personal],
     };
 
     const result = await remoteGroupingLLM.group(input);
@@ -53,7 +60,7 @@ describe("remoteGroupingLLM.group", () => {
       id: "imported",
       name: "Imported",
       description: "All imported items",
-      purpose: "work", // first purpose
+      purpose: PurposeId.Work, // first purpose
       items,
     });
   });
@@ -71,7 +78,7 @@ describe("remoteGroupingLLM.group", () => {
     expect(result.groups).toHaveLength(1);
 
     const group = result.groups[0];
-    expect(group.purpose).toBe("personal");
+    expect(group.purpose).toBe(PurposeId.Personal);
     expect(group.items).toBe(items);
   });
 
@@ -79,7 +86,7 @@ describe("remoteGroupingLLM.group", () => {
     const items = makeItems(6); // equal to MIN_ITEMS_FOR_LLM
     const input: GroupingInput = {
       items,
-      purposes: ["work"],
+      purposes: [PurposeId.Work],
     };
 
     const apiResponse: GroupingLLMResponse = {
@@ -88,7 +95,7 @@ describe("remoteGroupingLLM.group", () => {
           id: "g1",
           name: "From API",
           description: "Remote grouped items",
-          purpose: "work",
+          purpose: PurposeId.Work,
           items,
         },
       ],
@@ -124,7 +131,7 @@ describe("remoteGroupingLLM.group", () => {
     const items = makeItems(120); // > MAX_ITEMS (100)
     const input: GroupingInput = {
       items,
-      purposes: ["work"],
+      purposes: [PurposeId.Work],
     };
 
     const apiResponse: GroupingLLMResponse = {
@@ -151,7 +158,7 @@ describe("remoteGroupingLLM.group", () => {
     const items = makeItems(10);
     const input: GroupingInput = {
       items,
-      purposes: ["work"],
+      purposes: [PurposeId.Work],
     };
 
     const consoleErrorSpy = jest
@@ -177,7 +184,7 @@ describe("remoteGroupingLLM.group", () => {
       id: "imported",
       name: "Imported",
       description: "All imported items",
-      purpose: "work",
+      purpose: PurposeId.Work,
       items, // original full list, not trimmed
     });
 

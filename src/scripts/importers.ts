@@ -1,3 +1,9 @@
+/* -------------------- Imports -------------------- */
+/* Types */
+import { type OpenTabsScopeType } from '@/core/types/import'
+/* ---------------------------------------------------------- */
+
+/* -------------------- Local types / interfaces -------------------- */
 type ChromeBmNode = chrome.bookmarks.BookmarkTreeNode;
 
 type AppBookmark = {
@@ -12,7 +18,8 @@ type AppGroup = {
   id: string;
   groupName: string;
   bookmarks: AppBookmark[];
-};
+}/* ---------------------------------------------------------- */
+;
 
 // --- Helpers ---
 /**
@@ -107,7 +114,7 @@ export async function importChromeBookmarksAsSingleGroup(
  */
 export async function importOpenTabsAsSingleGroup(
   insertGroups: (groups: AppGroup[]) => Promise<void>,
-  opts?: { scope?: 'current' | 'all'; includePinned?: boolean; includeDiscarded?: boolean }
+  opts?: { scope?: OpenTabsScopeType; includePinned?: boolean; includeDiscarded?: boolean }
 ): Promise<void> {
   const { scope = 'current', includePinned = true, includeDiscarded = true } = opts ?? {};
 

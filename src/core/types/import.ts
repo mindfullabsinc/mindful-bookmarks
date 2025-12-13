@@ -1,27 +1,28 @@
-export type ImportSource = "bookmarks" | "tabs" | "json";
+import { ImportSource, OpenTabsScope, BookmarkGroupingMode } from "../constants/import";
 
-export type ImportResult = {
-  source: ImportSource; 
+
+export type ImportSourceType = 
+  (typeof ImportSource)[keyof typeof ImportSource];   
+
+export type ImportResultType = {
+  source: ImportSourceType; 
   totalImported: number;
   groupsCreated?: number;
 };
 
-export type ChromeImportMode = "flat" | "smart";
-export type SmartStrategy = "folders" | "domain" | "topic";
-export type ChromeImportOptions = {
-  mode: ChromeImportMode;
-  smartStrategy?: SmartStrategy;
+export type OpenTabsScopeType = 
+  (typeof OpenTabsScope)[keyof typeof OpenTabsScope];
+
+export type OpenTabsOptionsType = {
+  scope?: OpenTabsScopeType;
 };
 
-export type OpenTabsScope = "current" | "all";
-export type OpenTabsOptions = {
-  scope?: OpenTabsScope;
-};
+export type BookmarkGroupingModeType =
+  (typeof BookmarkGroupingMode)[keyof typeof BookmarkGroupingMode];
 
-export type ImportChromeOpts = { mode: 'flat' | 'smart'; smartStrategy?: SmartStrategy };
-
-export type ManualImportSelection = {
+export type ManualImportSelectionType = {
   jsonFile?: File | null;
   importBookmarks?: boolean;
-  tabScope?: "current" | "all";
+  bookmarkGroupingMode?: BookmarkGroupingModeType;
+  tabScope?: OpenTabsScopeType; 
 };

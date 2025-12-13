@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState } from "react";
 
 /* Types */
-import { ManualImportSelection } from "@/core/types/import";
+import { type ManualImportSelectionType } from "@/core/types/import";
 
 /* Styles */
 import '@/styles/components/shared/ImportBookmarksContent.css'
@@ -13,10 +13,10 @@ export type ImportBookmarksContentProps = {
   variant: "modal" | "embedded";
   onClose?: () => void;     // Closing the modal
   onComplete?: () => void;  // Wizard finished (embedded or modal)
-  onSelectionChange?: (selection: ManualImportSelection) => void;
+  onSelectionChange?: (selection: ManualImportSelectionType) => void;
 };
 
-type WizardStep = 1 | 2 | 3;
+type WizardStep = 1 | 2 | 3 | 4;
 
 type YesCheckboxRowProps = {
   checked: boolean;
@@ -24,6 +24,10 @@ type YesCheckboxRowProps = {
   label: string;
   description?: string;
 };
+/* ---------------------------------------------------------- */
+
+/* -------------------- Constants -------------------- */
+const LAST_STEP: WizardStep = 4;
 /* ---------------------------------------------------------- */
 
 /* -------------------- Main component -------------------- */
@@ -47,7 +51,7 @@ export function ImportBookmarksContent({
 
    // Sub-wizard state
   const [step, setStep] = useState<WizardStep>(1);
-  const isLastStep = step === 3;
+  const isLastStep = step === LAST_STEP;
   const [jsonYes, setJsonYes] = useState(false);
   const [bookmarksYes, setBookmarksYes] = useState(false);
   const [tabsYes, setTabsYes] = useState(false);
@@ -61,6 +65,9 @@ export function ImportBookmarksContent({
 
   // Tabs 
   const [tabScope, setTabScope] = useState<"current" | "all">("current");
+
+  // Grouping choice
+  const [bookmarkGroupingMode, setBookmarkGroupingMode] = useState<"flat" | "smart">("flat");
   /* ---------------------------------------------------------- */
 
   /* -------------------- Effects -------------------- */

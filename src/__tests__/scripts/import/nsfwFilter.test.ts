@@ -1,4 +1,10 @@
+/* Scripts */
 import { basicNsfwFilter } from "@/scripts/import/nsfwFilter";
+
+/* Constants */
+import { ImportSource } from "@/core/constants/import";
+
+/* Types */
 import type { RawItem } from "@shared/types/llmGrouping";
 
 describe("basicNsfwFilter", () => {
@@ -6,7 +12,7 @@ describe("basicNsfwFilter", () => {
     id: "1",
     name: "Some site",
     url: "https://example.com",
-    source: "bookmarks",
+    source: ImportSource.Bookmarks,
     ...overrides,
   });
 

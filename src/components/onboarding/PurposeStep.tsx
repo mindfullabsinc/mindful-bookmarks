@@ -6,16 +6,16 @@ import { User, Briefcase, GraduationCap, Loader2 } from "lucide-react";
 import { AppContext } from "@/scripts/AppContextProvider";
 
 /* Types */
-import type { PurposeId } from "@shared/types/purposeId";
+import type { PurposeIdType } from "@shared/types/purposeId";
 /* ---------------------------------------------------------- */
 
 /* -------------------- Local types -------------------- */
 type PurposeChipProps = {
-  id: PurposeId;
+  id: PurposeIdType;
   label: string;
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
-  selectedIds: PurposeId[];
-  setSelectedIds: Dispatch<SetStateAction<PurposeId[]>>;
+  selectedIds: PurposeIdType[];
+  setSelectedIds: Dispatch<SetStateAction<PurposeIdType[]>>;
 };
 
 type PurposeStepProps = {
@@ -62,14 +62,14 @@ export const PurposeStep: React.FC<PurposeStepProps> = ({
 }) => {
   /* -------------------- State -------------------- */
   const { onboardingPurposes, setOnboardingPurposes } = useContext(AppContext);
-  const [selectedIds, setSelectedIds] = useState<PurposeId[]>(
+  const [selectedIds, setSelectedIds] = useState<PurposeIdType[]>(
     onboardingPurposes ?? []
   );
 
   const singleSelection = selectedIds.length === 1 ? selectedIds[0] : null;
   const hasPurpose = selectedIds.length > 0;
 
-  const labelMap: Record<PurposeId, string> = {
+  const labelMap: Record<PurposeIdType, string> = {
     personal: "Personal",
     work: "Work",
     school: "School",

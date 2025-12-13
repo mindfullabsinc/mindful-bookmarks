@@ -1,7 +1,6 @@
-// src/__tests__/scripts/import/chromeBrowserSourceService.test.ts
-
 import { chromeBrowserSourceService } from "@/scripts/import/browserSourceServiceChrome";
 import { nanoid } from "nanoid";
+import { ImportSource } from "@/core/constants/import";
 
 jest.mock("nanoid", () => ({
   nanoid: jest.fn(() => "mock-nanoid"),
@@ -97,7 +96,7 @@ describe("chromeBrowserSourceService", () => {
           id: "3",
           name: "Mindful",
           url: "https://mindfulbookmarks.com",
-          source: "bookmarks",
+          source: ImportSource.Bookmarks,
         },
       ]);
     });
@@ -129,7 +128,7 @@ describe("chromeBrowserSourceService", () => {
           id: "2",
           name: "https://example.com",
           url: "https://example.com",
-          source: "bookmarks",
+          source: ImportSource.Bookmarks,
         },
       ]);
     });
@@ -175,7 +174,7 @@ describe("chromeBrowserSourceService", () => {
           id: "123",
           name: "Mindful",
           url: "https://mindfulbookmarks.com",
-          source: "tabs",
+          source: ImportSource.Tabs,
         },
       ]);
     });
@@ -203,7 +202,7 @@ describe("chromeBrowserSourceService", () => {
           id: "mock-nanoid",
           name: "Generated ID tab",
           url: "https://example.com",
-          source: "tabs",
+          source: ImportSource.Tabs,
         },
       ]);
     });
@@ -230,7 +229,7 @@ describe("chromeBrowserSourceService", () => {
           id: "789",
           name: "https://no-title.com",
           url: "https://no-title.com",
-          source: "tabs",
+          source: ImportSource.Tabs,
         },
       ]);
     });
@@ -298,14 +297,14 @@ describe("chromeBrowserSourceService", () => {
           id: "hist-1",
           name: "Example",
           url: "https://example.com",
-          source: "history",
+          source: ImportSource.History,
           lastVisitedAt: now - 1_000,
         },
         {
           id: "mock-nanoid",
           name: "https://no-title.com",
           url: "https://no-title.com",
-          source: "history",
+          source: ImportSource.History,
           lastVisitedAt: undefined,
         },
       ]);

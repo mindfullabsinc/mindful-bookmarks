@@ -1,22 +1,28 @@
 import { runSmartImport } from "@/scripts/import/smartImport";
+
+/* Constants */
+import { PurposeId } from "@shared/constants/purposeId";
+import { ImportSource } from "@/core/constants/import";
+
+/* Types */
 import type {
   SmartImportOptions,
   BrowserSourceService,
   NsfwFilter,
 } from "@/scripts/import/smartImport";
-
 import type {
   GroupingLLM,
   RawItem,
   CategorizedGroup,
   GroupingInput,
 } from "@shared/types/llmGrouping";
-import type { PurposeId } from "@shared/types/purposeId";
+import type { PurposeIdType } from "@shared/types/purposeId";
 import type { WorkspaceService, WorkspaceRef } from "@/core/types/workspaces";
 
+
 describe("runSmartImport", () => {
-  const purposePersonal = "personal" as PurposeId;
-  const purposeWork = "work" as PurposeId;
+  const purposePersonal = PurposeId.Personal as PurposeIdType;
+  const purposeWork = PurposeId.Work as PurposeIdType;
 
   const createDefaultRawItems = (): { bookmarks: RawItem[]; tabs: RawItem[] } => {
     const bookmarks: RawItem[] = [
@@ -24,14 +30,14 @@ describe("runSmartImport", () => {
         id: "b1",
         name: "Example",
         url: "https://example.com",
-        source: "bookmarks",
+        source: ImportSource.Bookmarks,
         lastVisitedAt: 1000,
       },
       {
         id: "b2",
         name: "Duplicate A",
         url: "https://duplicate.com",
-        source: "bookmarks",
+        source: ImportSource.Bookmarks,
         lastVisitedAt: 2000,
       },
     ];
@@ -42,7 +48,7 @@ describe("runSmartImport", () => {
         id: "t1",
         name: "Duplicate B",
         url: "https://duplicate.com",
-        source: "tabs",
+        source: ImportSource.Tabs,
         lastVisitedAt: 3000,
       },
     ];
@@ -55,7 +61,7 @@ describe("runSmartImport", () => {
 
     // Workspace service mock
     const createWorkspaceForPurpose = jest.fn(
-      async (purpose: PurposeId): Promise<WorkspaceRef> =>
+      async (purpose: PurposeIdType): Promise<WorkspaceRef> =>
         ({ id: `ws-${purpose}` } as unknown as WorkspaceRef)
     );
 
