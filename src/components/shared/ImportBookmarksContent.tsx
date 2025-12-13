@@ -113,6 +113,7 @@ export function ImportBookmarksContent({
 
   useEffect(() => {
     onSelectionChange?.({
+      jsonFileName: jsonYes ? jsonFileName : null,
       jsonData: jsonYes ? jsonData : null,
       importBookmarks: bookmarksYes,
       tabScope: tabsYes ? tabScope : undefined,

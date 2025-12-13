@@ -2,15 +2,18 @@
 import React, { useContext, useEffect, useMemo, useState, useCallback } from "react";
 
 /* Types */
-import type { ManualImportSelectionType } from "@/core/types/import";
+import type { ManualImportSelectionType, ImportSourceType } from "@/core/types/import";
 import type { PurposeIdType } from "@shared/types/purposeId";
-import type { CategorizedGroup } from "@shared/types/llmGrouping";
+import type { CategorizedGroup, RawItem } from "@shared/types/llmGrouping";
 
 /* Components */
 import { ImportBookmarksEmbedded } from "@/components/modals/ImportBookmarksEmbedded";
 
 /* Context */
 import { AppContext } from "@/scripts/AppContextProvider";
+
+/* Utils */
+import { createUniqueID } from "@/core/utils/ids";
 
 /* Workspace service */
 import { createWorkspaceServiceLocal } from "@/scripts/import/workspaceServiceLocal";
@@ -21,8 +24,9 @@ import {
   importOpenTabsAsSingleGroup,
 } from "@/scripts/importers";
 
-/* Utils */
-import { createUniqueID } from "@/core/utils/ids";
+/* LLM grouping */
+import { remoteGroupingLLM } from "@/scripts/import/groupingLLMRemote";
+import { ImportSource } from "@/core/constants/import";
 /* ---------------------------------------------------------- */
 
 /* -------------------- Local types -------------------- */
@@ -37,17 +41,19 @@ type ManualImportStepProps = {
 /** Convert "flat" imported groups into CategorizedGroup[] for WorkspaceService. */
 function mapImportedGroupsToCategorized(
   groups: any[],
-  purpose: PurposeIdType
+  purpose: PurposeIdType,
+  source: ImportSourceType
 ): CategorizedGroup[] {
   return (groups || []).map((g) => ({
     id: String(g.id ?? createUniqueID()),
     name: String(g.groupName ?? "Imported"),
     purpose,
+    description: g.description ? String(g.description) : undefined,
     items: (g.bookmarks || []).map((b: any) => ({
       id: String(b.id ?? crypto.randomUUID()),
       name: b.name ?? b.url,
       url: b.url,
-      faviconUrl: b.faviconUrl,
+      source,
       lastVisitedAt: b.lastVisitedAt,
     })),
   }));
@@ -75,6 +81,49 @@ function parseJsonImport(jsonText: string): any[] {
   }
 
   throw new Error("JSON format not recognized. Expected an array of groups.");
+}
+
+function flattenCategorizedGroups(groups: CategorizedGroup[]): RawItem[] {
+  const items: RawItem[] = [];
+  for (const g of groups) items.push(...(g.items ?? []));
+  return items;
+}
+
+function regroupIntoCategorized(
+  grouped: { name: string; items: RawItem[] }[],
+  purpose: PurposeIdType
+): CategorizedGroup[] {
+  return grouped.map((g) => ({
+    id: createUniqueID(),
+    name: g.name,
+    purpose,
+    items: g.items.map((it) => ({ ...it, id: it.id ?? createUniqueID() })),
+  }));
+}
+
+async function collectGroupsFromImporter(
+  run: (collector: (groups: any[]) => Promise<void>) => Promise<void>
+): Promise<any[]> {
+  let captured: any[] = [];
+  await run(async (groups) => {
+    captured = groups ?? [];
+  });
+  return captured;
+}
+
+function normalizeLLMGroups(
+  groups: CategorizedGroup[],
+  purpose: PurposeIdType
+): CategorizedGroup[] {
+  return (groups || []).map((g) => ({
+    ...g,
+    id: String(g.id ?? createUniqueID()),
+    purpose,
+    items: (g.items || []).map((it) => ({
+      ...it,
+      id: String(it.id ?? crypto.randomUUID()),
+    })),
+  }));
 }
 /* ---------------------------------------------------------- */
 
@@ -112,66 +161,78 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
   /* ---------------------------------------------------------- */
 
   /* -------------------- Helper functions -------------------- */
-  const insertIntoPrimaryWorkspace = useCallback(
-    async (groups: any[]) => {
-      if (!primaryWorkspace) {
-        throw new Error("Workspace not ready yet.");
-      }
-      const categorized = mapImportedGroupsToCategorized(
-        groups,
-        primaryWorkspace.purpose
-      );
-      await workspaceService.appendGroupsToWorkspace(primaryWorkspace.id, categorized);
-      bumpWorkspacesVersion();
-    },
-    [primaryWorkspace, workspaceService, bumpWorkspacesVersion]
-  );
+  const commitAllImports = useCallback(async () => {
+    if (!primaryWorkspace) throw new Error("Workspace not ready yet.");
 
-  const handleCommit = useCallback(async () => {
-    if (!primaryWorkspace) return;
+    const purpose = primaryWorkspace.purpose;
 
-    // If they hit Finish but selected nothing, just complete.
-    if (!hasAnySelection) {
-      setWizardDone(true);
-      return;
-    }
+    // 1) Collect groups from each source (NO WRITES YET)
+    const allCategorized: CategorizedGroup[] = [];
 
-    setCommitError(null);
-    setIsCommitting(true);
-
-    try {
-      // JSON
-      if (selection.jsonData) {
-        const rawGroups = parseJsonImport(selection.jsonData);
-        await insertIntoPrimaryWorkspace(rawGroups);
-      }
-
-      // Chrome bookmarks
-      if (selection.importBookmarks) {
-        await importChromeBookmarksAsSingleGroup(insertIntoPrimaryWorkspace);
-      }
-
-      // Tabs
-      if (selection.tabScope !== undefined) {
-        await importOpenTabsAsSingleGroup(insertIntoPrimaryWorkspace, {
-          scope: selection.tabScope,
+    // JSON
+    if (selection.jsonData) {
+      let raw: any;
+      try {
+        raw = JSON.parse(selection.jsonData);
+      } catch (e) {
+        console.error("[ManualImportStep] invalid JSON import", {
+          fileName: selection.jsonFileName,
+          error: e,
         });
+        throw e;
       }
 
-      setWizardDone(true);
-    } catch (e) {
-      console.error("[ManualImportStep] commit failed", e);
-      setCommitError(e instanceof Error ? e.message : "Import failed. Please try again.");
-    } finally {
-      setIsCommitting(false);
+      allCategorized.push(
+        ...mapImportedGroupsToCategorized(raw, purpose, ImportSource.Json)
+      );
     }
+
+    // Chrome bookmarks
+    if (selection.importBookmarks) {
+      const chromeGroups = await collectGroupsFromImporter((collector) =>
+        importChromeBookmarksAsSingleGroup(collector)
+      );
+      allCategorized.push(
+        ...mapImportedGroupsToCategorized(chromeGroups, purpose, ImportSource.Bookmarks)
+      );
+    }
+
+    // Open tabs
+    if (selection.tabScope) {
+      const tabGroups = await collectGroupsFromImporter((collector) =>
+        importOpenTabsAsSingleGroup(collector, { scope: selection.tabScope })
+      );
+      allCategorized.push(
+        ...mapImportedGroupsToCategorized(tabGroups, purpose, ImportSource.Tabs)
+      );
+    }
+
+    // 2) Decide post-processing mode
+    const mode = selection.importPostProcessMode ?? "preserveStructure";
+
+    if (mode === "semanticGrouping") {
+      const items = flattenCategorizedGroups(allCategorized);
+
+      const res = await remoteGroupingLLM.group({
+        items,
+        purposes, // <-- use the onboarding purposes you already have in ManualImportStep props
+      });
+
+      const regrouped = normalizeLLMGroups(res.groups, purpose);
+      await workspaceService.appendGroupsToWorkspace(primaryWorkspace.id, regrouped);
+    } else {
+      // preserveStructure
+      await workspaceService.appendGroupsToWorkspace(primaryWorkspace.id, allCategorized);
+    }
+
+    bumpWorkspacesVersion();
+    setWizardDone(true);
   }, [
     primaryWorkspace,
-    hasAnySelection,
-    selection.jsonData,
-    selection.importBookmarks,
-    selection.tabScope,
-    insertIntoPrimaryWorkspace,
+    selection,
+    purposes,
+    workspaceService,
+    bumpWorkspacesVersion,
   ]);
   /* ---------------------------------------------------------- */
 
@@ -228,7 +289,7 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
 
       <ImportBookmarksEmbedded
         onSelectionChange={setSelection}
-        onComplete={handleCommit}
+        onComplete={commitAllImports}
       />
 
       {isCommitting && (
