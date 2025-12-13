@@ -10,7 +10,7 @@ export const OpenTabsScope = {
   All: "all",
 } as const;
 
-export const BookmarkGroupingMode = {
+export const ImportPostProcessMode = {
   PreserveStructure: "preserveStructure",
   SemanticGrouping: "semanticGrouping",
 } as const;

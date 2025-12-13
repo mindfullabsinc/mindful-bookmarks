@@ -1,4 +1,4 @@
-import { ImportSource, OpenTabsScope, BookmarkGroupingMode } from "../constants/import";
+import { ImportSource, OpenTabsScope, ImportPostProcessMode } from "../constants/import";
 
 
 export type ImportSourceType = 
@@ -17,12 +17,12 @@ export type OpenTabsOptionsType = {
   scope?: OpenTabsScopeType;
 };
 
-export type BookmarkGroupingModeType =
-  (typeof BookmarkGroupingMode)[keyof typeof BookmarkGroupingMode];
+export type ImportPostProcessModeType = 
+  (typeof ImportPostProcessMode)[keyof typeof ImportPostProcessMode]
 
 export type ManualImportSelectionType = {
   jsonFile?: File | null;
   importBookmarks?: boolean;
-  bookmarkGroupingMode?: BookmarkGroupingModeType;
   tabScope?: OpenTabsScopeType; 
+  importPostProcessMode?: ImportPostProcessModeType;
 };

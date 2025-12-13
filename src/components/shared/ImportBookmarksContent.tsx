@@ -1,8 +1,11 @@
 /* -------------------- Imports -------------------- */
 import React, { useEffect, useRef, useState } from "react";
 
+/* Constants */
+import { ImportPostProcessMode } from "@/core/constants/import";
+
 /* Types */
-import { type ManualImportSelectionType } from "@/core/types/import";
+import type { ManualImportSelectionType, ImportPostProcessModeType } from "@/core/types/import";
 
 /* Styles */
 import '@/styles/components/shared/ImportBookmarksContent.css'
@@ -24,7 +27,7 @@ type YesCheckboxRowProps = {
   label: string;
   description?: string;
 };
-/* ---------------------------------------------------------- */
+/* --------------------------------------------------------- */
 
 /* -------------------- Constants -------------------- */
 const LAST_STEP: WizardStep = 4;
@@ -55,19 +58,17 @@ export function ImportBookmarksContent({
   const [jsonYes, setJsonYes] = useState(false);
   const [bookmarksYes, setBookmarksYes] = useState(false);
   const [tabsYes, setTabsYes] = useState(false);
- 
+  const [semanticGroupingYes, setSemanticGroupingYes] = useState(false);
+  
   // JSON 
   const [jsonFile, setJsonFile] = useState<File | null>(null);
-
-  // Bookmarks 
-  const [mode] = useState<"flat" | "smart">("flat"); // still only flat for now
-  const [smartStrategy] = useState<"folders" | "domain" | "topic">("folders");
 
   // Tabs 
   const [tabScope, setTabScope] = useState<"current" | "all">("current");
 
-  // Grouping choice
-  const [bookmarkGroupingMode, setBookmarkGroupingMode] = useState<"flat" | "smart">("flat");
+  // Post-process mode  
+  const [postProcessMode, setPostProcessMode] =
+    useState<ImportPostProcessModeType>(ImportPostProcessMode.PreserveStructure);
   /* ---------------------------------------------------------- */
 
   /* -------------------- Effects -------------------- */
@@ -100,8 +101,9 @@ export function ImportBookmarksContent({
       jsonFile: jsonYes ? jsonFile : null,
       importBookmarks: bookmarksYes,
       tabScope: tabsYes ? tabScope : undefined,
+      importPostProcessMode: postProcessMode,
     });
-  }, [jsonYes, jsonFile, bookmarksYes, tabsYes, tabScope, onSelectionChange]);
+  }, [jsonYes, jsonFile, bookmarksYes, tabsYes, tabScope, postProcessMode, onSelectionChange]);
   /* ---------------------------------------------------------- */
 
   /* -------------------- Helper functions -------------------- */
@@ -110,7 +112,7 @@ export function ImportBookmarksContent({
    * Primary CTA click handler for navigating the wizard.
    */
   async function handlePrimary() {
-    if (step < 3) {
+    if (step < LAST_STEP) {
       setStep((s) => (s + 1) as WizardStep);
       return;
     }
@@ -151,6 +153,7 @@ export function ImportBookmarksContent({
     if (step === 3) {
       return tabsYes ? "Continue" : "Skip";
     }
+    return "Finish";  // Step 4
   })();
 
   const primaryDisabled = (step === 1 && jsonYes && !jsonFile);
@@ -159,23 +162,24 @@ export function ImportBookmarksContent({
    * Render the wizard step header for the current step.
    */
   function renderStepHeader() {
-    const title =
-      step === 1
-        ? "Do you have a JSON file to import?"
-        : step === 2
-        ? "Do you want to import your Chrome bookmarks?"
-        : "Do you want to import your open tabs?";
+    const titles: Record<number, string> = {
+      1: "Do you have a JSON file to import?",
+      2: "Do you want to import your Chrome bookmarks?",
+      3: "Do you want to import your open tabs?",
+      4: "Do you want Mindful to automatically organize everything you imported?",
+    };
+    const title = titles[step] ?? "";
 
-    const subtitle =
-      step === 1
-        ? "If you exported from another bookmark manager (or from Mindful), you can bring that file in now. If you’re not sure what this is, just skip."
-        : "";
+    const subtitles: Record<number, string> = {
+      1: "If you exported from another bookmark manager (or from Mindful), you can bring that file in now. If you’re not sure what this is, just skip.",
+    }
+    const subtitle = subtitles[step] ?? "";
 
     return (
       <>
         <div className="step-progress">
           <span>
-            Step {step} of 3
+            Step {step} of {LAST_STEP}
           </span>
         </div>
         <h3 className="step-title">
@@ -276,88 +280,105 @@ export function ImportBookmarksContent({
       );
     }
 
-    // step === 3
-    return (
-      <div className="body-container">
-        {renderStepHeader()}
-        <YesCheckboxRow
-          checked={tabsYes}
-          onToggle={() => {
-            setTabsYes((v) => {
-              const next = !v;
-              if (!next) setTabScope("current");
-              return next;
-            });
-          }}
-          label="Yes"
-        />
+    if (step === 3) {
+      return (
+        <div className="body-container">
+          {renderStepHeader()}
+          <YesCheckboxRow
+            checked={tabsYes}
+            onToggle={() => {
+              setTabsYes((v) => {
+                const next = !v;
+                if (!next) setTabScope("current");
+                return next;
+              });
+            }}
+            label="Yes"
+          />
 
-        {tabsYes && (
-          <div className="tabs-container">
-            <h3 className="tabs-header">
-              Which tabs?
-            </h3>
+          {tabsYes && (
+            <div className="tabs-container">
+              <h3 className="tabs-header">
+                Which tabs?
+              </h3>
 
-            <div className="tabs-windows-container">
+              <div className="tabs-windows-container">
 
-              {/* All windows */}
-              <button
-                type="button"
-                onClick={() => setTabScope("all")}
-                className={`tabs-radio-button-row
-                  ${tabScope === "all"
-                    ? "tabs-radio-button-row--selected"
-                    : "tabs-radio-button-row--unselected"
-                  }
-                `}
-              >
-                <div
-                  className={`
-                    tabs-radio-button-outer-circle
+                {/* All windows */}
+                <button
+                  type="button"
+                  onClick={() => setTabScope("all")}
+                  className={`tabs-radio-button-row
                     ${tabScope === "all"
-                      ? "tabs-radio-button-outer-circle--selected"
-                      : "tabs-radio-button-outer-circle--unselected"
+                      ? "tabs-radio-button-row--selected"
+                      : "tabs-radio-button-row--unselected"
                     }
                   `}
                 >
-                  {tabScope === "all" && (
-                    <div className="tabs-radio-button-inner-circle" />
-                  )}
-                </div>
-                <span className="tabs-radio-button-text">All windows</span>
-              </button>
+                  <div
+                    className={`
+                      tabs-radio-button-outer-circle
+                      ${tabScope === "all"
+                        ? "tabs-radio-button-outer-circle--selected"
+                        : "tabs-radio-button-outer-circle--unselected"
+                      }
+                    `}
+                  >
+                    {tabScope === "all" && (
+                      <div className="tabs-radio-button-inner-circle" />
+                    )}
+                  </div>
+                  <span className="tabs-radio-button-text">All windows</span>
+                </button>
 
-              {/* Current window */}
-              <button
-                type="button"
-                onClick={() => setTabScope("current")}
-                className={`tabs-radio-button-row
-                  ${tabScope === "current"
-                    ? "tabs-radio-button-row--selected"
-                    : "tabs-radio-button-row--unselected"
-                  }
-                `}
-              >
-                <div
-                  className={`
-                    tabs-radio-button-outer-circle 
+                {/* Current window */}
+                <button
+                  type="button"
+                  onClick={() => setTabScope("current")}
+                  className={`tabs-radio-button-row
                     ${tabScope === "current"
-                      ? "tabs-radio-button-outer-circle--selected"
-                      : "tabs-radio-button-outer-circle--unselected"
+                      ? "tabs-radio-button-row--selected"
+                      : "tabs-radio-button-row--unselected"
                     }
                   `}
                 >
-                  {tabScope === "current" && (
-                    <div className="tabs-radio-button-inner-circle" />
-                  )}
-                </div>
-                <span className="tabs-radio-button-text">Current window</span>
-              </button>
+                  <div
+                    className={`
+                      tabs-radio-button-outer-circle 
+                      ${tabScope === "current"
+                        ? "tabs-radio-button-outer-circle--selected"
+                        : "tabs-radio-button-outer-circle--unselected"
+                      }
+                    `}
+                  >
+                    {tabScope === "current" && (
+                      <div className="tabs-radio-button-inner-circle" />
+                    )}
+                  </div>
+                  <span className="tabs-radio-button-text">Current window</span>
+                </button>
+              </div>
             </div>
-          </div>
-        )}
-      </div>
-    );
+          )}
+        </div>
+      );
+    };
+
+    if (step === 4) {
+      return (
+        <div className="body-container">
+          {renderStepHeader()}
+          <YesCheckboxRow
+            checked={semanticGroupingYes}
+            onToggle={() => {
+              setSemanticGroupingYes((v) => !v);
+              setPostProcessMode(ImportPostProcessMode.SemanticGrouping);
+            }}
+            label="Yes"
+          />
+        </div>
+      );
+    }
   }
   /* ---------------------------------------------------------- */
 

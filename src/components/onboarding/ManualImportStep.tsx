@@ -69,7 +69,7 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
   );
 
   const [wizardDone, setWizardDone] = useState(false);
-  const [selection, setSelection] = useState<ManualImportSelection>({});
+  const [selection, setSelection] = useState<ManualImportSelectionType>({});
 
   const [workspaceRefs, setWorkspaceRefs] = useState<{ id: string; purpose: PurposeIdType }[]>([]);
   const primaryWorkspace = workspaceRefs[0] ?? null;
