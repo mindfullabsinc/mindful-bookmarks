@@ -463,8 +463,8 @@ export function ImportBookmarksContent({
       aria-labelledby="import-title"
       className={
         variant === "modal"
-          ? "modal-container"
-          : "embedded-container"
+          ? "import-styles modal-container"
+          : "import-styles embedded-container"
       }
     >
       <div className="modal-subcontainer">
@@ -487,14 +487,12 @@ export function ImportBookmarksContent({
           </div>
         )}
 
-        <div className="body-container">
-          {errorMessage && (
-            <div className="error-message">
-              {errorMessage}
-            </div>
-          )}
-          {renderBody()}
-        </div>
+        {errorMessage && (
+          <div className="error-message">
+            {errorMessage}
+          </div>
+        )}
+        {renderBody()}
 
         <div className="footer-container">
           <div className="flex w-full items-center justify-end gap-2">
