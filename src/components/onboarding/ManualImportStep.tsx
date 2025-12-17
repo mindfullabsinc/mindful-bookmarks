@@ -21,8 +21,10 @@ import { createWorkspaceServiceLocal } from "@/scripts/import/workspaceServiceLo
 /* Importers */
 import {
   importChromeBookmarksAsSingleGroup,
+  importChromeBookmarksPreserveStructure,
   importOpenTabsAsSingleGroup,
-} from "@/scripts/importers";
+  importOpenTabsPreserveStructure,
+} from "@/scripts/import/importers";
 
 /* LLM grouping */
 import { remoteGroupingLLM } from "@/scripts/import/groupingLLMRemote";
@@ -160,7 +162,10 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
     try {
       const purpose = primaryWorkspace.purpose;
 
-      // 1) Collect groups from each source (NO WRITES YET)
+      // Decide post-processing mode
+      const mode = selection.importPostProcessMode ?? ImportPostProcessMode.PreserveStructure;
+
+      // Collect groups from each source (NO WRITES YET)
       const allCategorized: CategorizedGroup[] = [];
 
       // JSON
@@ -173,22 +178,41 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
 
       // Chrome bookmarks
       if (selection.importBookmarks) {
-        const chromeGroups = await collectGroupsFromImporter((collector) =>
-          importChromeBookmarksAsSingleGroup(collector)
-        );
+        const chromeGroups = await collectGroupsFromImporter((collector) => {
+          return mode === ImportPostProcessMode.PreserveStructure
+            ? importChromeBookmarksPreserveStructure(collector, {
+                // Defaults
+                onlyLeafFolders: true,
+                includeParentFolderBookmarks: true,
+                maxDepth: 8,
+                minItemsPerFolder: 1,
+                includeRootFolders: false,
+              })
+            : importChromeBookmarksAsSingleGroup(collector);
+        });
+
         allCategorized.push(
           ...mapImportedGroupsToCategorized(chromeGroups, purpose, ImportSource.Bookmarks)
         );
       }
-
+      
       // Open tabs
       if (selection.tabScope !== undefined) {
-        const tabGroups = await collectGroupsFromImporter((collector) =>
-          importOpenTabsAsSingleGroup(collector, { scope: selection.tabScope })
-        );
+        const tabGroups = await collectGroupsFromImporter((collector) => {
+          return mode === ImportPostProcessMode.PreserveStructure
+            ? importOpenTabsPreserveStructure(collector, {
+                scope: selection.tabScope,
+                // Defaults
+                includePinned: true,
+                includeDiscarded: true,
+                includeUngrouped: true,
+              })
+            : importOpenTabsAsSingleGroup(collector, { scope: selection.tabScope });
+        });
+
         allCategorized.push(
           ...mapImportedGroupsToCategorized(tabGroups, purpose, ImportSource.Tabs)
-        );
+        )
       }
 
       // If the user skips everything, we want to skip calling the LLM and writing empty groups
@@ -197,9 +221,6 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
         bumpWorkspacesVersion();
         return;
       }
-
-      // 2) Decide post-processing mode
-      const mode = selection.importPostProcessMode ?? ImportPostProcessMode.PreserveStructure;
 
       if (mode === ImportPostProcessMode.SemanticGrouping) {
         setCommitMessage("Organizing with AI ...");

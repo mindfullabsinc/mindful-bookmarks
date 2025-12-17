@@ -1,6 +1,23 @@
 import { ImportSource, OpenTabsScope, ImportPostProcessMode } from "../constants/import";
 
 
+export type ChromeBmNode = chrome.bookmarks.BookmarkTreeNode;
+
+export type AppBookmark = {
+  id: string;
+  name: string;
+  url: string;
+  faviconUrl?: string;
+  dateAdded?: number;
+};
+
+export type AppGroup = {
+  id: string;
+  groupName: string;
+  bookmarks: AppBookmark[];
+  description?: string;
+};
+
 export type ImportSourceType = 
   (typeof ImportSource)[keyof typeof ImportSource];   
 

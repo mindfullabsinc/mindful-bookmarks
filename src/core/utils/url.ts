@@ -64,3 +64,13 @@ export function normalizeUrl(input: string): string {
     return input.trim();
   }
 }
+
+/**
+ * Check whether a string begins with an HTTP or HTTPS scheme.
+ *
+ * @param u URL string to inspect.
+ * @returns True when the string looks like an HTTP(S) URL.
+ */
+export function isHttpUrl(u: string): boolean {
+  return /^https?:\/\//i.test(u);
+}
