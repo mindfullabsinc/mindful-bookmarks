@@ -26,7 +26,7 @@ import {
 
 /* LLM grouping */
 import { remoteGroupingLLM } from "@/scripts/import/groupingLLMRemote";
-import { ImportSource } from "@/core/constants/import";
+import { ImportPostProcessMode, ImportSource } from "@/core/constants/import";
 /* ---------------------------------------------------------- */
 
 /* -------------------- Local types -------------------- */
@@ -89,18 +89,6 @@ function flattenCategorizedGroups(groups: CategorizedGroup[]): RawItem[] {
   return items;
 }
 
-function regroupIntoCategorized(
-  grouped: { name: string; items: RawItem[] }[],
-  purpose: PurposeIdType
-): CategorizedGroup[] {
-  return grouped.map((g) => ({
-    id: createUniqueID(),
-    name: g.name,
-    purpose,
-    items: g.items.map((it) => ({ ...it, id: it.id ?? createUniqueID() })),
-  }));
-}
-
 async function collectGroupsFromImporter(
   run: (collector: (groups: any[]) => Promise<void>) => Promise<void>
 ): Promise<any[]> {
@@ -158,75 +146,87 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
 
   const [commitError, setCommitError] = useState<string | null>(null);
   const [isCommitting, setIsCommitting] = useState(false);
+  const [commitMessage, setCommitMessage] = useState<string>(""); // optional
   /* ---------------------------------------------------------- */
 
   /* -------------------- Helper functions -------------------- */
   const commitAllImports = useCallback(async () => {
     if (!primaryWorkspace) throw new Error("Workspace not ready yet.");
 
-    const purpose = primaryWorkspace.purpose;
+    setCommitError(null);
+    setIsCommitting(true);
+    setCommitMessage("Importing…");
 
-    // 1) Collect groups from each source (NO WRITES YET)
-    const allCategorized: CategorizedGroup[] = [];
+    try {
+      const purpose = primaryWorkspace.purpose;
 
-    // JSON
-    if (selection.jsonData) {
-      let raw: any;
-      try {
-        raw = JSON.parse(selection.jsonData);
-      } catch (e) {
-        console.error("[ManualImportStep] invalid JSON import", {
-          fileName: selection.jsonFileName,
-          error: e,
-        });
-        throw e;
+      // 1) Collect groups from each source (NO WRITES YET)
+      const allCategorized: CategorizedGroup[] = [];
+
+      // JSON
+      if (selection.jsonData) {
+        const rawGroups = parseJsonImport(selection.jsonData);
+        allCategorized.push(
+          ...mapImportedGroupsToCategorized(rawGroups, purpose, ImportSource.Json)
+        );
       }
 
-      allCategorized.push(
-        ...mapImportedGroupsToCategorized(raw, purpose, ImportSource.Json)
-      );
+      // Chrome bookmarks
+      if (selection.importBookmarks) {
+        const chromeGroups = await collectGroupsFromImporter((collector) =>
+          importChromeBookmarksAsSingleGroup(collector)
+        );
+        allCategorized.push(
+          ...mapImportedGroupsToCategorized(chromeGroups, purpose, ImportSource.Bookmarks)
+        );
+      }
+
+      // Open tabs
+      if (selection.tabScope !== undefined) {
+        const tabGroups = await collectGroupsFromImporter((collector) =>
+          importOpenTabsAsSingleGroup(collector, { scope: selection.tabScope })
+        );
+        allCategorized.push(
+          ...mapImportedGroupsToCategorized(tabGroups, purpose, ImportSource.Tabs)
+        );
+      }
+
+      // If the user skips everything, we want to skip calling the LLM and writing empty groups
+      if (allCategorized.length === 0) {
+        setWizardDone(true);
+        bumpWorkspacesVersion();
+        return;
+      }
+
+      // 2) Decide post-processing mode
+      const mode = selection.importPostProcessMode ?? ImportPostProcessMode.PreserveStructure;
+
+      if (mode === ImportPostProcessMode.SemanticGrouping) {
+        setCommitMessage("Organizing with AI ...");
+        const items = flattenCategorizedGroups(allCategorized);
+        const res = await remoteGroupingLLM.group({
+          items,
+          purposes, 
+        });
+
+        setCommitMessage("Saving groups ...");
+        const regrouped = normalizeLLMGroups(res.groups, purpose);
+        await workspaceService.appendGroupsToWorkspace(primaryWorkspace.id, regrouped);
+      } else {
+        // preserveStructure
+        setCommitMessage("Saving ...");
+        await workspaceService.appendGroupsToWorkspace(primaryWorkspace.id, allCategorized);
+      }
+
+      bumpWorkspacesVersion();
+      setWizardDone(true);
+    } catch (e: any) {
+      console.error("[ManualImportStep] commit failed", e);
+      setCommitError(e?.message || "Import failed");
+    } finally {
+      setIsCommitting(false);
+      setCommitMessage("");
     }
-
-    // Chrome bookmarks
-    if (selection.importBookmarks) {
-      const chromeGroups = await collectGroupsFromImporter((collector) =>
-        importChromeBookmarksAsSingleGroup(collector)
-      );
-      allCategorized.push(
-        ...mapImportedGroupsToCategorized(chromeGroups, purpose, ImportSource.Bookmarks)
-      );
-    }
-
-    // Open tabs
-    if (selection.tabScope) {
-      const tabGroups = await collectGroupsFromImporter((collector) =>
-        importOpenTabsAsSingleGroup(collector, { scope: selection.tabScope })
-      );
-      allCategorized.push(
-        ...mapImportedGroupsToCategorized(tabGroups, purpose, ImportSource.Tabs)
-      );
-    }
-
-    // 2) Decide post-processing mode
-    const mode = selection.importPostProcessMode ?? "preserveStructure";
-
-    if (mode === "semanticGrouping") {
-      const items = flattenCategorizedGroups(allCategorized);
-
-      const res = await remoteGroupingLLM.group({
-        items,
-        purposes, // <-- use the onboarding purposes you already have in ManualImportStep props
-      });
-
-      const regrouped = normalizeLLMGroups(res.groups, purpose);
-      await workspaceService.appendGroupsToWorkspace(primaryWorkspace.id, regrouped);
-    } else {
-      // preserveStructure
-      await workspaceService.appendGroupsToWorkspace(primaryWorkspace.id, allCategorized);
-    }
-
-    bumpWorkspacesVersion();
-    setWizardDone(true);
   }, [
     primaryWorkspace,
     selection,
@@ -281,22 +281,13 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
 
   return (
     <div className="m_import-container">
-      {commitError && (
-        <div className="mb-3 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
-          {commitError}
-        </div>
-      )}
-
       <ImportBookmarksEmbedded
         onSelectionChange={setSelection}
         onComplete={commitAllImports}
+        busy={isCommitting}
+        busyMessage={commitMessage}
+        errorMessage={commitError ?? undefined}
       />
-
-      {isCommitting && (
-        <div className="mt-3 text-xs text-neutral-400">
-          Importing…
-        </div>
-      )}
     </div>
   );
   /* ---------------------------------------------------------- */

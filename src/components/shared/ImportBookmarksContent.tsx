@@ -24,6 +24,9 @@ export type ImportBookmarksContentProps = {
   onClose?: () => void;     // Closing the modal
   onComplete?: () => void;  // Wizard finished (embedded or modal)
   onSelectionChange?: (selection: ManualImportSelectionType) => void;
+  busy?: boolean;
+  busyMessage?: string;
+  errorMessage?: string;
 };
 
 type WizardStep = 1 | 2 | 3 | 4;
@@ -38,6 +41,7 @@ type YesCheckboxRowProps = {
 
 /* -------------------- Constants -------------------- */
 const LAST_STEP: WizardStep = 4;
+const BUSY_MESSAGE: string = "Thinking ...";
 /* ---------------------------------------------------------- */
 
 /* -------------------- Main component -------------------- */
@@ -55,6 +59,9 @@ export function ImportBookmarksContent({
   onClose,
   onComplete,
   onSelectionChange,
+  busy = false,
+  busyMessage = BUSY_MESSAGE,
+  errorMessage,
 }: ImportBookmarksContentProps) {
   /* -------------------- Context / state -------------------- */
   const dialogRef = useRef<HTMLDivElement | null>(null);
@@ -105,11 +112,11 @@ export function ImportBookmarksContent({
    */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose?.();
+      if (e.key === "Escape" && !busy) onClose?.();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [onClose, busy]);
 
   useEffect(() => {
     onSelectionChange?.({
@@ -119,7 +126,7 @@ export function ImportBookmarksContent({
       tabScope: tabsYes ? tabScope : undefined,
       importPostProcessMode: postProcessMode,
     });
-  }, [jsonYes, jsonData, bookmarksYes, tabsYes, tabScope, postProcessMode, onSelectionChange]);
+  }, [jsonYes, jsonFileName, jsonData, bookmarksYes, tabsYes, tabScope, postProcessMode, onSelectionChange]);
   /* ---------------------------------------------------------- */
 
   /* -------------------- Helper functions -------------------- */
@@ -147,18 +154,19 @@ export function ImportBookmarksContent({
    * Primary CTA click handler for navigating the wizard.
    */
   async function handlePrimary() {
+    if (busy) return;
     if (step < LAST_STEP) {
       setStep((s) => (s + 1) as WizardStep);
-      return;
+    } else {
+      finishWizard();
     }
-
-    finishWizard();
   }
 
   /**
    * Navigate to the previous wizard step when possible.
    */
   function handleBack() {
+    if (busy) return;
     setStep((prev) => (prev > 1 ? ((prev - 1) as WizardStep) : prev));
   }
 
@@ -273,6 +281,12 @@ export function ImportBookmarksContent({
    * Render the body content for the current wizard step.
    */
   function renderBody() {
+    {errorMessage && (
+      <div className="error-message">
+        {errorMessage}
+      </div>
+    )}
+
     if (step === 1) {
       return (
         <div className="body-container">
@@ -463,7 +477,8 @@ export function ImportBookmarksContent({
               Import bookmarks
             </h2>
             <button
-              onClick={() => onClose?.()}
+              onClick={() => !busy && onClose?.()}
+              disabled={busy}
               className="import-button close-button"
               aria-label="Close"
             >
@@ -473,38 +488,58 @@ export function ImportBookmarksContent({
         )}
 
         <div className="body-container">
+          {errorMessage && (
+            <div className="error-message">
+              {errorMessage}
+            </div>
+          )}
           {renderBody()}
         </div>
 
         <div className="footer-container">
           <div className="flex w-full items-center justify-end gap-2">
-            {variant === "modal" && (
-              <button
-                onClick={() => onClose?.()}
-                className="import-button cancel-button"
-              >
-                Cancel
-              </button>
-            )}
+            {/* Busy message */}
+            <div className="min-h-[20px]">
+              {busy && (
+                <div className="busy-message">
+                  <span className="spinner" aria-hidden="true" />
+                  <span>{busyMessage}</span>
+                </div>
+              )}
+            </div>
 
-            {step > 1 && (
+            {/* Buttons: Cancel, Back, Next */}
+            <div className="flex items-center justify-end gap-2"> 
+              {variant === "modal" && (
+                <button
+                  onClick={() => !busy && onClose?.()}
+                  disabled={busy}
+                  className="import-button cancel-button"
+                >
+                  Cancel
+                </button>
+              )}
+
+              {step > 1 && (
+                <button
+                  type="button"
+                  onClick={handleBack}
+                  disabled={busy}
+                  className="import-button back-button"
+                >
+                  Back
+                </button>
+              )}
+
               <button
                 type="button"
-                onClick={handleBack}
-                className="import-button back-button"
+                onClick={handlePrimary}
+                disabled={primaryDisabled || busy}
+                className="import-button next-button"
               >
-                Back
+                {busy ? BUSY_MESSAGE : primaryLabel}
               </button>
-            )}
-
-            <button
-              type="button"
-              onClick={handlePrimary}
-              disabled={primaryDisabled}
-              className="import-button next-button"
-            >
-              {primaryLabel}
-            </button>
+            </div>
           </div>
         </div>
       </div>
