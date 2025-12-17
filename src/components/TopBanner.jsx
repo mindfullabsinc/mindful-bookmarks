@@ -8,7 +8,6 @@ import { StorageMode, StorageLabel, DEFAULT_STORAGE_MODE } from "@/core/constant
 /* Hooks */
 import useImportBookmarks from '@/hooks/useImportBookmarks';
 
-
 /* Components */
 import LogoComponent from '@/components/LogoComponent';
 import Tooltip from "@/components/primitives/Tooltip";
@@ -22,7 +21,8 @@ const TopBanner = ({
   isSignedIn,
   onStorageModeChange
 }) => {
-  const storageMode = useContext(AppContext)?.storageMode ?? DEFAULT_STORAGE_MODE;
+  /* -------------------- Context / state -------------------- */
+  const { openOnboarding, storageMode = DEFAULT_STORAGE_MODE } = useContext(AppContext);
   const [isDropdownOpen, setDropdownOpen] = useState(false);
   const containerRef = useRef(null);
 
@@ -34,6 +34,12 @@ const TopBanner = ({
     // importByTopic,
   });
 
+  const initials =
+    (userAttributes?.given_name?.[0] ?? "") +
+    (userAttributes?.family_name?.[0] ?? "");
+  /* ---------------------------------------------------------- */
+
+  /* -------------------- Effects -------------------- */
   useEffect(() => {
     const onDocClick = (e) => {
       if (!containerRef.current) return;
@@ -48,12 +54,13 @@ const TopBanner = ({
       document.removeEventListener('keydown', onEsc);
     };
   }, []);
+  /* ---------------------------------------------------------- */
 
+  /* -------------------- Helper functions -------------------- */
   const handleLogout = () => { onSignOut(); setDropdownOpen(false); };
-  const initials =
-    (userAttributes?.given_name?.[0] ?? "") +
-    (userAttributes?.family_name?.[0] ?? "");
+  /* ---------------------------------------------------------- */
 
+  /* -------------------- Main component rendering -------------------- */
   return (
     <header className="sticky top-0 z-30 backdrop-blur bg-gray-100 dark:bg-neutral-950">
       <div className="flex w-full items-center justify-between px-[20px] py-4">
@@ -62,6 +69,15 @@ const TopBanner = ({
 
         {/* Right: icons + avatar */}
         <nav className="hidden items-right gap-6 md:flex">
+        <Tooltip label="Onboarding">
+          <button
+            onClick={openOnboarding} 
+            className="cursor-pointer text-neutral-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 p-2 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60"
+            aria-label="Onboarding"
+          >
+            <i className="fas fa-compass fa-lg" />
+          </button>
+        </Tooltip>
         <Tooltip label="Load bookmarks">
           <button
             onClick={openImport}
@@ -182,6 +198,7 @@ const TopBanner = ({
       </div>
     </header>
   );
+  /* ---------------------------------------------------------- */
 };
 
 export default TopBanner;

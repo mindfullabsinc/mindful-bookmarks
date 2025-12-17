@@ -1,6 +1,6 @@
 /* -------------------- Imports -------------------- */
 /* Libraries */
-import React, { act } from 'react';
+import React from 'react';
 import { createContext, useState, useEffect, useCallback, useMemo } from 'react';
 import type { ReactNode, ReactElement, Dispatch, SetStateAction } from 'react';
 import {
@@ -114,8 +114,10 @@ export interface AppContextValue {
   isHydratingRemote: boolean;
 
   /* Onboarding */
+  onboardingReopen: boolean;
+  openOnboarding: () => void;
+  closeOnboarding: () => void;
   onboardingStatus: OnboardingStatus;
-  setOnboardingStatus: (status: OnboardingStatus) => void;
   shouldShowOnboarding: boolean;
   completeOnboarding: () => Promise<void>;
   skipOnboarding: () => Promise<void>;
@@ -201,9 +203,12 @@ export function AppContextProvider({
   // Onboarding
   const [onboardingStatus, setOnboardingStatus] =
     useState<OnboardingStatus>(OnboardingStatus.NOT_STARTED);
+  const [onboardingReopen, setOnboardingReopen] = useState(false);
+  const isEmpty = !bookmarkGroups || bookmarkGroups.length === 0;
   const shouldShowOnboarding =
+    onboardingReopen ||
     onboardingStatus === OnboardingStatus.IN_PROGRESS ||
-    onboardingStatus === OnboardingStatus.NOT_STARTED;
+    (onboardingStatus === OnboardingStatus.NOT_STARTED && hasHydrated && isEmpty);
   const [onboardingPurposes, setOnboardingPurposes] = useState<PurposeIdType[]>([]);
 
   // Themes
@@ -363,6 +368,20 @@ export function AppContextProvider({
   );
 
   /**
+   * Reveal the onboarding overlay, restarting it when previously completed or skipped.
+   */
+  const openOnboarding = useCallback(() => {
+    setOnboardingReopen(true);
+  }, []);
+
+  /**
+   * Hide the onboarding overlay without modifying status.
+   */
+  const closeOnboarding = useCallback(() => {
+    setOnboardingReopen(false);
+  }, []);
+
+  /**
    * Persist onboarding status to chrome.storage for future sessions.
    *
    * @param status Onboarding status value to store.
@@ -382,6 +401,7 @@ export function AppContextProvider({
    */
   const completeOnboarding = useCallback(async () => {
     setOnboardingStatus(OnboardingStatus.COMPLETED);
+    setOnboardingReopen(false);
     await persistOnboardingStatus(OnboardingStatus.COMPLETED);
   }, []);
 
@@ -390,6 +410,7 @@ export function AppContextProvider({
    */
   const skipOnboarding = useCallback(async () => {
     setOnboardingStatus(OnboardingStatus.SKIPPED);
+    setOnboardingReopen(false);
     await persistOnboardingStatus(OnboardingStatus.SKIPPED);
   }, []);
 
@@ -398,6 +419,7 @@ export function AppContextProvider({
    */
   const restartOnboarding = useCallback(async () => {
     setOnboardingStatus(OnboardingStatus.IN_PROGRESS);
+    setOnboardingReopen(false);
     await persistOnboardingStatus(OnboardingStatus.IN_PROGRESS);
   }, []);
 
@@ -467,23 +489,25 @@ export function AppContextProvider({
     if (!storageMode) return;
     if (isLoading) return;
     if (!hasHydrated) return;
+    
+    // Do nothing if the user already decided to skip or complete onboarding
     if (
-      onboardingStatus !== OnboardingStatus.NOT_STARTED &&
-      onboardingStatus !== OnboardingStatus.IN_PROGRESS
+      onboardingStatus === OnboardingStatus.SKIPPED ||
+      onboardingStatus === OnboardingStatus.COMPLETED
     ) {
       return;
     }
 
-    const isEmpty = !bookmarkGroups || bookmarkGroups.length === 0;
     if (!isEmpty) return;
 
-    setOnboardingStatus(OnboardingStatus.IN_PROGRESS);
-    try {
-      void chrome?.storage?.local?.set?.({
-        [ONBOARDING_STORAGE_KEY]: OnboardingStatus.IN_PROGRESS,
-      });
-    } catch {
-      // best-effort
+    // If they’re NOT_STARTED, flip to IN_PROGRESS and persist
+    if (onboardingStatus === OnboardingStatus.NOT_STARTED) {
+      setOnboardingStatus(OnboardingStatus.IN_PROGRESS);
+      try {
+        void chrome?.storage?.local?.set?.({
+          [ONBOARDING_STORAGE_KEY]: OnboardingStatus.IN_PROGRESS,
+        });
+      } catch {}
     }
   }, [
     activeWorkspaceId,
@@ -957,8 +981,10 @@ export function AppContextProvider({
     isHydratingRemote,
 
     // Onboarding
+    onboardingReopen,
+    openOnboarding,
+    closeOnboarding,
     onboardingStatus,
-    setOnboardingStatus,
     shouldShowOnboarding,
     completeOnboarding,
     skipOnboarding,

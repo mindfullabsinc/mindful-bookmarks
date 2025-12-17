@@ -1,3 +1,4 @@
+/* -------------------- Imports -------------------- */
 import React, { useContext, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AppContext, OnboardingStatus } from "@/scripts/AppContextProvider";
@@ -9,7 +10,9 @@ import { ImportBookmarksStep } from "@/components/onboarding/ImportBookmarksStep
 import { SmartImportStep } from "@/components/onboarding/SmartImportStep";
 import { ManualImportStep } from "@/components/onboarding/ManualImportStep";
 import { FinishUpStep } from "@/components/onboarding/FinishUpStep";
+/* ---------------------------------------------------------- */
 
+/* -------------------- Local types / interfaces -------------------- */
 type OnboardingStepId =
   | "selectTheme"
   | "setPurpose"
@@ -30,15 +33,18 @@ type OnboardingStepConfig = {
   isFinal?: boolean;
   primaryDisabled?: boolean;
 };
+/* ---------------------------------------------------------- */
 
+/* -------------------- Main component -------------------- */
 export const OnboardingOverlay: React.FC = () => {
+  /* -------------------- Context / state -------------------- */
   const {
     onboardingStatus,
-    setOnboardingStatus,
+    onboardingReopen,
     shouldShowOnboarding,
     completeOnboarding,
+    closeOnboarding,
     skipOnboarding,
-    restartOnboarding,
     onboardingPurposes,
     setActiveWorkspaceId,
   } = useContext(AppContext);
@@ -59,10 +65,7 @@ export const OnboardingOverlay: React.FC = () => {
 
   // Track which import flow the user picked on the ImportBookmarksStep
   const [importFlow, setImportFlow] = useState<"smart" | "manual" | null>(null);
-
-  const finishOnboarding = React.useCallback(() => {
-    setOnboardingStatus(OnboardingStatus.COMPLETED);
-  }, [setOnboardingStatus]);
+  /* ---------------------------------------------------------- */
 
   /* -------------------- Step config (dynamic) -------------------- */
   const STEPS: OnboardingStepConfig[] = [];
@@ -154,9 +157,13 @@ export const OnboardingOverlay: React.FC = () => {
   }
   /* ---------------------------------------------------------- */
 
+  /* -------------------- Effects -------------------- */
   // Reset step state when overlay opens
+  const prevOpenRef = React.useRef(false);
   useEffect(() => {
-    if (shouldShowOnboarding) {
+    const wasOpen = prevOpenRef.current;
+    prevOpenRef.current = shouldShowOnboarding;
+    if (!wasOpen && shouldShowOnboarding) {
       setStepIndex(0);
       setSmartImportPrimaryWorkspaceId(null);
       setManualImportPrimaryWorkspaceId(null);
@@ -165,24 +172,16 @@ export const OnboardingOverlay: React.FC = () => {
     }
   }, [shouldShowOnboarding]);
 
-  // Ensure a fresh start when the overlay first appears.
-  useEffect(() => {
-    if (
-      shouldShowOnboarding &&
-      onboardingStatus === OnboardingStatus.NOT_STARTED
-    ) {
-      void restartOnboarding();
-    }
-  }, [shouldShowOnboarding, onboardingStatus, restartOnboarding]);
-
   // Don’t render if onboarding is done or not supposed to show.
   if (!shouldShowOnboarding) return null;
   if (
-    onboardingStatus === OnboardingStatus.COMPLETED ||
-    onboardingStatus === OnboardingStatus.SKIPPED
+    !onboardingReopen &&
+    (onboardingStatus === OnboardingStatus.COMPLETED ||
+      onboardingStatus === OnboardingStatus.SKIPPED)
   ) {
     return null;
   }
+  /* ---------------------------------------------------------- */
 
   const totalSteps = STEPS.length;
   const clampedIndex = Math.min(Math.max(stepIndex, 0), totalSteps - 1);
@@ -233,6 +232,7 @@ export const OnboardingOverlay: React.FC = () => {
   };
   /* ---------------------------------------------------------- */
 
+  /* -------------------- Main component rendering -------------------- */
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 dark:bg-white/40 backdrop-blur-sm">
@@ -249,13 +249,15 @@ export const OnboardingOverlay: React.FC = () => {
             <span>
               Step {clampedIndex + 1} of {totalSteps}
             </span>
-            <button
-              type="button"
-              className="underline-offset-2 hover:underline cursor-pointer"
-              onClick={() => void skipOnboarding()}
-            >
-              Skip onboarding
-            </button>
+            {onboardingReopen ? (
+              <button type="button" onClick={closeOnboarding} className="underline-offset-2 hover:underline cursor-pointer">
+                Close
+              </button>
+            ) : (
+              <button onClick={() => void skipOnboarding()} className="underline-offset-2 hover:underline cursor-pointer">
+                Skip onboarding
+              </button>
+            )}
           </div>
 
           <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
@@ -324,4 +326,6 @@ export const OnboardingOverlay: React.FC = () => {
       </div>
     </AnimatePresence>
   );
+  /* ---------------------------------------------------------- */
 };
+/* ---------------------------------------------------------- */
