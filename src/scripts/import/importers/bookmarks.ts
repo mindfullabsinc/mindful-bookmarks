@@ -78,18 +78,10 @@ export async function importChromeBookmarksAsSingleGroup(
 }
 
 /**
- * Preserve folder structure by creating one group per folder path.
- *
- * Notes:
- * - This is a "flat preservation": groups are still flat, but names carry folder paths.
- * - I recommend NOT global de-duping in preserve mode (a bookmark can legitimately exist in multiple folders).
- *   If you want de-dupe, do it per-folder.
- */
-/**
- * Import Chrome bookmarks while preserving folder structure as separate groups.
+ * Import Chrome bookmarks while preserving folder structure as separate groups. Groups remain flat, but names reflect the folder path.
  *
  * @param insertGroups Callback invoked with groups to save.
- * @param opts Options controlling depth, leaf behavior, and per-folder filtering.
+ * @param opts Options controlling depth, leaf/parent inclusion, dedupe behavior, etc.
  */
 export async function importChromeBookmarksPreserveStructure(
   insertGroups: (groups: BookmarkGroupType[]) => Promise<void>,

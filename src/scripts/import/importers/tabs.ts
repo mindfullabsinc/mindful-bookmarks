@@ -9,6 +9,12 @@ import { createUniqueID } from "@/core/utils/ids";
 /* ---------------------------------------------------------- */
 
 
+/**
+ * Collect open tabs and insert them as a single group via the provided callback.
+ *
+ * @param insertGroups Function that writes the resulting groups.
+ * @param opts Tab collection options specifying scope and filters.
+ */
 export async function importOpenTabsAsSingleGroup(
   insertGroups: (groups: BookmarkGroupType[]) => Promise<void>,
   opts?: { scope?: OpenTabsScopeType; includePinned?: boolean; includeDiscarded?: boolean }
@@ -58,6 +64,12 @@ export async function importOpenTabsAsSingleGroup(
  * Requires:
  * - "tabs" permission (you already have if you can query URLs)
  * - "tabGroups" permission if you want titles/colors reliably (optional; we degrade gracefully)
+ */
+/**
+ * Import open tabs while preserving window and tab-group structure.
+ *
+ * @param insertGroups Callback invoked with the groups to save.
+ * @param opts Options controlling scope, pinned/discarded filtering, and dedupe behavior.
  */
 export async function importOpenTabsPreserveStructure(
   insertGroups: (groups: BookmarkGroupType[]) => Promise<void>,
