@@ -24,12 +24,38 @@ export default function ImportBookmarksModal({
   onClose,
   ...contentProps
 }: ImportBookmarksModalProps): React.ReactElement | null {
+  const { busy } = contentProps;
+  
   if (!isOpen) return null;
-
   const modal = (
-    <div className="modal-container">
-      <div className="modal-backdrop" onClick={onClose} />
-      <ImportBookmarksContent {...contentProps} variant="modal" onClose={onClose} />
+    <div className="modal-import-styles">
+      <div className="modal-container" role="dialog" aria-modal="true">
+        <div className="modal-backdrop" onClick={onClose} />
+        <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
+          
+          {/* Modal-specific header and close button */}
+          <div className="modal-header-container">
+            <h2
+              id="import-title"
+              className="modal-title"
+            >
+              Import bookmarks
+            </h2>
+            <button
+              onClick={() => !busy && onClose?.()}
+              disabled={busy}
+              className="close-button"
+              aria-label="Close"
+            >
+              ✕
+            </button>
+          </div>
+          
+          {/* Shared ImportBookmarksContent */}
+          <ImportBookmarksContent {...contentProps} variant="modal" onClose={onClose} />
+        
+        </div>
+      </div>
     </div>
   );
 

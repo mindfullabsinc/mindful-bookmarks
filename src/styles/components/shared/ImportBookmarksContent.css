@@ -2,233 +2,198 @@
 @reference "tailwindcss";
 
 @layer components {
-  /* -------------------- Shared modal / embedded wizard styles -------------------- */
-  .import-styles .body-container {
-    @apply px-5 pt-3 pb-1 overflow-y-auto space-y-4;
-  }
+  .import-styles {
+    .container {
+      @apply relative w-full 
+              rounded-2xl border border-neutral-200/70 dark:border-neutral-800/70 
+              bg-neutral-50/90 dark:bg-neutral-950/90 
+              shadow-sm overflow-hidden;
+    }
 
-  .import-styles .error-message {
-    @apply mt-4 rounded-xl px-4 py-3
-           border border-rose-100/60 dark:border-rose-900/60 
-           bg-rose-100/30 dark:bg-rose-900/30 
-           text-xs text-rose-800 dark:text-rose-200
-  }
+    .subcontainer {
+      @apply grid grid-rows-[auto,1fr,auto] max-h-[85vh];
+    }
 
-  .import-styles .footer-container {
-    @apply flex items-center justify-between gap-3 px-5 pt-1 pb-3;
-  }
+    .body-container {
+      @apply px-5 pt-3 pb-1 overflow-y-auto space-y-4;
+    }
 
-  .import-styles .busy-message {
-    @apply text-[11px] text-neutral-500 dark:text-neutral-400;
-  }
+    .error-message {
+      @apply mt-4 rounded-xl px-4 py-3
+            border border-rose-100/60 dark:border-rose-900/60 
+            bg-rose-100/30 dark:bg-rose-900/30 
+            text-xs text-rose-800 dark:text-rose-200
+    }
 
-  .import-styles .import-button {
-    @apply cursor-pointer inline-flex items-center justify-center rounded-xl;
-  }
+    .footer-container {
+      @apply flex items-center justify-between gap-3 px-5 pt-1 pb-3;
+    }
 
-  .import-styles .back-button {
-    @apply px-3 py-1.5 text-xs 
-           border border-neutral-300 dark:border-neutral-700 
-           bg-transparent hover:bg-neutral-100 dark:hover:bg-neutral-900
-           text-neutral-700 dark:text-neutral-300
-           disabled:opacity-50;
-  }
+    .busy-message {
+      @apply text-[11px] text-neutral-500 dark:text-neutral-400;
+    }
 
-  .import-styles .next-button {
-    @apply px-4 py-2 text-sm font-medium shadow-sm transition disabled:cursor-not-allowed
-           bg-blue-600 hover:bg-blue-700
-           text-white
-           disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 
-           focus-visible:ring-blue-500/70;
-  }
+    .import-button {
+      @apply cursor-pointer inline-flex items-center justify-center rounded-xl;
+    }
 
-  .import-styles .spinner {
-    width: 14px;
-    height: 14px;
-    border-radius: 999px;
-    border: 2px solid rgba(0,0,0,0.2);
-    border-top-color: rgba(0,0,0,0.7);
-    animation: spin 0.8s linear infinite;
-    display: inline-block;
-  }
+    .back-button {
+      @apply px-3 py-1.5 text-xs 
+            border border-neutral-300 dark:border-neutral-700 
+            bg-transparent hover:bg-neutral-100 dark:hover:bg-neutral-900
+            text-neutral-700 dark:text-neutral-300
+            disabled:opacity-50;
+    }
 
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
-  /* ---------------------------------------------------------- */
+    .next-button {
+      @apply px-4 py-2 text-sm font-medium shadow-sm transition disabled:cursor-not-allowed
+            bg-blue-600 hover:bg-blue-700
+            text-white
+            disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 
+            focus-visible:ring-blue-500/70;
+    }
 
-  /* -------------------- Modal-specific styles -------------------- */
-  .import-styles .modal-container {
-    @apply relative z-10 w-[min(96vw,720px)] 
-           rounded-2xl border border-neutral-200 dark:border-neutral-800 
-           bg-white dark:bg-neutral-950 
-           shadow-2xl max-h-[85vh] overflow-hidden;
-  }
+    .spinner {
+      width: 14px;
+      height: 14px;
+      border-radius: 999px;
+      border: 2px solid rgba(0,0,0,0.2);
+      border-top-color: rgba(0,0,0,0.7);
+      animation: spin 0.8s linear infinite;
+      display: inline-block;
+    }
 
-  .import-styles .modal-subcontainer {
-    @apply grid grid-rows-[auto,1fr,auto] max-h-[85vh];
-  }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
 
-  .import-styles .modal-header-container {
-    @apply flex items-center justify-between px-5 py-4 border-b border-neutral-200 dark:border-neutral-800;
-  }
+    /* Progress into the wizard */
+    .step-progress {
+      @apply mb-2 flex items-center justify-between 
+            text-xs text-neutral-500;
+    }
 
-  .import-styles .modal-title {
-    @apply text-lg font-semibold text-neutral-900 dark:text-neutral-100;
-  }
+    .step-title {
+      @apply text-sm font-medium text-neutral-950 dark:text-neutral-50;
+    }
 
-  .import-styles .close-button {
-    @apply h-9 w-9 
-         hover:bg-neutral-100 dark:hover:bg-neutral-900
-         text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200
-         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70;
-  }
+    .step-subtitle {
+      @apply mt-1 text-xs text-neutral-600 dark:text-neutral-400;
+    }
 
-  .import-styles .cancel-button {
-    @apply px-4 py-2 text-sm shadow-sm transition
-           border border-neutral-300 dark:border-neutral-700 
-           bg-white dark:bg-neutral-900 hover:bg-neutral-50 dark:hover:bg-neutral-950
-           text-neutral-800 dark:text-neutral-200 dark:hover:text-neutral-800
-           focus-visible:outline-none focus-visible:ring-2 
-           focus-visible:ring-blue-500/70;
-  }
-  /* ---------------------------------------------------------- */
+    /* Yes/no checkbox per wizard step */
+    .checkbox-row {
+      @apply mt-4 w-full text-left flex items-start gap-3 rounded-xl px-4 py-3 text-sm cursor-pointer transition;
+    }
 
-  /* -------------------- Embedded wizard-specific styles -------------------- */
-  .import-styles .embedded-container {
-    @apply relative w-full 
-           rounded-2xl border border-neutral-200/70 dark:border-neutral-800/70 
-           bg-neutral-50/90 dark:bg-neutral-950/90 
-           shadow-sm overflow-hidden;
-  }
+    .checkbox-row--checked {
+      @apply bg-blue-500/10;
+    }
 
-  /* Progress into the wizard */
-  .import-styles .step-progress {
-    @apply mb-2 flex items-center justify-between 
-           text-xs text-neutral-500;
-  }
+    .checkbox-row--unchecked {
+      @apply bg-transparent hover:bg-neutral-100/40 dark:hover:bg-neutral-900/40; 
+    }
 
-  .import-styles .step-title {
-    @apply text-sm font-medium text-neutral-950 dark:text-neutral-50;
-  }
+    .checkbox-box {
+      @apply mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-[4px] border text-[11px];
+    }
 
-  .import-styles .step-subtitle {
-    @apply mt-1 text-xs text-neutral-600 dark:text-neutral-400;
-  }
+    .checkbox-box--checked {
+      @apply border-blue-500 bg-blue-500 text-white;
+    }
 
-  /* Yes/no checkbox per wizard step */
-  .import-styles .checkbox-row {
-    @apply mt-4 w-full text-left flex items-start gap-3 rounded-xl px-4 py-3 text-sm cursor-pointer transition;
-  }
+    .checkbox-box--unchecked {
+      @apply border-neutral-500 bg-transparent text-transparent;
+    }
 
-  .import-styles .checkbox-row--checked {
-    @apply bg-blue-500/10;
-  }
+    .checkbox-label-container {
+      @apply flex flex-col;
+    }
+    
+    .checkbox-label {
+      @apply font-medium text-neutral-950 dark:text-neutral-50;
+    }
 
-  .import-styles .checkbox-row--unchecked {
-    @apply bg-transparent hover:bg-neutral-100/40 dark:hover:bg-neutral-900/40; 
-  }
+    .checkbox-label-description {
+      @apply mt-0.5 text-xs text-neutral-600 dark:text-neutral-400;
+    }
 
-  .import-styles .checkbox-box {
-    @apply mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-[4px] border text-[11px];
-  }
+    /* Wizard step body shared */
+    /* Step 1: JSON file input */
+    .json-input-container {
+      @apply mt-4 rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 p-4;
+    }
 
-  .import-styles .checkbox-box--checked {
-    @apply border-blue-500 bg-blue-500 text-white;
-  }
+    .json-selected-file-container {
+      @apply mt-2 text-xs font-bold text-neutral-700 dark:text-neutral-300;
+    }
 
-  .import-styles .checkbox-box--unchecked {
-    @apply border-neutral-500 bg-transparent text-transparent;
-  }
+    .json-file-name {
+      @apply font-normal text-neutral-900 dark:text-neutral-100;
+    }
 
-  .import-styles .checkbox-label-container {
-    @apply flex flex-col;
-  }
-  
-  .import-styles .checkbox-label {
-    @apply font-medium text-neutral-950 dark:text-neutral-50;
-  }
+    .json-file-remove {
+      @apply font-normal cursor-pointer underline ml-2;
+    }
 
-  .import-styles .checkbox-label-description {
-    @apply mt-0.5 text-xs text-neutral-600 dark:text-neutral-400;
-  }
+    .json-input {
+      @apply file:cursor-pointer
+            block w-full text-xs
+            text-neutral-900 dark:text-neutral-100
+            file:mr-3 file:rounded-lg file:border-0
+            file:px-3 file:py-1.5 
+            file:bg-neutral-200 dark:file:bg-neutral-700 
+            hover:file:bg-neutral-300 dark:hover:file:bg-neutral-600
+            file:text-neutral-900 dark:file:text-neutral-100;
+    }
 
-  /* Wizard step body shared */
-  /* Step 1: JSON file input */
-  .import-styles .json-input-container {
-    @apply mt-4 rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 p-4;
-  }
+    /* Step 2: Chrome bookmarks */
+    .bookmarks-permissions-warning {
+    }
 
-  .import-styles .json-selected-file-container {
-    @apply mt-2 text-xs font-bold text-neutral-700 dark:text-neutral-300;
-  }
+    /* Step 3: Open tabs */
+   .tabs-container {
+      @apply mt-4 max-w-md;
+    }
 
-  .import-styles .json-file-name {
-    @apply font-normal text-neutral-900 dark:text-neutral-100;
-  }
+    .tabs-header {
+      @apply text-sm font-medium text-neutral-950 dark:text-neutral-50 mb-3;
+    }
 
-  .import-styles .json-file-remove {
-    @apply font-normal cursor-pointer underline ml-2;
-  }
+    .tabs-windows-container {
+      @apply space-y-2;
+    }
 
-  .import-styles .json-input {
-    @apply file:cursor-pointer
-           block w-full text-xs
-           text-neutral-900 dark:text-neutral-100
-           file:mr-3 file:rounded-lg file:border-0
-           file:px-3 file:py-1.5 
-           file:bg-neutral-200 dark:file:bg-neutral-700 
-           hover:file:bg-neutral-300 dark:hover:file:bg-neutral-600
-           file:text-neutral-900 dark:file:text-neutral-100;
-  }
+    .tabs-radio-button-row {
+      @apply w-full flex items-center gap-3 rounded-xl p-3 text-left transition cursor-pointer;
+    }
 
-  /* Step 2: Chrome bookmarks */
-  .import-styles .bookmarks-permissions-warning {
-  }
+    .tabs-radio-button-row--selected {
+      @apply bg-blue-500/10; /*bg-[rgb(15,23,42)]*/
+    }
 
-  /* Step 3: Open tabs */
- .import-styles  .tabs-container {
-    @apply mt-4 max-w-md;
-  }
+    .tabs-radio-button-row--unselected {
+      @apply bg-neutral-100/30 dark:bg-neutral-900/30;
+    }
 
-  .import-styles .tabs-header {
-    @apply text-sm font-medium text-neutral-950 dark:text-neutral-50 mb-3;
-  }
+    .tabs-radio-button-outer-circle {
+      @apply h-4 w-4 rounded-full border flex items-center justify-center;
+    }
 
-  .import-styles .tabs-windows-container {
-    @apply space-y-2;
-  }
+    .tabs-radio-button-outer-circle--selected {
+      @apply border-blue-600 dark:border-blue-400 bg-blue-500;
+    }
 
-  .import-styles .tabs-radio-button-row {
-    @apply w-full flex items-center gap-3 rounded-xl p-3 text-left transition cursor-pointer;
-  }
+    .tabs-radio-button-outer-circle--unselected {
+      @apply border-neutral-600 dark:border-neutral-400;
+    }
 
-  .import-styles .tabs-radio-button-row--selected {
-    @apply bg-blue-500/10; /*bg-[rgb(15,23,42)]*/
-  }
+    .tabs-radio-button-inner-circle {
+      @apply h-2 w-2 bg-white rounded-full;
+    }
 
-  .import-styles .tabs-radio-button-row--unselected {
-    @apply bg-neutral-100/30 dark:bg-neutral-900/30;
+    .tabs-radio-button-text {
+      @apply text-sm text-neutral-800 dark:text-neutral-200;
+    }
   }
-
-  .import-styles .tabs-radio-button-outer-circle {
-    @apply h-4 w-4 rounded-full border flex items-center justify-center;
-  }
-
-  .import-styles .tabs-radio-button-outer-circle--selected {
-    @apply border-blue-600 dark:border-blue-400 bg-blue-500;
-  }
-
-  .import-styles .tabs-radio-button-outer-circle--unselected {
-    @apply border-neutral-600 dark:border-neutral-400;
-  }
-
-  .import-styles .tabs-radio-button-inner-circle {
-    @apply h-2 w-2 bg-white rounded-full;
-  }
-
-  .import-styles .tabs-radio-button-text {
-    @apply text-sm text-neutral-800 dark:text-neutral-200;
-  }
-  /* ---------------------------------------------------------- */
 }

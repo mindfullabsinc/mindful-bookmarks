@@ -281,12 +281,6 @@ export function ImportBookmarksContent({
    * Render the body content for the current wizard step.
    */
   function renderBody() {
-    {errorMessage && (
-      <div className="error-message">
-        {errorMessage}
-      </div>
-    )}
-
     if (step === 1) {
       return (
         <div className="body-container">
@@ -456,87 +450,57 @@ export function ImportBookmarksContent({
 
   /* -------------------- Main component rendering -------------------- */
   return (
-    <div
-      ref={dialogRef}
-      role={variant === "modal" ? "dialog" : undefined}
-      aria-modal={variant === "modal" ? "true" : undefined}
-      aria-labelledby="import-title"
-      className={
-        variant === "modal"
-          ? "import-styles modal-container"
-          : "import-styles embedded-container"
-      }
-    >
-      <div className="modal-subcontainer">
-        {variant === "modal" && (
-          <div className="modal-header-container">
-            <h2
-              id="import-title"
-              className="modal-title"
-            >
-              Import bookmarks
-            </h2>
-            <button
-              onClick={() => !busy && onClose?.()}
-              disabled={busy}
-              className="import-button close-button"
-              aria-label="Close"
-            >
-              ✕
-            </button>
-          </div>
-        )}
-
-        {errorMessage && (
-          <div className="error-message">
-            {errorMessage}
-          </div>
-        )}
-        {renderBody()}
-
-        <div className="footer-container">
-          <div className="flex w-full items-center justify-end gap-2">
-            {/* Busy message */}
-            <div className="min-h-[20px]">
-              {busy && (
-                <div className="busy-message">
-                  <span className="spinner" aria-hidden="true" />
-                  <span>{busyMessage}</span>
-                </div>
-              )}
+    <div className="import-styles">
+      <div
+        ref={dialogRef}
+        role={variant === "modal" ? "dialog" : undefined}
+        aria-modal={variant === "modal" ? "true" : undefined}
+        aria-labelledby="import-title"
+        className="container"
+      >
+        <div className="subcontainer">
+          {errorMessage && (
+            <div className="error-message">
+              {errorMessage}
             </div>
+          )}
 
-            {/* Buttons: Cancel, Back, Next */}
-            <div className="flex items-center justify-end gap-2"> 
-              {variant === "modal" && (
-                <button
-                  onClick={() => !busy && onClose?.()}
-                  disabled={busy}
-                  className="import-button cancel-button"
-                >
-                  Cancel
-                </button>
-              )}
+          {renderBody()}
 
-              {step > 1 && (
+          <div className="footer-container">
+            <div className="flex w-full items-center justify-end gap-2">
+              {/* Busy message */}
+              <div className="min-h-[20px]">
+                {busy && (
+                  <div className="busy-message">
+                    <span className="spinner" aria-hidden="true" />
+                    <span>{busyMessage}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Buttons: Back, Next */}
+              <div className="flex items-center justify-end gap-2"> 
+                {step > 1 && (
+                  <button
+                    type="button"
+                    onClick={handleBack}
+                    disabled={busy}
+                    className="import-button back-button"
+                  >
+                    Back
+                  </button>
+                )}
+
                 <button
                   type="button"
-                  onClick={handleBack}
-                  disabled={busy}
-                  className="import-button back-button"
+                  onClick={handlePrimary}
+                  disabled={primaryDisabled || busy}
+                  className="import-button next-button"
                 >
-                  Back
+                  {busy ? BUSY_MESSAGE : primaryLabel}
                 </button>
-              )}
-
-              <button
-                type="button"
-                onClick={handlePrimary}
-                disabled={primaryDisabled || busy}
-                className="import-button next-button"
-              >
-                {busy ? BUSY_MESSAGE : primaryLabel}
-              </button>
+              </div>
             </div>
           </div>
         </div>
