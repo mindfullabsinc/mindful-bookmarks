@@ -964,23 +964,32 @@ export function AppContextProvider({
     workspacesVersion,
     bumpWorkspacesVersion, 
 
+    /* Bookmarks */
     groupsIndex,
     bookmarkGroups,
     setBookmarkGroups,
+
+    /* Auth / storage */
     userId: userId ?? LOCAL_USER_ID, // Always expose the actual resolved userId (LOCAL_USER_ID when anon)
     storageMode,
     setStorageMode: handleStorageModeChange,
     isSignedIn,
     authMode,
+
+    /* Loading + migration */
     isLoading,
     isMigrating,
     setIsMigrating,
+    
+    /* User attributes */
     userAttributes,
     setUserAttributes,
+
+    /* Hydration flags */
     hasHydrated,
     isHydratingRemote,
 
-    // Onboarding
+    /* Onboarding */
     onboardingReopen,
     openOnboarding,
     closeOnboarding,
@@ -992,7 +1001,7 @@ export function AppContextProvider({
     onboardingPurposes,
     setOnboardingPurposes,
 
-    // Themes
+    /* Theme */
     theme,
     setThemePreference,
   };

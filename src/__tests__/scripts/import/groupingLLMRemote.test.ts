@@ -27,7 +27,7 @@ describe("remoteGroupingLLM.group", () => {
       id: `id-${i}`,
       name: `Item ${i}`,
       url: `https://example.com/${i}`,
-      source: ImportSource.Bookmarks as const,
+      source: ImportSource.Bookmarks,
       lastVisitedAt: 1_700_000_000_000 + i,
     }));
 

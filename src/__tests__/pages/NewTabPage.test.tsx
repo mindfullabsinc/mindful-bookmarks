@@ -320,11 +320,22 @@ describe.each([
     mockImportBookmarksFromJSON = jest.fn();
     mockChangeStorageMode = jest.fn();
 
+    const mockHandleUploadJson = jest.fn<Promise<void>, [File]>(async () => {});
+    const mockHandleImportChrome = jest.fn<Promise<void>, []>(async () => {});
+    const mockHandleImportOpenTabs = jest.fn<
+      Promise<void>,
+      [{ scope?: "current" | "all" }]
+    >(async () => {});
+
     const mockedHookValue = {
       openImport: mockOpenImport,
       closeImport: mockCloseImport,
       renderModal: mockRenderModal,
-      busy: false, // <-- required
+      busy: false,
+
+      handleUploadJson: mockHandleUploadJson,
+      handleImportChrome: mockHandleImportChrome,
+      handleImportOpenTabs: mockHandleImportOpenTabs,
     } satisfies ReturnType<typeof useImportBookmarksDefault>;
 
     useImportBookmarksMock.mockReturnValue(mockedHookValue);
