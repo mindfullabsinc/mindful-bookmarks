@@ -1,8 +1,7 @@
-// src/__tests__/components/ImportBookmarksModal.test.tsx
 import React from 'react';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import ImportBookmarksModal from '@/components/shared/ImportBookmarksContent';
+import ImportBookmarksModal from '@/components/modals/ImportBookmarksModal';
 
 // Safely mock createPortal so the modal renders inline in JSDOM
 jest.mock('react-dom', () => {

@@ -29,9 +29,6 @@ const TopBanner = ({
   const { openImport, renderModal } = useImportBookmarks({
     importChromeBookmarksAsSingleGroup,       // bookmarks → flat
     importOpenTabsAsSingleGroup,              // open tabs → flat    
-    // importMirrorFolders,
-    // importByDomain,
-    // importByTopic,
   });
 
   const initials =

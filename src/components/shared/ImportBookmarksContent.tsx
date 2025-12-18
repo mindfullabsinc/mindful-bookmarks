@@ -45,15 +45,6 @@ const BUSY_MESSAGE: string = "Thinking ...";
 /* ---------------------------------------------------------- */
 
 /* -------------------- Main component -------------------- */
-/**
- * Reusable import bookmarks UI that supports both modal and embedded variants.
- *
- * @param props.variant Which presentation style to use.
- * @param props.onClose Optional close handler (used in modal mode).
- * @param props.onUploadJson Handler for Dropbox/HTML import.
- * @param props.onImportChrome Handler for Chrome bookmark imports.
- * @param props.onImportOpenTabs Optional handler for importing open tabs.
- */
 export function ImportBookmarksContent({
   variant,
   onClose,

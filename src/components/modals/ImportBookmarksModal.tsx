@@ -27,7 +27,7 @@ import { PurposeId } from "@shared/constants/purposeId";
 type ImportBookmarksModalProps = {
   isOpen: boolean;
   onClose: () => void;
-} & Omit<ImportBookmarksContentProps, "variant" | "onClose" | "onComplete">;
+} & Omit<ImportBookmarksContentProps, "variant" | "onClose" >;
 /* ---------------------------------------------------------- */
 
 export default function ImportBookmarksModal({

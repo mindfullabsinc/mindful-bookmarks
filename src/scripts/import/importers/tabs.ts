@@ -1,6 +1,7 @@
 /* -------------------- Imports -------------------- */
 /* Types */
-import type { OpenTabsScopeType, AppBookmark, AppGroup } from "@/core/types/import"; 
+import type { OpenTabsScopeType } from "@/core/types/import"; 
+import type { BookmarkType, BookmarkGroupType } from "@/core/types/bookmarks";
 
 /* Utils */
 import { normalizeUrl, isHttpUrl } from "@/core/utils/url";
@@ -9,7 +10,7 @@ import { createUniqueID } from "@/core/utils/ids";
 
 
 export async function importOpenTabsAsSingleGroup(
-  insertGroups: (groups: AppGroup[]) => Promise<void>,
+  insertGroups: (groups: BookmarkGroupType[]) => Promise<void>,
   opts?: { scope?: OpenTabsScopeType; includePinned?: boolean; includeDiscarded?: boolean }
 ): Promise<void> {
   const { scope = "current", includePinned = true, includeDiscarded = true } = opts ?? {};
@@ -18,7 +19,7 @@ export async function importOpenTabsAsSingleGroup(
   const tabs = await chrome.tabs.query(q);
 
   const seen = new Set<string>();
-  const bookmarks: AppBookmark[] = [];
+  const bookmarks: BookmarkType[] = [];
 
   for (const t of tabs) {
     const u = t.url || "";
@@ -59,7 +60,7 @@ export async function importOpenTabsAsSingleGroup(
  * - "tabGroups" permission if you want titles/colors reliably (optional; we degrade gracefully)
  */
 export async function importOpenTabsPreserveStructure(
-  insertGroups: (groups: AppGroup[]) => Promise<void>,
+  insertGroups: (groups: BookmarkGroupType[]) => Promise<void>,
   opts?: {
     scope?: OpenTabsScopeType;
     includePinned?: boolean;
@@ -81,7 +82,7 @@ export async function importOpenTabsPreserveStructure(
       ? [await chrome.windows.getCurrent({ populate: true })]
       : await chrome.windows.getAll({ populate: true });
 
-  const groups: AppGroup[] = [];
+  const groups: BookmarkGroupType[] = [];
 
   let wIndex = 0;
   for (const win of windows) {
@@ -117,7 +118,7 @@ export async function importOpenTabsPreserveStructure(
       }
 
       const seen = new Set<string>();
-      const bookmarks: AppBookmark[] = [];
+      const bookmarks: BookmarkType[] = [];
 
       for (const t of groupedTabs) {
         const u = t.url!;

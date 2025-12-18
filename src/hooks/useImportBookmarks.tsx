@@ -7,28 +7,22 @@ import { useBookmarkManager } from '@/hooks/useBookmarkManager';
 /* Components */
 import ImportBookmarksModal from '@/components/modals/ImportBookmarksModal';
 
-/* Utils */
-import { createUniqueID } from '@/core/utils/ids';
-
 /* Types */
 import type { BookmarkGroupType } from '@/core/types/bookmarks';
-import type { ImportChromeOpts } from '@/core/types/import';
+import type { ManualImportSelectionType } from "@/core/types/import";
 
 /* Constants */
 import { EMPTY_GROUP_IDENTIFIER } from "@/core/constants/constants";
+
+/* Importers */
+import {
+  importChromeBookmarksPreserveStructure,
+  importOpenTabsAsSingleGroup,
+} from "@/scripts/import/importers";
 /* ---------------------------------------------------------- */
 
 /* -------------------- Local types and interfaces -------------------- */
-type ImportPipelines = {
-  importChromeBookmarksAsSingleGroup?: (insertGroups: (groups: any[]) => Promise<void>) => Promise<void> | void,
-  importMirrorFolders?: (insertGroups: (groups: any[]) => Promise<void>) => Promise<void> | void,
-  importByDomain?: (insertGroups: (groups: any[]) => Promise<void>) => Promise<void> | void,
-  importByTopic?: (insertGroups: (groups: any[]) => Promise<void>) => Promise<void> | void,
-  importOpenTabsAsSingleGroup?: (
-    append:(gs:any[])=>Promise<void>,
-    opts?: { scope?: 'current'|'all'; }
-  ) => Promise<void> | void,
-};
+type InsertGroupsFn = (groups: BookmarkGroupType[]) => Promise<void>;
 /* ---------------------------------------------------------- */
 
 /* -------------------- Internal helper functions -------------------- */
@@ -53,40 +47,19 @@ function ensureSingleEmpty(groups: BookmarkGroupType[], moveToEnd = true): Bookm
   const withoutDups = groups.filter((g, i) => {
     if (!isEmptyGroup(g)) return true;
     if (emptyIndex === -1) {
-      emptyIndex = i;           // keep the first one we see
+      emptyIndex = i;
       return true;
     }
-    return false;               // drop duplicates
+    return false;
   });
 
-  if (emptyIndex === -1) return withoutDups; // none present
-
+  if (emptyIndex === -1) return withoutDups;
   if (!moveToEnd) return withoutDups;
 
   // Move the kept empty group to the end (common UX)
   const keptEmpty = withoutDups.find(isEmptyGroup)!;
   const rest = withoutDups.filter((g) => !isEmptyGroup(g));
   return [...rest, keptEmpty];
-}
-
-/**
- * Normalize raw import payloads into BookmarkGroupType structures.
- *
- * @param incoming Untrusted raw groups (e.g., from JSON).
- * @returns Array of bookmark groups with generated ids and normalized bookmarks.
- */
-function normalizeGroups(incoming: any[]): BookmarkGroupType[] {
-  return (incoming || []).map((g) => ({
-    id: g.id ?? createUniqueID(),
-    groupName: g.groupName ?? EMPTY_GROUP_IDENTIFIER,
-    bookmarks: (g.bookmarks || []).map((b: any) => ({
-      id: b.id ?? createUniqueID(),
-      name: b.name || b.url || "Untitled",
-      url: b.url,
-      faviconUrl: b.faviconUrl,
-      dateAdded: b.dateAdded,
-    })),
-  }));
 }
 /* ---------------------------------------------------------- */
 
@@ -97,97 +70,119 @@ function normalizeGroups(incoming: any[]): BookmarkGroupType[] {
  * @param pipelines Optional pipeline adapters that define how to process each import path.
  * @returns Actions/state for opening/closing the modal and rendering it.
  */
-export function useImportBookmarks(
-  pipelines?: ImportPipelines,
-  opts?: {
-    insertGroupsOverride?: (groups: any[]) => Promise<void>;
-  }
-) {
+export function useImportBookmarks(opts?: { insertGroupsOverride?: InsertGroupsFn }) {
+  /* -------------------- Local state -------------------- */ 
   const [isOpen, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [selection, setSelection] = useState<ManualImportSelectionType>({});
 
-  const { updateAndPersistGroups } = useBookmarkManager?.() ?? { updateAndPersistGroups: null };
+  const { updateAndPersistGroups } = useBookmarkManager();
+  /* ---------------------------------------------------------- */
 
-  const defaultInsertGroups = useCallback(async (groups: any[]) => {
-    if (typeof updateAndPersistGroups !== "function") {
-      console.warn("updateAndPersistGroups not available; wire this to your state updater.");
-      return;
-    }
+  const defaultInsertGroups = useCallback<InsertGroupsFn>(async (groups) => {
     await updateAndPersistGroups((prev: BookmarkGroupType[]) => {
-      const normalized = normalizeGroups(groups);
       const idx = prev.findIndex(isEmptyGroup);
       const merged =
         idx === -1
-          ? [...prev, ...normalized]
-          : [...prev.slice(0, idx), ...normalized, ...prev.slice(idx)];
+          ? [...prev, ...groups]
+          : [...prev.slice(0, idx), ...groups, ...prev.slice(idx)];
 
       return ensureSingleEmpty(merged, true);
     });
   }, [updateAndPersistGroups]);
 
-  const insertGroups =
-    opts?.insertGroupsOverride ?? defaultInsertGroups; 
+  const insertGroups = opts?.insertGroupsOverride ?? defaultInsertGroups;
+
+  const openImport = useCallback(() => setOpen(true), []);
+  const closeImport = useCallback(() => setOpen(false), []);
+
+  const runWithBusy = useCallback(
+    async (fn: () => Promise<void>) => {
+      setBusy(true);
+      try {
+        await fn();
+      } finally {
+        setBusy(false);
+      }
+    }, []
+  );
 
   /**
    * JSON import handler that appends groups to existing state.
    *
    * @param file Uploaded bookmarks HTML file.
    */
-  const handleUploadJson = useCallback(
-    async (file: File) => {
-      const text = await file.text();
-      const raw = JSON.parse(text);
-      const normalized = normalizeGroups(raw);
-
-      if (opts?.insertGroupsOverride) {
-        await opts.insertGroupsOverride(normalized);
-      } else {
-        await defaultInsertGroups(normalized);
-      }
-    }, [defaultInsertGroups, opts]
-  );
+  const handleUploadJson = useCallback(async (file: File) => {
+    const text = await file.text();
+    const data = JSON.parse(text) as BookmarkGroupType[];
+    await insertGroups(data);
+  }, [insertGroups]);
 
   /**
    * Chrome import handler that dispatches to the selected pipeline.
-   *
-   * @param param0 Options describing flat/smart mode and strategy.
    */
-  const handleImportChrome = useCallback(async ({ mode, smartStrategy }: ImportChromeOpts) => {
-    if (mode === 'flat' && pipelines?.importChromeBookmarksAsSingleGroup) {
-      return pipelines.importChromeBookmarksAsSingleGroup(insertGroups);
-    }
-    if (mode === 'smart') {
-      if (smartStrategy === 'folders' && pipelines?.importMirrorFolders) return pipelines.importMirrorFolders(insertGroups);
-      if (smartStrategy === 'domain' && pipelines?.importByDomain) return pipelines.importByDomain(insertGroups);
-      if (smartStrategy === 'topic' && pipelines?.importByTopic) return pipelines.importByTopic(insertGroups);
-    }
-    console.warn('No chrome import pipeline provided for', { mode, smartStrategy });
-  }, [insertGroups, pipelines]);
+  const handleImportChrome = useCallback(async () => {
+    // Preserve structure import (you can thread opts through if desired)
+    await importChromeBookmarksPreserveStructure(insertGroups, {
+      includeParentFolderBookmarks: true,
+    });
+  }, [insertGroups]);
 
   /**
    * Open tabs import handler that calls the relevant pipeline.
    *
-   * @param opts Scope for tab capture and filtering flags.
+   * @param tabOpts Scope for tab capture and filtering flags.
    */
-  const handleImportOpenTabs = useCallback(async (opts:{scope?:'current'|'all' }) => {
-    if (pipelines?.importOpenTabsAsSingleGroup) {
-      return pipelines.importOpenTabsAsSingleGroup(insertGroups, opts);
-    }
-    console.warn('No open-tabs import pipeline provided.');
-  }, [insertGroups, pipelines]);
+  const handleImportOpenTabs = useCallback(
+    async (tabOpts: { scope?: "current" | "all" }) => {
+      await importOpenTabsAsSingleGroup(insertGroups, tabOpts);
+    },
+    [insertGroups]
+  );
 
-  const openImport = useCallback(() => setOpen(true), []);
-  const closeImport = useCallback(() => setOpen(false), []);
+  const renderModal = useCallback(
+    () => (
+      <ImportBookmarksModal
+        isOpen={isOpen}
+        onClose={closeImport}
+        busy={busy}
+        busyMessage={busy ? "Importing ..." : undefined}
+        errorMessage={undefined}
+        onSelectionChange={(s) => setSelection(s)}
+        onComplete={() =>
+          runWithBusy(async () => {
+            // 1) JSON
+            if (selection.jsonData) {
+              const data = JSON.parse(selection.jsonData) as BookmarkGroupType[];
+              await insertGroups(data);
+            }
 
-  const renderModal = useCallback(() => (
-    <ImportBookmarksModal
-      isOpen={isOpen}
-      onClose={closeImport}
-      onUploadJson={async (f) => { setBusy(true); try { await handleUploadJson(f); closeImport(); } finally { setBusy(false); } }}
-      onImportChrome={async (opts) => { setBusy(true); try { await handleImportChrome(opts); closeImport(); } finally { setBusy(false); } }}
-      onImportOpenTabs={async (opts) => { setBusy(true); try { await handleImportOpenTabs(opts); closeImport(); } finally { setBusy(false); } }}
-    />
-  ), [isOpen, closeImport, handleUploadJson, handleImportChrome, handleImportOpenTabs]);
+            // 2) Chrome bookmarks
+            if (selection.importBookmarks) {
+              await handleImportChrome();
+            }
+
+            // 3) Open tabs (if scope chosen)
+            if (selection.tabScope) {
+              await handleImportOpenTabs({ scope: selection.tabScope });
+            }
+
+            closeImport();
+          })
+        }
+      />
+    ),
+    [
+      isOpen,
+      closeImport,
+      busy,
+      runWithBusy,
+      selection,
+      insertGroups,
+      handleImportChrome,
+      handleImportOpenTabs,
+    ] 
+  ); 
 
   return {
     openImport,

@@ -1,6 +1,7 @@
 /* -------------------- Imports -------------------- */
 /* Types */
-import type { ChromeBmNode, AppBookmark, AppGroup } from "@/core/types/import"; 
+import type { ChromeBmNode } from "@/core/types/import"; 
+import type { BookmarkType, BookmarkGroupType } from "@/core/types/bookmarks";
 
 /* Utils */
 import { normalizeUrl, isHttpUrl } from "@/core/utils/url";
@@ -14,7 +15,7 @@ import { createUniqueID } from "@/core/utils/ids";
  * @param n Chrome bookmark node.
  * @returns AppBookmark ready for insertion.
  */
-function toAppBookmark(n: ChromeBmNode): AppBookmark {
+function toAppBookmark(n: ChromeBmNode): BookmarkType {
   return {
     id: createUniqueID(),
     name: n.title || n.url || "Untitled",
@@ -45,12 +46,12 @@ function walkBookmarks(
  * @param insertGroups Callback that persists the resulting groups.
  */
 export async function importChromeBookmarksAsSingleGroup(
-  insertGroups: (groups: AppGroup[]) => Promise<void>
+  insertGroups: (groups: BookmarkGroupType[]) => Promise<void>
 ): Promise<void> {
   const tree = await chrome.bookmarks.getTree();
 
   const seen = new Set<string>();
-  const bookmarks: AppBookmark[] = [];
+  const bookmarks: BookmarkType[] = [];
 
   walkBookmarks(tree, (bm) => {
     if (!bm.url || !isHttpUrl(bm.url)) return;
@@ -91,7 +92,7 @@ export async function importChromeBookmarksAsSingleGroup(
  * @param opts Options controlling depth, leaf behavior, and per-folder filtering.
  */
 export async function importChromeBookmarksPreserveStructure(
-  insertGroups: (groups: AppGroup[]) => Promise<void>,
+  insertGroups: (groups: BookmarkGroupType[]) => Promise<void>,
   opts?: {
     maxDepth?: number;
     onlyLeafFolders?: boolean;
@@ -109,7 +110,7 @@ export async function importChromeBookmarksPreserveStructure(
     includeParentFolderBookmarks = true,
   } = opts ?? {};
 
-  const groups: AppGroup[] = [];
+  const groups: BookmarkGroupType[] = [];
 
   function walkFolder(node: ChromeBmNode, path: string[], depth: number) {
     if (depth > maxDepth) return;
@@ -140,7 +141,7 @@ export async function importChromeBookmarksPreserveStructure(
 
     if (shouldCreateGroup) {
       const seenInFolder = new Set<string>();
-      const bookmarks: AppBookmark[] = [];
+      const bookmarks: BookmarkType[] = [];
 
       for (const bm of childBookmarks) {
         if (!bm.url || !isHttpUrl(bm.url)) continue;
