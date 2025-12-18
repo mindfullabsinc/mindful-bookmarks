@@ -54,6 +54,10 @@ export const remoteGroupingLLM: GroupingLLM = {
       items: input.items.slice(0, MAX_ITEMS),
     };
 
+    if (!Array.isArray(input.purposes) || input.purposes.length === 0) {
+      throw new Error("Missing purposes[] (client) — input.purposes must be a non-empty array.");
+    }
+
     const res = await fetch(`${API_BASE_URL}/groupBookmarks`, {
       method: "POST",
       headers: {

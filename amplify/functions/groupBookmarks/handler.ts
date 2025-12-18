@@ -275,7 +275,7 @@ Remember: every input id must appear in at least one group.
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
-      max_output_tokens: 800,
+      max_output_tokens: 2500,
       temperature: 0.2,
     });
     console.info("groupBookmarks: OpenAI responded");

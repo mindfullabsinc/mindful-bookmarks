@@ -22,7 +22,7 @@ import '@/styles/components/shared/ImportBookmarksContent.css'
 export type ImportBookmarksContentProps = {
   variant: "modal" | "embedded";
   onClose?: () => void;     // Closing the modal
-  onComplete?: () => void;  // Wizard finished (embedded or modal)
+  onComplete?: () => void | Promise<void>;  // Wizard finished (embedded or modal)
   onSelectionChange?: (selection: ManualImportSelectionType) => void;
   busy?: boolean;
   busyMessage?: string;
@@ -158,9 +158,9 @@ export function ImportBookmarksContent({
     if (step < LAST_STEP) {
       setStep((s) => (s + 1) as WizardStep);
     } else {
-      finishWizard();
+      await finishWizard(); 
     }
-  }
+}
 
   /**
    * Navigate to the previous wizard step when possible.
@@ -173,13 +173,14 @@ export function ImportBookmarksContent({
   /**
    * Centralized logic to notify that the manual import wizard is complete. 
    */
-  function finishWizard() {
-    // Always notify completion if provided
-    onComplete?.();
-
-    // In modal mode, also close the dialog
-    if (variant === "modal") {
-      onClose?.();
+  async function finishWizard() {
+    try {
+      await onComplete?.();          // wait for import commit
+      if (variant === "modal") {
+        onClose?.();                 // close only after success
+      }
+    } catch {
+      // parent sets errorMessage; don't close
     }
   }
 
