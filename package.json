@@ -79,6 +79,7 @@
 		"aws-sdk-client-mock": "^4.1.0",
 		"babel-jest": "^30.2.0",
 		"babel-loader": "^10.0.0",
+		"baseline-browser-mapping": "^2.9.11",
 		"constructs": "^10.4.2",
 		"copy-webpack-plugin": "^13.0.0",
 		"css-loader": "^7.1.2",

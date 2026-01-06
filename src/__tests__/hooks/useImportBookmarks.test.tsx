@@ -3,55 +3,85 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 /**
- * Mocks
+ * Importer mocks (hook calls these directly now)
  */
-jest.mock('@/components/ImportBookmarksModal', () => {
-  // A super-thin stub that exposes three buttons that invoke the props.
+const mockImportChromeBookmarksPreserveStructure = jest.fn();
+const mockImportOpenTabsAsSingleGroup = jest.fn();
+
+jest.mock('@/scripts/import/importers', () => ({
+  __esModule: true,
+  importChromeBookmarksPreserveStructure: (...args: any[]) =>
+    mockImportChromeBookmarksPreserveStructure(...args),
+  importOpenTabsAsSingleGroup: (...args: any[]) =>
+    mockImportOpenTabsAsSingleGroup(...args),
+}));
+
+/**
+ * Modal mock — now uses onSelectionChange + onComplete
+ */
+jest.mock('@/components/modals/ImportBookmarksModal', () => {
+  const React = require('react');
+
   return {
     __esModule: true,
     default: function ImportBookmarksModalStub(props: any) {
       if (!props.isOpen) return null;
+
+      // Always point at the latest props (so we call the latest onComplete closure)
+      const propsRef = React.useRef(props);
+      propsRef.current = props;
+
+      const flush = () =>
+        new Promise<void>((resolve) => {
+          // macrotask so React has a chance to commit + rerender
+          setTimeout(() => resolve(), 0);
+        });
+
       return (
         <div data-testid="import-modal">
-          <button onClick={() => props.onClose()}>Close</button>
-          
-          {/* await the async upload handler */}
+          <button onClick={() => propsRef.current.onClose()}>Close</button>
+
           <button
             onClick={async () => {
-              {/* Don’t rely on File; provide a Blob-like with .text() */}
               const payload = JSON.stringify([
                 { groupName: 'Imported A', bookmarks: [{ name: 'One', url: 'https://one.com' }] },
                 { groupName: 'Imported B', bookmarks: [] },
                 { groupName: '__EMPTY__', bookmarks: [] },
               ]);
-              const fakeFile = { text: async () => payload }; 
-              await props.onUploadJson(fakeFile);
+
+              propsRef.current.onSelectionChange({ jsonData: payload });
+
+              // Wait for rerender so onComplete captures updated selection
+              await flush();
+
+              await propsRef.current.onComplete();
             }}
           >
             Upload JSON
           </button>
 
-          {/*await chrome import */}
           <button
             onClick={async () => {
-              await props.onImportChrome({ mode: 'flat' });
+              propsRef.current.onSelectionChange({ importBookmarks: true });
+              await flush();
+              await propsRef.current.onComplete();
             }}
           >
             Import Chrome (flat)
           </button>
 
-          {/* await open-tabs import */}
           <button
             onClick={async () => {
-              await props.onImportOpenTabs({ scope: 'current', includePinned: true });
+              propsRef.current.onSelectionChange({ tabScope: 'current' });
+              await flush();
+              await propsRef.current.onComplete();
             }}
           >
             Import Open Tabs
           </button>
-
         </div>
       );
-    }
+    },
   };
 });
 
@@ -85,8 +115,8 @@ import useImportBookmarks from '@/hooks/useImportBookmarks';
 /**
  * A tiny harness so we can use the hook and render its modal output.
  */
-function Harness({ pipelines }: { pipelines?: any }) {
-  const { openImport, renderModal } = useImportBookmarks(pipelines);
+function Harness() {
+  const { openImport, renderModal } = useImportBookmarks();
   return (
     <div>
       <button onClick={openImport}>Open Import</button>
@@ -98,7 +128,11 @@ function Harness({ pipelines }: { pipelines?: any }) {
 /**
  * Helpers for arranging fake group state with our mock manager.
  */
-type Group = { id: string; groupName: string; bookmarks: Array<{ id: string; name: string; url: string }> };
+type Group = {
+  id: string;
+  groupName: string;
+  bookmarks: Array<{ id: string; name: string; url: string }>;
+};
 
 function withGroups(initial: Group[]) {
   let state = initial;
@@ -130,6 +164,9 @@ describe('useImportBookmarks', () => {
   beforeEach(() => {
     mockNextId = 1;
     mockApplyUpdate = null;
+
+    mockImportChromeBookmarksPreserveStructure.mockReset();
+    mockImportOpenTabsAsSingleGroup.mockReset();
   });
 
   test('openImport shows modal and Upload JSON inserts before empty then moves empty to end', async () => {
@@ -144,52 +181,43 @@ describe('useImportBookmarks', () => {
 
     render(<Harness />);
 
-    // Open modal
     await user.click(screen.getByRole('button', { name: /open import/i }));
-    await waitFor(() => {
-      expect(screen.getByTestId('import-modal')).toBeInTheDocument();
-    });
+    await waitFor(() => expect(screen.getByTestId('import-modal')).toBeInTheDocument());
 
-    // Trigger JSON upload flow (the stub creates a File with two groups + an "__EMPTY__")
+    // This now sets selection.jsonData + calls onComplete()
     await user.click(screen.getByRole('button', { name: /upload json/i }));
 
     await waitFor(() => {
-       // After upload, the hook:
-      //  - normalizes inputs
-      //  - inserts imported groups BEFORE the first empty
-      //  - ensures a SINGLE empty, moved to the END
-      const latest = start.getState().map(g => g.groupName);
-      // Expected order: A, Imported A, Imported B, B, __EMPTY__
+      const latest = start.getState().map((g) => g.groupName);
       expect(latest).toEqual(['A', 'Imported A', 'Imported B', 'B', '__EMPTY__']);
     });
   });
 
-  test('Import Chrome (flat) calls pipeline and updates via insertGroups', async () => {
+  test('Import Chrome (flat) calls importer and updates via insertGroups', async () => {
     const user = userEvent.setup();
 
-    const start = withGroups([
-      { id: 'empty-1', groupName: '__EMPTY__', bookmarks: [] },
-    ]);
+    const start = withGroups([{ id: 'empty-1', groupName: '__EMPTY__', bookmarks: [] }]);
 
-    const pipelines = {
-      importChromeBookmarksAsSingleGroup: async (insertGroups: (gs: any[]) => Promise<void>) => {
+    // When hook calls importer, we simulate importer inserting groups
+    mockImportChromeBookmarksPreserveStructure.mockImplementation(
+      async (insertGroups: (gs: any[]) => Promise<void>, opts: any) => {
+        expect(opts).toEqual({ includeParentFolderBookmarks: true });
+
         await insertGroups([
-          { groupName: 'From Chrome', bookmarks: [{ name: 'X', url: 'https://x.example' }] }
+          { groupName: 'From Chrome', bookmarks: [{ name: 'X', url: 'https://x.example' }] },
         ]);
       }
-    };
+    );
 
-    render(<Harness pipelines={pipelines} />);
+    render(<Harness />);
 
     await user.click(screen.getByRole('button', { name: /open import/i }));
-    await waitFor(() => {
-      expect(screen.getByTestId('import-modal')).toBeInTheDocument();
-    });
-      
+    await waitFor(() => expect(screen.getByTestId('import-modal')).toBeInTheDocument());
+
     await user.click(screen.getByRole('button', { name: /import chrome \(flat\)/i }));
+
     await waitFor(() => {
-      const latest = start.getState().map(g => g.groupName);
-      // inserted before empty, then empty moved to end
+      const latest = start.getState().map((g) => g.groupName);
       expect(latest).toEqual(['From Chrome', '__EMPTY__']);
     });
   });
@@ -199,30 +227,30 @@ describe('useImportBookmarks', () => {
 
     const start = withGroups([{ id: 'empty-1', groupName: '__EMPTY__', bookmarks: [] }]);
 
-    const openTabsSpy = jest.fn(async (insertGroups, opts) => {
-      // Verify opts passthrough from the stub
-      expect(opts).toEqual({ scope: 'current', includePinned: true });
-      await insertGroups([{ groupName: 'From Tabs', bookmarks: [] }]);
-    });
+    mockImportOpenTabsAsSingleGroup.mockImplementation(
+      async (insertGroups: (gs: any[]) => Promise<void>, opts: any) => {
+        // Hook passes only scope right now
+        expect(opts).toEqual({ scope: 'current' });
 
-    const pipelines = { importOpenTabsAsSingleGroup: openTabsSpy };
+        await insertGroups([{ groupName: 'From Tabs', bookmarks: [] }]);
+      }
+    );
 
-    render(<Harness pipelines={pipelines} />);
+    render(<Harness />);
 
     await user.click(screen.getByRole('button', { name: /open import/i }));
-    await waitFor(() => {
-      expect(screen.getByTestId('import-modal')).toBeInTheDocument();
-    });
+    await waitFor(() => expect(screen.getByTestId('import-modal')).toBeInTheDocument());
 
     await user.click(screen.getByRole('button', { name: /import open tabs/i }));
+
     await waitFor(() => {
-      const latest = start.getState().map(g => g.groupName);
+      const latest = start.getState().map((g) => g.groupName);
       expect(latest).toEqual(['From Tabs', '__EMPTY__']);
     });
 
-    // Modal should auto-close in the hook after action completes.
+    // Modal should auto-close after onComplete finishes
     await waitFor(() => {
       expect(screen.queryByTestId('import-modal')).not.toBeInTheDocument();
-    });  
+    });
   });
 });

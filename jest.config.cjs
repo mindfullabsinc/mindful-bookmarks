@@ -13,6 +13,7 @@ module.exports = {
         '^@/env$': '<rootDir>/src/__tests__/mocks/env.mock.ts',
         '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
         '^@/(.*)$': '<rootDir>/src/$1',
+        "^@shared/(.*)$": "<rootDir>/shared/$1",
         '^~/(.*)$': '<rootDir>/$1',
         '\\.(png|jpg|jpeg|gif|svg)$': '<rootDir>/src/__tests__/mocks/fileMock.js',
       },
@@ -34,6 +35,7 @@ module.exports = {
       moduleNameMapper: {
         '^\\$amplify/env/.*$': '<rootDir>/src/__tests__/mocks/amplify-env.cjs',
         '^@/(.*)$': '<rootDir>/src/$1',
+        "^@shared/(.*)$": "<rootDir>/shared/$1",
         '^~/(.*)$': '<rootDir>/$1',
         '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
       },
