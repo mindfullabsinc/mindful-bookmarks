@@ -18,6 +18,10 @@ beforeAll(() => {
         set: jest.fn(async () => void 0),
         remove: jest.fn(async () => void 0),
       },
+      onChanged: {
+        addListener: jest.fn(),
+        removeListener: jest.fn(),
+      },
     },
     runtime: { onMessage: { addListener: jest.fn(), removeListener: jest.fn() } },
   };
@@ -75,17 +79,17 @@ jest.mock('@/scripts/workspaces/registry', () => {
 });
 
 jest.mock('@/scripts/caching/bookmarkCache', () => {
-  const mock_readBookmarkCacheSync = jest.fn();
-  const mock_writeBookmarkCacheSync = jest.fn();
-  const mock_readBookmarkCacheSession = jest.fn();
-  const mock_writeBookmarkCacheSession = jest.fn();
   return {
     readBookmarkCacheSync: (...args: any[]) => mock_readBookmarkCacheSync(...args),
     writeBookmarkCacheSync: (...args: any[]) => mock_writeBookmarkCacheSync(...args),
     readBookmarkCacheSession: (...args: any[]) => mock_readBookmarkCacheSession(...args),
     writeBookmarkCacheSession: (...args: any[]) => mock_writeBookmarkCacheSession(...args),
 
-    // re-export the mocks so the existing expectations keep working
+    // If AppContextProvider imports these, stub them too (safe no-ops)
+    writeGroupsIndexSession: jest.fn(async () => void 0),
+    clearSessionGroupsIndexExcept: jest.fn(async () => void 0),
+
+    // optional: keep this if you want, but now it references the real mocks
     __mocks: {
       mock_readBookmarkCacheSync,
       mock_writeBookmarkCacheSync,
