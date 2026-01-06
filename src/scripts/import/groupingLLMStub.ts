@@ -26,12 +26,10 @@ export const stubGroupingLLM: GroupingLLM = {
   async group(input: GroupingInput): Promise<GroupingLLMResponse> {
     const { items, purposes } = input;
 
-    // No items or no purposes → nothing to group
     if (!items.length || !purposes.length) {
       return { groups: [] };
     }
 
-    // Single purpose → one group
     if (purposes.length === 1) {
       const purpose = purposes[0];
       const groups: CategorizedGroup[] = [
@@ -46,16 +44,20 @@ export const stubGroupingLLM: GroupingLLM = {
       return { groups };
     }
 
-    // Multiple purposes → one group per purpose (same items in each)
     const now = Date.now();
+
+    const specialPurposeNames = new Set(["work", "school", "personal"]);
+    const formatPurposeForName = (purpose: string) =>
+      specialPurposeNames.has(purpose.toLowerCase()) ? capitalize(purpose) : purpose;
+
     const groups: CategorizedGroup[] = purposes.map((purpose, idx) => ({
       id: `grp_${now}_${idx}`,
-      name: `Imported – ${capitalize(purpose)}`,
+      name: `Imported – ${formatPurposeForName(purpose)}`,
       description: "All imported links",
       purpose,
       items,
     }));
 
     return { groups };
-  },
+  }, 
 };

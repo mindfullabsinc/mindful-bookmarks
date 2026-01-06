@@ -14,7 +14,7 @@ const mockCreateLocalWorkspace = jest.fn();
 
 jest.mock("@/scripts/workspaces/registry", () => ({
   createLocalWorkspace: (...args: unknown[]) =>
-    mockCreateLocalWorkspace(...(args as [string])),
+    mockCreateLocalWorkspace(...(args)),
 }));
 
 const mockGetGroupsStorageKey = jest.fn();
@@ -74,7 +74,7 @@ describe("createWorkspaceServiceLocal", () => {
         const result = await service.createWorkspaceForPurpose(purpose);
 
         expect(mockCreateLocalWorkspace).toHaveBeenCalledTimes(1);
-        expect(mockCreateLocalWorkspace).toHaveBeenCalledWith(expectedName);
+        expect(mockCreateLocalWorkspace).toHaveBeenCalledWith(expectedName, { setActive: false });
 
         expect(result).toEqual({
           id: "mock-ws-id",
