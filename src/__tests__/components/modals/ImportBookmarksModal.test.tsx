@@ -1,219 +1,174 @@
-import React from 'react';
-import { render, screen, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import ImportBookmarksModal from '@/components/modals/ImportBookmarksModal';
+import React from "react";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
-// Safely mock createPortal so the modal renders inline in JSDOM
-jest.mock('react-dom', () => {
-  const actual = jest.requireActual('react-dom');
+/* Component under test */
+import ImportBookmarksModal from "@/components/modals/ImportBookmarksModal";
+
+/* Context */
+import { AppContext } from "@/scripts/AppContextProvider";
+
+/* Services / commit */
+import { createWorkspaceServiceLocal } from "@/scripts/import/workspaceServiceLocal";
+import { commitManualImportIntoWorkspace } from "@/scripts/import/commitManualImportIntoWorkspace";
+
+/* Constants */
+import { PurposeId } from "@shared/constants/purposeId";
+
+/**
+ * Render portal inline in JSDOM.
+ */
+jest.mock("react-dom", () => {
+  const actual = jest.requireActual("react-dom");
   return {
     ...actual,
     createPortal: (node: React.ReactNode) => node,
   };
 });
 
-// Minimal-but-complete chrome.permissions mock for TS
-const mockPermissions = {
-  contains: jest.fn().mockResolvedValue(false),
-  request: jest.fn().mockResolvedValue(true),
-  getAll: jest.fn().mockResolvedValue({ origins: [], permissions: [] }),
-  remove: jest.fn().mockResolvedValue(true),
+/**
+ * Mock the wizard content so we can deterministically:
+ * - set selection via onSelectionChange
+ * - trigger onComplete
+ * - close only on success (mirrors “prevents auto-close on error” behavior)
+ */
+jest.mock("@/components/shared/ImportBookmarksContent", () => ({
+  ImportBookmarksContent: (props: any) => {
+    return (
+      <div>
+        <button type="button" onClick={() => props.onSelectionChange({ source: "mock" })}>
+          Set Selection
+        </button>
 
-  // MV3 host access helpers (exist in @types/chrome)
-  addHostAccessRequest: jest.fn(),
-  removeHostAccessRequest: jest.fn(),
+        <button
+          type="button"
+          onClick={async () => {
+            try {
+              await props.onComplete();
+              // mimic content auto-close on success
+              props.onClose();
+            } catch {
+              // swallow: modal’s onComplete rethrows to prevent auto-close
+            }
+          }}
+        >
+          Finish Import
+        </button>
 
-  // Events: shape must include addListener/removeListener/hasListener
-  onAdded: {
-    addListener: jest.fn(),
-    removeListener: jest.fn(),
-    hasListener: jest.fn(),
+        {props.errorMessage ? <div>{props.errorMessage}</div> : null}
+      </div>
+    );
   },
-  onRemoved: {
-    addListener: jest.fn(),
-    removeListener: jest.fn(),
-    hasListener: jest.fn(),
-  },
-};
+}));
 
-// Make it globally available for the test runtime
-beforeAll(() => {
-  // Cast to any so we don't have to perfectly match the full Chrome type
-  (global as any).chrome = {
-    permissions: mockPermissions,
-  };
-});
+jest.mock("@/scripts/import/workspaceServiceLocal", () => ({
+  createWorkspaceServiceLocal: jest.fn(),
+}));
 
-beforeEach(() => {
-  jest.clearAllMocks();
-  mockPermissions.contains.mockResolvedValue(false);
-  mockPermissions.request.mockResolvedValue(false);
-});
+jest.mock("@/scripts/import/commitManualImportIntoWorkspace", () => ({
+  commitManualImportIntoWorkspace: jest.fn(),
+}));
 
-function renderModal(overrides: Partial<React.ComponentProps<typeof ImportBookmarksModal>> = {}) {
+function renderModal(
+  overrides: Partial<React.ComponentProps<typeof ImportBookmarksModal>> = {},
+  ctxOverrides: Partial<React.ContextType<typeof AppContext>> = {}
+) {
+  const onClose = jest.fn();
+
+  const ctxValue = {
+    userId: "local",
+    activeWorkspaceId: "ws-1",
+    workspaces: { "ws-1": { id: "ws-1", name: "Workspace 1" } },
+    bumpWorkspacesVersion: jest.fn(),
+    ...ctxOverrides,
+  } as any;
+
   const props = {
     isOpen: true,
-    onClose: jest.fn(),
-    onUploadJson: jest.fn(),
-    onImportChrome: jest.fn(),
-    onImportOpenTabs: jest.fn(),
+    onClose,
     ...overrides,
-  };
-  render(<ImportBookmarksModal {...props} />);
-  return props;
+  } as React.ComponentProps<typeof ImportBookmarksModal>;
+
+  render(
+    <AppContext.Provider value={ctxValue}>
+      <ImportBookmarksModal {...props} />
+    </AppContext.Provider>
+  );
+
+  return { props, ctxValue };
 }
 
-describe('ImportBookmarksModal', () => {
-  test('renders with Chrome tab default (bookmarks + flat) and correct button label', () => {
-    renderModal();
+describe("ImportBookmarksModal", () => {
+  const mockWorkspaceService = { __mock: true };
 
-    // Tabs: "From Chrome" is active by default; action button shows flat import label
-    expect(screen.getByRole('button', { name: 'From Chrome' })).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /Import \(Flat from Bookmarks\)/i })
-    ).toBeInTheDocument();
-
-    // Source switch defaults to Bookmarks (button visually present)
-    expect(screen.getByRole('button', { name: 'Bookmarks' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Open Tabs' })).toBeInTheDocument();
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (createWorkspaceServiceLocal as jest.Mock).mockReturnValue(mockWorkspaceService);
+    (commitManualImportIntoWorkspace as jest.Mock).mockResolvedValue(undefined);
   });
 
-  test('JSON upload flow: enables button after file pick, calls onUploadJson and closes', async () => {
+  test("renders title and close button", async () => {
     const user = userEvent.setup();
-    const { onUploadJson, onClose } = renderModal();
+    const { props } = renderModal();
 
-    // Switch to JSON tab
-    await user.click(screen.getByRole('button', { name: /Upload JSON/i }));
+    expect(screen.getByRole("heading", { name: /Import bookmarks/i })).toBeInTheDocument();
 
-    const file = new File([JSON.stringify({ hello: 'world' })], 'test.json', {
-      type: 'application/json',
-    });
-
-    const fileInput = screen.getByLabelText(/Choose JSON file/i) as HTMLInputElement;
-    expect(fileInput).toBeInTheDocument();
-
-    // Import JSON is disabled until a file is selected
-    const importBtn = screen.getByRole('button', { name: /Import JSON/i });
-    expect(importBtn).toBeDisabled();
-
-    // Pick a file
-    await user.upload(fileInput, file);
-    expect(importBtn).toBeEnabled();
-
-    // Click import
-    await user.click(importBtn);
-
-    expect(onUploadJson).toHaveBeenCalledTimes(1);
-    // First arg is the file
-    expect(onUploadJson).toHaveBeenCalledWith(expect.objectContaining({ name: 'test.json' }));
-    expect(onClose).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByRole("button", { name: /Close/i }));
+    expect(props.onClose).toHaveBeenCalledTimes(1);
   });
 
-  test('Chrome bookmarks flat import: permission already granted triggers onImportChrome({mode:"flat"})', async () => {
+  test("successful completion commits import, bumps version, and closes", async () => {
     const user = userEvent.setup();
-    mockPermissions.contains.mockResolvedValue(true);
+    const { props, ctxValue } = renderModal();
 
-    const { onImportChrome, onClose } = renderModal();
+    await user.click(screen.getByRole("button", { name: /Set Selection/i }));
+    await user.click(screen.getByRole("button", { name: /Finish Import/i }));
 
-    // Ensure we are in Chrome tab + default "Flat"
-    const actionBtn = screen.getByRole('button', { name: /Import \(Flat from Bookmarks\)/i });
-    await user.click(actionBtn);
+    expect(commitManualImportIntoWorkspace).toHaveBeenCalledTimes(1);
+    expect(commitManualImportIntoWorkspace).toHaveBeenCalledWith(
+      expect.objectContaining({
+        selection: { source: "mock" },
+        purposes: [PurposeId.Personal],
+        workspaceId: "ws-1",
+        purpose: PurposeId.Personal,
+        workspaceService: mockWorkspaceService,
+        onProgress: expect.any(Function),
+      })
+    );
 
-    expect(mockPermissions.contains).toHaveBeenCalledWith({ permissions: ['bookmarks'] });
-    expect(onImportChrome).toHaveBeenCalledTimes(1);
-    expect(onImportChrome).toHaveBeenCalledWith({ mode: 'flat' });
-    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(ctxValue.bumpWorkspacesVersion).toHaveBeenCalledTimes(1);
+    // our mocked content calls onClose after onComplete resolves
+    expect(props.onClose).toHaveBeenCalledTimes(1);
   });
 
-  // test('Chrome bookmarks Import bookmarks: requests permission if missing, passes smartStrategy', async () => {
-  //   const user = userEvent.setup();
-  //   mockPermissions.contains.mockResolvedValue(false);
-  //   mockPermissions.request.mockResolvedValue(true);
-
-  //   const { onImportChrome, onClose } = renderModal();
-
-  //   // Switch to Smart mode
-  //   const smartCard = screen.getByRole('button', { name: /Import bookmarks/i });
-  //   await user.click(smartCard);
-
-  //   // Choose "Domain" strategy
-  //   const strategyBar = screen.getByText('Strategy').closest('div')!;
-  //   const domainBtn = within(strategyBar).getByRole('button', { name: 'Domain' });
-  //   await user.click(domainBtn);
-
-  //   // Action button should show: Import (Smart: domain)
-  //   const actionBtn = screen.getByRole('button', { name: /Import \(Smart: domain\)/i });
-  //   await user.click(actionBtn);
-
-  //   expect(mockPermissions.contains).toHaveBeenCalledWith({ permissions: ['bookmarks'] });
-  //   expect(mockPermissions.request).toHaveBeenCalledWith({ permissions: ['bookmarks'] });
-  //   expect(onImportChrome).toHaveBeenCalledTimes(1);
-  //   expect(onImportChrome).toHaveBeenCalledWith({ mode: 'smart', smartStrategy: 'domain' });
-  //   expect(onClose).toHaveBeenCalledTimes(1);
-  // });
-
-  test('Bookmarks permission denial shows error and does not call onImportChrome/onClose', async () => {
+  test("failure during completion shows error and does not close", async () => {
     const user = userEvent.setup();
-    mockPermissions.contains.mockResolvedValue(false);
-    mockPermissions.request.mockResolvedValue(false);
+    const { props } = renderModal();
 
-    const { onImportChrome, onClose } = renderModal();
+    (commitManualImportIntoWorkspace as jest.Mock).mockRejectedValueOnce(new Error("Boom"));
 
-    await user.click(screen.getByRole('button', { name: /Import \(Flat from Bookmarks\)/i }));
+    await user.click(screen.getByRole("button", { name: /Set Selection/i }));
+    await user.click(screen.getByRole("button", { name: /Finish Import/i }));
 
-    expect(onImportChrome).not.toHaveBeenCalled();
-    expect(onClose).not.toHaveBeenCalled();
+    expect(props.onClose).not.toHaveBeenCalled();
 
-    // Error banner
-    expect(
-      await screen.findByText(/Permission to read Chrome bookmarks was not granted\./i)
-    ).toBeInTheDocument();
+    // modal sets errorMessage from thrown error
+    expect(await screen.findByText(/Boom/i)).toBeInTheDocument();
   });
 
-  test('Open Tabs flow: calls onImportOpenTabs with selected options and closes', async () => {
+  test("throws if no active workspace (and does not close)", async () => {
     const user = userEvent.setup();
+    const { props } = renderModal(
+      {},
+      {
+        activeWorkspaceId: null,
+        workspaces: {},
+      }
+    );
 
-    // tabs permission granted
-    mockPermissions.contains.mockImplementation(async (arg) => {
-      if (arg?.permissions?.includes('tabs')) return true;
-      return false;
-    });
+    await user.click(screen.getByRole("button", { name: /Finish Import/i }));
 
-    const { onImportOpenTabs, onClose } = renderModal();
-
-    // Switch source to "Open Tabs"
-    await user.click(screen.getByRole('button', { name: 'Open Tabs' }));
-
-    // Select Scope: All windows
-    const allRadio = screen.getByRole('radio', { name: /All windows/i });
-    await user.click(allRadio);
-
-    // Uncheck "Include pinned" (leave discarded checked)
-    const includePinned = screen.getByRole('checkbox', { name: /Include pinned/i });
-    await user.click(includePinned); // toggles to false
-
-    // Action button label should include "Import from Open Tabs (All)"
-    const actionBtn = screen.getByRole('button', { name: /Import from Open Tabs \(All\)/i });
-    await user.click(actionBtn);
-
-    expect(mockPermissions.contains).toHaveBeenCalledWith({
-      permissions: ['tabs'],
-      origins: ['<all_urls>'],
-    });
-
-    expect(onImportOpenTabs).toHaveBeenCalledTimes(1);
-    expect(onImportOpenTabs).toHaveBeenCalledWith({
-      scope: 'all',
-      includePinned: false,
-      includeDiscarded: true,
-    });
-    expect(onClose).toHaveBeenCalledTimes(1);
-  });
-
-  test('Escape closes when not busy', async () => {
-    const user = userEvent.setup();
-    const { onClose } = renderModal();
-    await user.keyboard('{Escape}');
-    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(props.onClose).not.toHaveBeenCalled();
+    expect(commitManualImportIntoWorkspace).not.toHaveBeenCalled();
   });
 });

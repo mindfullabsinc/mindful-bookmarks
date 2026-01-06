@@ -152,7 +152,7 @@ describe("SmartImportStep", () => {
     expect(onDone).not.toHaveBeenCalled();
   });
 
-  it("advances visual phase towards backend phase over time", () => {
+  it("advances visual phase towards backend phase over time", async () => {
     type StartFn = (purposes: PurposeIdType[]) => Promise<string | null>;
     const startMock = jest.fn<ReturnType<StartFn>, Parameters<StartFn>>();
     startMock.mockResolvedValue(null);
@@ -166,30 +166,27 @@ describe("SmartImportStep", () => {
     });
 
     const { container } = renderWithContext(
-      <SmartImportStep purposes={[PurposeId.Work] as PurposeIdType[]} onDone={jest.fn()} />
+      <SmartImportStep
+        purposes={[PurposeId.Work] as PurposeIdType[]}
+        onDone={jest.fn()}
+      />
     );
 
-    const bar = container.querySelector(
-      ".bg-blue-500"
-    ) as HTMLDivElement | null;
+    const bar = container.querySelector(".s_import-progress-bar") as HTMLDivElement | null;
     expect(bar).not.toBeNull();
 
-    const initialClassName = bar!.className;
-    // Starts at initializing → w-1/6
-    expect(initialClassName).toContain("w-1/6");
+    expect(bar!.className).toContain("w-1/6");
 
-    // Let timers run so the visual phase can move towards backend phase
-    act(() => {
-      jest.runAllTimers();
+    // backend "categorizing" is index 3; starting at 0 means 3 timed steps to catch up.
+    for (let i = 0; i < 3; i++) {
+      act(() => {
+        jest.advanceTimersByTime(800);
+      });
+    }
+
+    await waitFor(() => {
+      expect(bar!.className).toContain("w-4/6");
     });
-
-    // Visual phase should have advanced away from the initial width
-    expect(bar!.className).not.toBe(initialClassName);
-    expect(bar!.className).not.toContain("w-1/6");
-
-    // We don't assert the exact final width ("w-4/6") because how many
-    // steps we advance can differ with React/timer scheduling; it's enough
-    // that it moved forward.
   });
 
   it("handles errors from start, still bumps workspace version, and does not notify parent", async () => {

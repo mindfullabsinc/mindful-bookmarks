@@ -108,15 +108,13 @@ it("returns null when shouldShowOnboarding is false", () => {
   expect(container.firstChild).toBeNull();
 });
 
-it("calls restartOnboarding when onboarding has not started yet", () => {
-  const restartOnboarding = jest.fn().mockResolvedValue(undefined);
-
+it("renders onboarding when onboarding has not started yet", () => {
   renderWithContext({
     onboardingStatus: OnboardingStatus.NOT_STARTED,
-    restartOnboarding,
   });
 
-  expect(restartOnboarding).toHaveBeenCalled();
+  expect(screen.getByText(/welcome to mindful!/i)).toBeInTheDocument();
+  expect(screen.getByTestId("theme-step")).toBeInTheDocument();
 });
 
 it("renders the first step with the welcome title", () => {
@@ -182,6 +180,12 @@ it("steps through the flow and finishes Smart Import, setting active workspace a
   act(() => {
     lastImportStepProps.setPrimaryDisabled(false);
   });
+
+  // Choose Smart import, otherwise the smart step never gets added
+  act(() => {
+    lastImportStepProps.onSelectionChange("smart");
+  });
+
   nextButton = screen.getByRole("button", { name: /next/i });
   expect(nextButton).toBeEnabled();
   await user.click(nextButton);
