@@ -3,11 +3,11 @@ import React, { useContext, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AppContext, OnboardingStatus } from "@/scripts/AppContextProvider";
 
-/* Constants */
-import { ImportPostProcessMode, OpenTabsScope } from "@/core/constants/import";
-
 /* Types */
-import type { OpenTabsScopeType, ImportPostProcessModeType } from "@/core/types/import";
+import type { WizardStep } from "@/components/shared/ImportBookmarksStepBody";
+
+/* Hooks */
+import { useManualImportWizardState } from "@/hooks/useManualImportWizardState";
 
 /* Components */
 import { ThemeSelectorStep } from "@/components/onboarding/ThemeSelectorStep";
@@ -17,6 +17,7 @@ import { SmartImportStep } from "@/components/onboarding/SmartImportStep";
 import { ManualImportStep } from "@/components/onboarding/ManualImportStep";
 import { FinishUpStep } from "@/components/onboarding/FinishUpStep";
 import { ImportBookmarksStepBody } from "@/components/shared/ImportBookmarksStepBody";
+import { getImportBookmarksStepCopy } from "@/components/shared/ImportBookmarksStepBody";
 /* ---------------------------------------------------------- */
 
 /* -------------------- Local types / interfaces -------------------- */
@@ -77,15 +78,13 @@ export const OnboardingOverlay: React.FC = () => {
   // Track which import flow the user picked on the ImportBookmarksStep
   const [importFlow, setImportFlow] = useState<"smart" | "manual" | null>(null);
 
-  // Manual import selection state (onboarding-only)
-  const [manualJsonYes, setManualJsonYes] = useState(false);
-  const [manualJsonFileName, setManualJsonFileName] = useState<string | null>(null);
-  const [manualJsonData, setManualJsonData] = useState<string | null>(null);
-  const [manualBookmarksYes, setManualBookmarksYes] = useState(false);
-  const [manualTabsYes, setManualTabsYes] = useState(false);
-  const [manualTabScope, setManualTabScope] = useState<OpenTabsScopeType>(OpenTabsScope.All);
-  const [manualPostProcessMode, setManualPostProcessMode] =
-    useState<ImportPostProcessModeType>(ImportPostProcessMode.PreserveStructure);
+  // Manual import state
+  const { 
+    state: manualState, 
+    selection: manualSelection, 
+    reset: resetManualWizard 
+  } = useManualImportWizardState();
+
   const [manualCommitBusy, setManualCommitBusy] = useState(false);
   const [manualCommitMessage, setManualCommitMessage] = useState<string>("");
   const [manualCommitError, setManualCommitError] = useState<string | null>(null);
@@ -93,26 +92,6 @@ export const OnboardingOverlay: React.FC = () => {
 
   /* -------------------- Step config (dynamic) -------------------- */
   const STEPS: OnboardingStepConfig[] = [];
-
-  const manualStepBodyState = {
-    jsonYes: manualJsonYes,
-    setJsonYes: setManualJsonYes,
-    jsonFileName: manualJsonFileName,
-    setJsonFileName: setManualJsonFileName,
-    jsonData: manualJsonData,
-    setJsonData: setManualJsonData,
-
-    bookmarksYes: manualBookmarksYes,
-    setBookmarksYes: setManualBookmarksYes,
-
-    tabsYes: manualTabsYes,
-    setTabsYes: setManualTabsYes,
-    tabScope: manualTabScope,
-    setTabScope: setManualTabScope,
-
-    postProcessMode: manualPostProcessMode,
-    setPostProcessMode: setManualPostProcessMode,
-  };
 
   // 1. Theme
   STEPS.push({
@@ -178,35 +157,38 @@ export const OnboardingOverlay: React.FC = () => {
       isFinal: true,
       // We'll compute disabled dynamically for this step below
     });
+
   } else if (importFlow === "manual") {
+    const step1Copy = getImportBookmarksStepCopy(1);
     STEPS.push({
       id: "manualImportJson" as any,
-      title: "Import a JSON file?",
-      subtitle: "If you exported from another bookmark manager (or Mindful), you can bring it in now.",
+      title: step1Copy.title,
+      subtitle: step1Copy.subtitle, 
       body: (
         <div className="import-styles">
           <ImportBookmarksStepBody
             step={1}
             showInternalHeader={false}
-            state={manualStepBodyState}
+            state={manualState}
+            busy={manualCommitBusy}
           />
         </div>
       ),
       primaryLabel: "Next",
       secondaryLabel: "Back",
-      primaryDisabled: manualJsonYes && !manualJsonData, // require file if they said yes
+      primaryDisabled: manualState.jsonYes && !manualState.jsonData, // require file if they said yes
     });
 
+    const step2Copy = getImportBookmarksStepCopy(2);
     STEPS.push({
       id: "manualImportBookmarks" as any,
-      title: "Import Chrome bookmarks?",
-      subtitle: "We can pull in your bookmarks. You can skip this if you want.",
+      title: step2Copy.title, 
       body: (
         <div className="import-styles">
           <ImportBookmarksStepBody
             step={2}
             showInternalHeader={false}
-            state={manualStepBodyState}
+            state={manualState}
           />
         </div>
       ),
@@ -214,16 +196,16 @@ export const OnboardingOverlay: React.FC = () => {
       secondaryLabel: "Back",
     });
 
+    const step3Copy = getImportBookmarksStepCopy(3);
     STEPS.push({
       id: "manualImportTabs" as any,
-      title: "Import open tabs?",
-      subtitle: "Bring in your currently open tabs into Mindful.",
+      title: step3Copy.title,
       body: (
         <div className="import-styles">
           <ImportBookmarksStepBody
             step={3}
             showInternalHeader={false}
-            state={manualStepBodyState}
+            state={manualState}
           />
         </div>
       ),
@@ -231,16 +213,16 @@ export const OnboardingOverlay: React.FC = () => {
       secondaryLabel: "Back",
     });
 
+    const step4Copy = getImportBookmarksStepCopy(4);
     STEPS.push({
       id: "manualImportOrganize" as any,
-      title: "Auto-organize what you import?",
-      subtitle: "We can keep your structure, or automatically group imported items.",
+      title: step4Copy.title,
       body: (
         <div className="import-styles">
           <ImportBookmarksStepBody
             step={4}
             showInternalHeader={false}
-            state={manualStepBodyState}
+            state={manualState}
           />
         </div>
       ),
@@ -250,18 +232,12 @@ export const OnboardingOverlay: React.FC = () => {
 
     STEPS.push({
       id: "manualImportCommit" as any,
-      title: "Importing…",
+      title: "Finishing up",
       subtitle: "Hang tight while we set up your workspaces and bring everything in.",
       body: (
         <ManualImportStep
           purposes={onboardingPurposes}
-          selection={{
-            jsonFileName: manualJsonYes ? manualJsonFileName : null,
-            jsonData: manualJsonYes ? manualJsonData : null,
-            importBookmarks: manualBookmarksYes,
-            tabScope: manualTabsYes ? manualTabScope : undefined,
-            importPostProcessMode: manualPostProcessMode,
-          }}
+          selection={manualSelection}
           onBusyChange={setManualCommitBusy}
           onProgress={setManualCommitMessage}
           onError={setManualCommitError}
@@ -281,24 +257,21 @@ export const OnboardingOverlay: React.FC = () => {
   useEffect(() => {
     const wasOpen = prevOpenRef.current;
     prevOpenRef.current = shouldShowOnboarding;
+
     if (!wasOpen && shouldShowOnboarding) {
       setStepIndex(0);
       setSmartImportPrimaryWorkspaceId(null);
       setManualImportPrimaryWorkspaceId(null);
       setImportPrimaryDisabled(true);
       setImportFlow(null);
-      setManualJsonYes(false);
-      setManualJsonFileName(null);
-      setManualJsonData(null);
-      setManualBookmarksYes(false);
-      setManualTabsYes(false);
-      setManualTabScope(OpenTabsScope.All);
-      setManualPostProcessMode(ImportPostProcessMode.PreserveStructure);
+
+      resetManualWizard();
+
       setManualCommitBusy(false);
       setManualCommitMessage("");
       setManualCommitError(null);
     }
-  }, [shouldShowOnboarding]);
+  }, [shouldShowOnboarding, resetManualWizard]);
 
   // Don’t render if onboarding is done or not supposed to show.
   if (!shouldShowOnboarding) return null;

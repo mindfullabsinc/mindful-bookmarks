@@ -1,24 +1,18 @@
 /* -------------------- Imports -------------------- */
 import React from "react";
+
+/* Constants */
 import { ImportPostProcessMode, OpenTabsScope } from "@/core/constants/import";
 
 /* Types */
-import type {
-  ImportPostProcessModeType,
-  OpenTabsScopeType,
-} from "@/core/types/import";
+import type { ImportPostProcessModeType, OpenTabsScopeType } from "@/core/types/import";
 
-/* CSS styling */
+/* CSS */
 import "@/styles/components/shared/ImportBookmarksContent.css";
 /* ---------------------------------------------------------- */
 
-/* -------------------- Local types and interfaces -------------------- */
+/* -------------------- Local types -------------------- */
 export type WizardStep = 1 | 2 | 3 | 4;
-/* ---------------------------------------------------------- */
-
-/* -------------------- Constants -------------------- */
-export const LAST_STEP: WizardStep = 4;
-/* ---------------------------------------------------------- */
 
 type YesCheckboxRowProps = {
   checked: boolean;
@@ -26,34 +20,6 @@ type YesCheckboxRowProps = {
   label: string;
   description?: string;
 };
-
-function YesCheckboxRow({ checked, onToggle, label, description }: YesCheckboxRowProps) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className={
-        "checkbox-row " +
-        (checked ? "checkbox-row--checked" : "checkbox-row--unchecked")
-      }
-    >
-      <span
-        className={
-          "checkbox-box " +
-          (checked ? "checkbox-box--checked" : "checkbox-box--unchecked")
-        }
-        aria-hidden="true"
-      >
-        ✓
-      </span>
-
-      <span className="checkbox-label-container">
-        <span className="checkbox-label">{label}</span>
-        {description && <span className="checkbox-label-description">{description}</span>}
-      </span>
-    </button>
-  );
-}
 
 export type ImportBookmarksStepBodyState = {
   // step 1
@@ -83,13 +49,65 @@ export type ImportBookmarksStepBodyProps = {
   step: WizardStep;
   state: ImportBookmarksStepBodyState;
 
-  /** Standalone wizard shows "Step X of 4" and the question title/subtitle.
+  /** Standalone wizard shows "Step X of 4" and question title/subtitle.
    *  Onboarding can hide these and provide its own header. */
   showInternalHeader?: boolean;
 
   /** Disable inputs while committing (onboarding commit step) */
   busy?: boolean;
 };
+/* ---------------------------------------------------------- */
+
+/* -------------------- Constants -------------------- */
+export const LAST_STEP: WizardStep = 4;
+
+export const IMPORT_BOOKMARKS_STEP_COPY: Record<
+  WizardStep,
+  { title: string; subtitle?: string }
+> = {
+  1: {
+    title: "Do you have a JSON file to import?",
+    subtitle:
+      "If you exported from another bookmark manager (or from Mindful), you can bring that file in now. If you're not sure what this is, just skip.",
+  },
+  2: {
+    title: "Do you want to import your Chrome bookmarks?",
+  },
+  3: {
+    title: "Do you want to import your open tabs?",
+  },
+  4: {
+    title:
+      "Do you want Mindful to automatically organize everything you imported?",
+  },
+};
+/* ---------------------------------------------------------- */
+
+export function getImportBookmarksStepCopy(step: WizardStep) {
+  return IMPORT_BOOKMARKS_STEP_COPY[step];
+}
+
+function YesCheckboxRow({ checked, onToggle, label, description }: YesCheckboxRowProps) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={"checkbox-row " + (checked ? "checkbox-row--checked" : "checkbox-row--unchecked")}
+    >
+      <span
+        className={"checkbox-box " + (checked ? "checkbox-box--checked" : "checkbox-box--unchecked")}
+        aria-hidden="true"
+      >
+        ✓
+      </span>
+
+      <span className="checkbox-label-container">
+        <span className="checkbox-label">{label}</span>
+        {description && <span className="checkbox-label-description">{description}</span>}
+      </span>
+    </button>
+  );
+}
 
 export function ImportBookmarksStepBody({
   step,
@@ -119,16 +137,7 @@ export function ImportBookmarksStepBody({
   function renderStepHeader() {
     if (!showInternalHeader) return null;
 
-    const titles: Record<number, string> = {
-      1: "Do you have a JSON file to import?",
-      2: "Do you want to import your Chrome bookmarks?",
-      3: "Do you want to import your open tabs?",
-      4: "Do you want Mindful to automatically organize everything you imported?",
-    };
-
-    const subtitles: Record<number, string> = {
-      1: "If you exported from another bookmark manager (or from Mindful), you can bring that file in now. If you’re not sure what this is, just skip.",
-    };
+    const { title, subtitle } = getImportBookmarksStepCopy(step);
 
     return (
       <>
@@ -137,8 +146,8 @@ export function ImportBookmarksStepBody({
             Step {step} of {LAST_STEP}
           </span>
         </div>
-        <h3 className="step-title">{titles[step] ?? ""}</h3>
-        {subtitles[step] && <p className="step-subtitle">{subtitles[step]}</p>}
+        <h3 className="step-title">{title}</h3>
+        {subtitle && <p className="step-subtitle">{subtitle}</p>}
       </>
     );
   }

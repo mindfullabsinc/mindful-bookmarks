@@ -1,52 +1,34 @@
-/* -------------------- Imports -------------------- */
 import React, { useEffect, useRef, useState } from "react";
 
-/* Constants */
-import { 
-  ImportPostProcessMode,
-  OpenTabsScope,
-} from "@/core/constants/import";
-import { LAST_STEP } from "@/components/shared/ImportBookmarksStepBody"; 
-
 /* Types */
-import type { 
-  ManualImportSelectionType, 
-  ImportPostProcessModeType,
-  OpenTabsScopeType,
-} from "@/core/types/import";
-import type { WizardStep } from "@/components/shared/ImportBookmarksStepBody";
+import type { ManualImportSelectionType } from "@/core/types/import";
+
+/* Shared step body + constants */
+import {
+  ImportBookmarksStepBody,
+  LAST_STEP,
+  type WizardStep,
+} from "@/components/shared/ImportBookmarksStepBody";
+
+/* Hook to share state + selection mapping */
+import { useManualImportWizardState } from "@/hooks/useManualImportWizardState";
 
 /* Styles */
-import '@/styles/components/shared/ImportBookmarksContent.css'
+import "@/styles/components/shared/ImportBookmarksContent.css";
 
-/* Components */
-import { ImportBookmarksStepBody } from "@/components/shared/ImportBookmarksStepBody";
-/* ---------------------------------------------------------- */
-
-/* -------------------- Local types and interfaces -------------------- */
 export type ImportBookmarksContentProps = {
   variant: "modal" | "embedded";
-  onClose?: () => void;     // Closing the modal
-  onComplete?: () => void | Promise<void>;  // Wizard finished (embedded or modal)
+  onClose?: () => void;
+  onComplete?: () => void | Promise<void>;
   onSelectionChange?: (selection: ManualImportSelectionType) => void;
+
   busy?: boolean;
   busyMessage?: string;
   errorMessage?: string;
 };
 
-type YesCheckboxRowProps = {
-  checked: boolean;
-  onToggle: () => void;
-  label: string;
-  description?: string;
-};
-/* --------------------------------------------------------- */
+const BUSY_MESSAGE = "Thinking ...";
 
-/* -------------------- Constants -------------------- */
-const BUSY_MESSAGE: string = "Thinking ...";
-/* ---------------------------------------------------------- */
-
-/* -------------------- Main component -------------------- */
 export function ImportBookmarksContent({
   variant,
   onClose,
@@ -56,53 +38,26 @@ export function ImportBookmarksContent({
   busyMessage = BUSY_MESSAGE,
   errorMessage,
 }: ImportBookmarksContentProps) {
-  /* -------------------- Context / state -------------------- */
   const dialogRef = useRef<HTMLDivElement | null>(null);
 
-   // Sub-wizard state
   const [step, setStep] = useState<WizardStep>(1);
-  const [jsonYes, setJsonYes] = useState(false);
-  const [bookmarksYes, setBookmarksYes] = useState(false);
-  const [tabsYes, setTabsYes] = useState(false);
-  const [semanticGroupingYes, setSemanticGroupingYes] = useState(false);
-  
-  // JSON 
-  const [jsonFileName, setJsonFileName] = useState<string | null>(null);
-  const [jsonData, setJsonData] = useState<string | null>(null);
 
-  // Tabs 
-  const [tabScope, setTabScope] = useState<OpenTabsScopeType>(OpenTabsScope.All);
+  const { state, selection, reset } = useManualImportWizardState();
 
-  // Post-process mode  
-  const [postProcessMode, setPostProcessMode] =
-    useState<ImportPostProcessModeType>(ImportPostProcessMode.PreserveStructure);
-  /* ---------------------------------------------------------- */
+  // Emit selection upward
+  useEffect(() => {
+    onSelectionChange?.(selection);
+  }, [selection, onSelectionChange]);
 
-  /* -------------------- Effects -------------------- */
-  /**
-   * Reset state whenever the component unmounts or reopens. 
-   */
+  // Reset state on unmount (matches your previous behavior)
   useEffect(() => {
     return () => {
-      setJsonYes(false);
-      setJsonFileName(null);      
-      setJsonData(null);
-
-      setBookmarksYes(false);
-      setTabsYes(false);
-      
-      setTabScope(OpenTabsScope.All);
-
-      setSemanticGroupingYes(false);
-      setPostProcessMode(ImportPostProcessMode.PreserveStructure);
-      
+      reset();
       setStep(1);
     };
-  }, []);
+  }, [reset]);
 
-  /**
-   * Close the modal on Escape key (embedded variant ignores because onClose may be undefined).
-   */
+  // Escape closes modal (embedded ignores if onClose not provided)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !busy) onClose?.();
@@ -111,190 +66,36 @@ export function ImportBookmarksContent({
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose, busy]);
 
-  useEffect(() => {
-    onSelectionChange?.({
-      jsonFileName: jsonYes ? jsonFileName : null,
-      jsonData: jsonYes ? jsonData : null,
-      importBookmarks: bookmarksYes,
-      tabScope: tabsYes ? tabScope : undefined,
-      importPostProcessMode: postProcessMode,
-    });
-  }, [jsonYes, jsonFileName, jsonData, bookmarksYes, tabsYes, tabScope, postProcessMode, onSelectionChange]);
-  /* ---------------------------------------------------------- */
+  const primaryLabel =
+    step === 1 ? (state.jsonYes ? "Continue" : "Skip") :
+    step === 2 ? (state.bookmarksYes ? "Continue" : "Skip") :
+    step === 3 ? (state.tabsYes ? "Continue" : "Skip") :
+    "Finish";
 
-  /* -------------------- Helper functions -------------------- */
+  const primaryDisabled = step === 1 && state.jsonYes && !state.jsonData;
 
-  async function handleJsonFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0] ?? null;
-    if (!file) {
-      setJsonFileName(null);
-      setJsonData(null);
+  async function handlePrimary() {
+    if (busy) return;
+
+    if (step < LAST_STEP) {
+      setStep((s) => (s + 1) as WizardStep);
       return;
     }
 
-    const text = await file.text();
-    JSON.parse(text); // throws if invalid
-    setJsonFileName(file.name);
-    setJsonData(text);
-  }
-
-  function clearJsonSelection() {
-    setJsonFileName(null);
-    setJsonData(null);
-  }
-
-  /**
-   * Primary CTA click handler for navigating the wizard.
-   */
-  async function handlePrimary() {
-    if (busy) return;
-    if (step < LAST_STEP) {
-      setStep((s) => (s + 1) as WizardStep);
-    } else {
-      await finishWizard(); 
-    }
-}
-
-  /**
-   * Navigate to the previous wizard step when possible.
-   */
-  function handleBack() {
-    if (busy) return;
-    setStep((prev) => (prev > 1 ? ((prev - 1) as WizardStep) : prev));
-  }
-
-  /**
-   * Centralized logic to notify that the manual import wizard is complete. 
-   */
-  async function finishWizard() {
+    // Finish
     try {
-      await onComplete?.();          // wait for import commit
-      if (variant === "modal") {
-        onClose?.();                 // close only after success
-      }
+      await onComplete?.();
+      if (variant === "modal") onClose?.();
     } catch {
       // parent sets errorMessage; don't close
     }
   }
 
-  /**
-   * Compute the primary button label based on the current wizard step and selections.
-   */
-  const primaryLabel = (() => {
-    if (step === 1) {
-      return jsonYes ? "Continue" : "Skip";
-    }
-    if (step === 2) {
-      return bookmarksYes ? "Continue" : "Skip";
-    }
-    if (step === 3) {
-      return tabsYes ? "Continue" : "Skip";
-    }
-    return "Finish";  // Step 4
-  })();
-
-  const primaryDisabled = (step === 1 && jsonYes && !jsonData);
-
-  /**
-   * Render the wizard step header for the current step.
-   */
-  function renderStepHeader() {
-    const titles: Record<number, string> = {
-      1: "Do you have a JSON file to import?",
-      2: "Do you want to import your Chrome bookmarks?",
-      3: "Do you want to import your open tabs?",
-      4: "Do you want Mindful to automatically organize everything you imported?",
-    };
-    const title = titles[step] ?? "";
-
-    const subtitles: Record<number, string> = {
-      1: "If you exported from another bookmark manager (or from Mindful), you can bring that file in now. If you’re not sure what this is, just skip.",
-    }
-    const subtitle = subtitles[step];
-
-    return (
-      <>
-        <div className="step-progress">
-          <span>
-            Step {step} of {LAST_STEP}
-          </span>
-        </div>
-        <h3 className="step-title">
-          {title}
-        </h3>
-        {subtitle && 
-          <p className="step-subtitle">
-            {subtitle}
-          </p>
-        }
-      </>
-    );
+  function handleBack() {
+    if (busy) return;
+    setStep((prev) => (prev > 1 ? ((prev - 1) as WizardStep) : prev));
   }
 
-  /**
-   * Checkbox row component used to capture yes/no answers on each import step.
-   */
-  function YesCheckboxRow({ checked, onToggle, label, description }: YesCheckboxRowProps) {
-    return (
-      <button
-        type="button"
-        onClick={onToggle}
-        className={
-          "checkbox-row " +
-          (checked
-            ? "checkbox-row--checked"
-            : "checkbox-row--unchecked")
-        }
-      >
-        {/* Square checkbox */}
-        <span
-          className={
-            "checkbox-box " +
-            (checked
-              ? "checkbox-box--checked"
-              : "checkbox-box--unchecked")
-          }
-          aria-hidden="true"
-        >
-          ✓
-        </span>
-
-        <span className="checkbox-label-container">
-          <span className="checkbox-label">{label}</span>
-          {description && (
-            <span className="checkbox-label-description">
-              {description}
-            </span>
-          )}
-        </span>
-      </button>
-    );
-  }
-
-  /**
-   * Render the body content for the current wizard step.
-   */
-  function renderBody() {
-    return (
-      <ImportBookmarksStepBody
-        step={step}
-        showInternalHeader={true}
-        busy={busy}
-        state={{
-          jsonYes, setJsonYes,
-          jsonFileName, setJsonFileName,
-          jsonData, setJsonData,
-          bookmarksYes, setBookmarksYes,
-          tabsYes, setTabsYes,
-          tabScope, setTabScope,
-          postProcessMode, setPostProcessMode,
-        }}
-      />
-    );
-  }
-  /* ---------------------------------------------------------- */
-
-  /* -------------------- Main component rendering -------------------- */
   return (
     <div className="import-styles">
       <div
@@ -305,13 +106,14 @@ export function ImportBookmarksContent({
         className="container"
       >
         <div className="subcontainer">
-          {errorMessage && (
-            <div className="error-message">
-              {errorMessage}
-            </div>
-          )}
+          {errorMessage && <div className="error-message">{errorMessage}</div>}
 
-          {renderBody()}
+          <ImportBookmarksStepBody
+            step={step}
+            showInternalHeader={true}
+            busy={busy}
+            state={state}
+          />
 
           <div className="footer-container">
             <div className="flex w-full items-center justify-end gap-2">
@@ -325,8 +127,8 @@ export function ImportBookmarksContent({
                 )}
               </div>
 
-              {/* Buttons: Back, Next */}
-              <div className="flex items-center justify-end gap-2"> 
+              {/* Buttons */}
+              <div className="flex items-center justify-end gap-2">
                 {step > 1 && (
                   <button
                     type="button"
@@ -353,6 +155,4 @@ export function ImportBookmarksContent({
       </div>
     </div>
   );
-  /* ---------------------------------------------------------- */
 }
-/* ---------------------------------------------------------- */
