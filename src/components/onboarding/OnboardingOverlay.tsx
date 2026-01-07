@@ -3,6 +3,12 @@ import React, { useContext, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AppContext, OnboardingStatus } from "@/scripts/AppContextProvider";
 
+/* Constants */
+import { ImportPostProcessMode, OpenTabsScope } from "@/core/constants/import";
+
+/* Types */
+import type { OpenTabsScopeType, ImportPostProcessModeType } from "@/core/types/import";
+
 /* Components */
 import { ThemeSelectorStep } from "@/components/onboarding/ThemeSelectorStep";
 import { PurposeStep } from "@/components/onboarding/PurposeStep";
@@ -10,6 +16,7 @@ import { ImportBookmarksStep } from "@/components/onboarding/ImportBookmarksStep
 import { SmartImportStep } from "@/components/onboarding/SmartImportStep";
 import { ManualImportStep } from "@/components/onboarding/ManualImportStep";
 import { FinishUpStep } from "@/components/onboarding/FinishUpStep";
+import { ImportBookmarksStepBody } from "@/components/shared/ImportBookmarksStepBody";
 /* ---------------------------------------------------------- */
 
 /* -------------------- Local types / interfaces -------------------- */
@@ -18,7 +25,11 @@ type OnboardingStepId =
   | "setPurpose"
   | "importBookmarks"
   | "smartImport"
-  | "manualImport"
+  | "manualImportJson"
+  | "manualImportBookmarks"
+  | "manualImportTabs"
+  | "manualImportOrganize"
+  | "manualImportCommit"
   | "finishUp"
   | "tips";
 
@@ -65,10 +76,43 @@ export const OnboardingOverlay: React.FC = () => {
 
   // Track which import flow the user picked on the ImportBookmarksStep
   const [importFlow, setImportFlow] = useState<"smart" | "manual" | null>(null);
+
+  // Manual import selection state (onboarding-only)
+  const [manualJsonYes, setManualJsonYes] = useState(false);
+  const [manualJsonFileName, setManualJsonFileName] = useState<string | null>(null);
+  const [manualJsonData, setManualJsonData] = useState<string | null>(null);
+  const [manualBookmarksYes, setManualBookmarksYes] = useState(false);
+  const [manualTabsYes, setManualTabsYes] = useState(false);
+  const [manualTabScope, setManualTabScope] = useState<OpenTabsScopeType>(OpenTabsScope.All);
+  const [manualPostProcessMode, setManualPostProcessMode] =
+    useState<ImportPostProcessModeType>(ImportPostProcessMode.PreserveStructure);
+  const [manualCommitBusy, setManualCommitBusy] = useState(false);
+  const [manualCommitMessage, setManualCommitMessage] = useState<string>("");
+  const [manualCommitError, setManualCommitError] = useState<string | null>(null);
   /* ---------------------------------------------------------- */
 
   /* -------------------- Step config (dynamic) -------------------- */
   const STEPS: OnboardingStepConfig[] = [];
+
+  const manualStepBodyState = {
+    jsonYes: manualJsonYes,
+    setJsonYes: setManualJsonYes,
+    jsonFileName: manualJsonFileName,
+    setJsonFileName: setManualJsonFileName,
+    jsonData: manualJsonData,
+    setJsonData: setManualJsonData,
+
+    bookmarksYes: manualBookmarksYes,
+    setBookmarksYes: setManualBookmarksYes,
+
+    tabsYes: manualTabsYes,
+    setTabsYes: setManualTabsYes,
+    tabScope: manualTabScope,
+    setTabScope: setManualTabScope,
+
+    postProcessMode: manualPostProcessMode,
+    setPostProcessMode: setManualPostProcessMode,
+  };
 
   // 1. Theme
   STEPS.push({
@@ -136,23 +180,97 @@ export const OnboardingOverlay: React.FC = () => {
     });
   } else if (importFlow === "manual") {
     STEPS.push({
-      id: "manualImport",
-      title: "Import what you need.",
-      subtitle:
-        "You can always import more later from Settings.",
+      id: "manualImportJson" as any,
+      title: "Import a JSON file?",
+      subtitle: "If you exported from another bookmark manager (or Mindful), you can bring it in now.",
+      body: (
+        <div className="import-styles">
+          <ImportBookmarksStepBody
+            step={1}
+            showInternalHeader={false}
+            state={manualStepBodyState}
+          />
+        </div>
+      ),
+      primaryLabel: "Next",
+      secondaryLabel: "Back",
+      primaryDisabled: manualJsonYes && !manualJsonData, // require file if they said yes
+    });
+
+    STEPS.push({
+      id: "manualImportBookmarks" as any,
+      title: "Import Chrome bookmarks?",
+      subtitle: "We can pull in your bookmarks. You can skip this if you want.",
+      body: (
+        <div className="import-styles">
+          <ImportBookmarksStepBody
+            step={2}
+            showInternalHeader={false}
+            state={manualStepBodyState}
+          />
+        </div>
+      ),
+      primaryLabel: "Next",
+      secondaryLabel: "Back",
+    });
+
+    STEPS.push({
+      id: "manualImportTabs" as any,
+      title: "Import open tabs?",
+      subtitle: "Bring in your currently open tabs into Mindful.",
+      body: (
+        <div className="import-styles">
+          <ImportBookmarksStepBody
+            step={3}
+            showInternalHeader={false}
+            state={manualStepBodyState}
+          />
+        </div>
+      ),
+      primaryLabel: "Next",
+      secondaryLabel: "Back",
+    });
+
+    STEPS.push({
+      id: "manualImportOrganize" as any,
+      title: "Auto-organize what you import?",
+      subtitle: "We can keep your structure, or automatically group imported items.",
+      body: (
+        <div className="import-styles">
+          <ImportBookmarksStepBody
+            step={4}
+            showInternalHeader={false}
+            state={manualStepBodyState}
+          />
+        </div>
+      ),
+      primaryLabel: "Next",
+      secondaryLabel: "Back",
+    });
+
+    STEPS.push({
+      id: "manualImportCommit" as any,
+      title: "Importing…",
+      subtitle: "Hang tight while we set up your workspaces and bring everything in.",
       body: (
         <ManualImportStep
-          setPrimaryDisabled={setImportPrimaryDisabled}
           purposes={onboardingPurposes}
-          onDone={(primaryWorkspaceId) => {
-            setManualImportPrimaryWorkspaceId(primaryWorkspaceId);
+          selection={{
+            jsonFileName: manualJsonYes ? manualJsonFileName : null,
+            jsonData: manualJsonYes ? manualJsonData : null,
+            importBookmarks: manualBookmarksYes,
+            tabScope: manualTabsYes ? manualTabScope : undefined,
+            importPostProcessMode: manualPostProcessMode,
           }}
+          onBusyChange={setManualCommitBusy}
+          onProgress={setManualCommitMessage}
+          onError={setManualCommitError}
+          onDone={(primaryWorkspaceId) => setManualImportPrimaryWorkspaceId(primaryWorkspaceId)}
         />
       ),
       primaryLabel: "Open Mindful",
       secondaryLabel: "Back",
       isFinal: true,
-      primaryDisabled: importPrimaryDisabled,
     });
   }
   /* ---------------------------------------------------------- */
@@ -169,6 +287,16 @@ export const OnboardingOverlay: React.FC = () => {
       setManualImportPrimaryWorkspaceId(null);
       setImportPrimaryDisabled(true);
       setImportFlow(null);
+      setManualJsonYes(false);
+      setManualJsonFileName(null);
+      setManualJsonData(null);
+      setManualBookmarksYes(false);
+      setManualTabsYes(false);
+      setManualTabScope(OpenTabsScope.All);
+      setManualPostProcessMode(ImportPostProcessMode.PreserveStructure);
+      setManualCommitBusy(false);
+      setManualCommitMessage("");
+      setManualCommitError(null);
     }
   }, [shouldShowOnboarding]);
 
@@ -188,16 +316,18 @@ export const OnboardingOverlay: React.FC = () => {
   const step = STEPS[clampedIndex];
   const isFirst = clampedIndex === 0;
   const isLast = !!step.isFinal || clampedIndex === totalSteps - 1;
+  const lockNav = step.id === "manualImportCommit" && manualCommitBusy;
 
   // Primary button disabled logic:
   //   - For Smart and Manual Import steps: disabled until we have a primary workspace id
   //   - For others: use step.primaryDisabled
   const primaryDisabled =
-    step.id === "smartImport"
+    lockNav || 
+    (step.id === "smartImport"
       ? !smartImportPrimaryWorkspaceId
-      : step.id === "manualImport"
+      : step.id === "manualImportCommit"
       ? !manualImportPrimaryWorkspaceId || !!step.primaryDisabled
-      : !!step.primaryDisabled;
+      : !!step.primaryDisabled);
 
   /* -------------------- Handlers -------------------- */
   const handlePrimary = async () => {
@@ -209,7 +339,7 @@ export const OnboardingOverlay: React.FC = () => {
       if (step.id === "smartImport" && smartImportPrimaryWorkspaceId) {
         await setActiveWorkspaceId(smartImportPrimaryWorkspaceId as any);
       }
-      if (step.id === "manualImport" && manualImportPrimaryWorkspaceId) {
+      if (step.id === "manualImportCommit" && manualImportPrimaryWorkspaceId) {
         await setActiveWorkspaceId(manualImportPrimaryWorkspaceId as any);
       }
       await completeOnboarding();
@@ -280,7 +410,7 @@ export const OnboardingOverlay: React.FC = () => {
                 isFirst || step.hideBack ? "invisible" : ""
               }`}
               onClick={() => setStepIndex((prev) => Math.max(prev - 1, 0))}
-              disabled={isFirst || step.hideBack}
+              disabled={isFirst || step.hideBack || lockNav}
             >
               Back
             </button>
@@ -307,6 +437,7 @@ export const OnboardingOverlay: React.FC = () => {
                     type="button"
                     className="rounded-full border border-neutral-300 dark:border-neutral-700 px-3 py-1.5 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-950 cursor-pointer"
                     onClick={handleSecondary}
+                    disabled={lockNav}
                   >
                     {step.secondaryLabel}
                   </button>

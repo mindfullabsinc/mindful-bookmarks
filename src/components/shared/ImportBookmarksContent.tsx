@@ -6,6 +6,7 @@ import {
   ImportPostProcessMode,
   OpenTabsScope,
 } from "@/core/constants/import";
+import { LAST_STEP } from "@/components/shared/ImportBookmarksStepBody"; 
 
 /* Types */
 import type { 
@@ -13,9 +14,13 @@ import type {
   ImportPostProcessModeType,
   OpenTabsScopeType,
 } from "@/core/types/import";
+import type { WizardStep } from "@/components/shared/ImportBookmarksStepBody";
 
 /* Styles */
 import '@/styles/components/shared/ImportBookmarksContent.css'
+
+/* Components */
+import { ImportBookmarksStepBody } from "@/components/shared/ImportBookmarksStepBody";
 /* ---------------------------------------------------------- */
 
 /* -------------------- Local types and interfaces -------------------- */
@@ -29,8 +34,6 @@ export type ImportBookmarksContentProps = {
   errorMessage?: string;
 };
 
-type WizardStep = 1 | 2 | 3 | 4;
-
 type YesCheckboxRowProps = {
   checked: boolean;
   onToggle: () => void;
@@ -40,7 +43,6 @@ type YesCheckboxRowProps = {
 /* --------------------------------------------------------- */
 
 /* -------------------- Constants -------------------- */
-const LAST_STEP: WizardStep = 4;
 const BUSY_MESSAGE: string = "Thinking ...";
 /* ---------------------------------------------------------- */
 
@@ -273,170 +275,22 @@ export function ImportBookmarksContent({
    * Render the body content for the current wizard step.
    */
   function renderBody() {
-    if (step === 1) {
-      return (
-        <div className="body-container">
-          {renderStepHeader()}
-          <YesCheckboxRow
-            checked={jsonYes}
-            onToggle={() => {
-              setJsonYes((v) => {
-                const next = !v;
-                if (!next) clearJsonSelection();
-                return next;
-              });
-            }}
-            label="Yes"
-          />
-
-          {jsonYes && (
-            <div className="json-input-container">
-              {jsonData ? (
-                <div className="json-selected-file-container">
-                  Selected:{" "}
-                  <span className="json-file-name">
-                    {jsonFileName ?? "file"}
-                  </span>
-                  <button
-                    type="button"
-                    className="json-file-remove"
-                    onClick={clearJsonSelection}
-                  >
-                    Remove
-                  </button>
-                </div>
-              ) : (
-                <input
-                  id="json-file-input"
-                  type="file"
-                  accept="application/json,.json"
-                  onChange={handleJsonFileChange}
-                  className="json-input"
-                />
-              )}
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    if (step === 2) {
-      return (
-        <div className="body-container">
-          {renderStepHeader()}
-          <YesCheckboxRow
-            checked={bookmarksYes}
-            onToggle={() => setBookmarksYes((v) => !v)}
-            label="Yes"
-          />
-        </div>
-      );
-    }
-
-    if (step === 3) {
-      return (
-        <div className="body-container">
-          {renderStepHeader()}
-          <YesCheckboxRow
-            checked={tabsYes}
-            onToggle={() => {
-              setTabsYes((v) => {
-                const next = !v;
-                if (!next) setTabScope(OpenTabsScope.All);
-                return next;
-              });
-            }}
-            label="Yes"
-          />
-
-          {tabsYes && (
-            <div className="tabs-container">
-              <h3 className="tabs-header">
-                Which tabs?
-              </h3>
-
-              <div className="tabs-windows-container">
-
-                {/* All windows */}
-                <button
-                  type="button"
-                  onClick={() => setTabScope(OpenTabsScope.All)}
-                  className={`tabs-radio-button-row
-                    ${tabScope === OpenTabsScope.All
-                      ? "tabs-radio-button-row--selected"
-                      : "tabs-radio-button-row--unselected"
-                    }
-                  `}
-                >
-                  <div
-                    className={`
-                      tabs-radio-button-outer-circle
-                      ${tabScope === OpenTabsScope.All
-                        ? "tabs-radio-button-outer-circle--selected"
-                        : "tabs-radio-button-outer-circle--unselected"
-                      }
-                    `}
-                  >
-                    {tabScope === OpenTabsScope.All && (
-                      <div className="tabs-radio-button-inner-circle" />
-                    )}
-                  </div>
-                  <span className="tabs-radio-button-text">All windows</span>
-                </button>
-
-                {/* Current window */}
-                <button
-                  type="button"
-                  onClick={() => setTabScope(OpenTabsScope.Current)}
-                  className={`tabs-radio-button-row
-                    ${tabScope === OpenTabsScope.Current
-                      ? "tabs-radio-button-row--selected"
-                      : "tabs-radio-button-row--unselected"
-                    }
-                  `}
-                >
-                  <div
-                    className={`
-                      tabs-radio-button-outer-circle 
-                      ${tabScope === OpenTabsScope.Current
-                        ? "tabs-radio-button-outer-circle--selected"
-                        : "tabs-radio-button-outer-circle--unselected"
-                      }
-                    `}
-                  >
-                    {tabScope === OpenTabsScope.Current && (
-                      <div className="tabs-radio-button-inner-circle" />
-                    )}
-                  </div>
-                  <span className="tabs-radio-button-text">Current window</span>
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      );
-    };
-
-    if (step === 4) {
-      return (
-        <div className="body-container">
-          {renderStepHeader()}
-          <YesCheckboxRow
-            checked={semanticGroupingYes}
-            onToggle={() => {
-              setSemanticGroupingYes((v) => {
-                const next = !v;
-                setPostProcessMode(
-                  next ? ImportPostProcessMode.SemanticGrouping : ImportPostProcessMode.PreserveStructure
-                );
-                return next;
-              });
-            }}
-            label="Yes"
-          />
-        </div>
-      );
-    }
+    return (
+      <ImportBookmarksStepBody
+        step={step}
+        showInternalHeader={true}
+        busy={busy}
+        state={{
+          jsonYes, setJsonYes,
+          jsonFileName, setJsonFileName,
+          jsonData, setJsonData,
+          bookmarksYes, setBookmarksYes,
+          tabsYes, setTabsYes,
+          tabScope, setTabScope,
+          postProcessMode, setPostProcessMode,
+        }}
+      />
+    );
   }
   /* ---------------------------------------------------------- */
 

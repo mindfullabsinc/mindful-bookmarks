@@ -1,12 +1,9 @@
 /* -------------------- Imports -------------------- */
-import React, { useContext, useEffect, useMemo, useState, useCallback } from "react";
+import React, { useContext, useEffect, useMemo, useState, useRef } from "react";
 
 /* Types */
-import type { ManualImportSelectionType, ImportSourceType } from "@/core/types/import";
+import type { ManualImportSelectionType } from "@/core/types/import";
 import type { PurposeIdType } from "@shared/types/purposeId";
-
-/* Components */
-import { ImportBookmarksEmbedded } from "@/components/modals/ImportBookmarksEmbedded";
 
 /* Context */
 import { AppContext } from "@/scripts/AppContextProvider";
@@ -20,17 +17,24 @@ import { commitManualImportIntoWorkspace } from "@/scripts/import/commitManualIm
 
 /* -------------------- Local types -------------------- */
 type ManualImportStepProps = {
-  setPrimaryDisabled?: (disabled: boolean) => void;
   purposes: PurposeIdType[];
+  selection: ManualImportSelectionType;
   onDone: (primaryWorkspaceId: string) => void;
+
+  onBusyChange?: (busy: boolean) => void;
+  onProgress?: (msg: string) => void;
+  onError?: (err: string | null) => void;
 };
 /* ---------------------------------------------------------- */
 
 /* -------------------- Main component -------------------- */
 export const ManualImportStep: React.FC<ManualImportStepProps> = ({
-  setPrimaryDisabled,
   purposes,
+  selection,
   onDone,
+  onBusyChange,
+  onProgress,
+  onError,
 }) => {
   /* -------------------- Context / state -------------------- */
   const { userId, bumpWorkspacesVersion } = useContext(AppContext);
@@ -40,107 +44,102 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
     [userId]
   );
 
-  const [wizardDone, setWizardDone] = useState(false);
-  const [selection, setSelection] = useState<ManualImportSelectionType>({});
-
-  const [workspaceRefs, setWorkspaceRefs] = useState<
-    { id: string; purpose: PurposeIdType }[]
-  >([]);
-
-  const primaryWorkspace = workspaceRefs[0] ?? null;
-  const primaryWorkspaceId = primaryWorkspace?.id ?? null;
-
-  const hasAnySelection =
-    !!selection.jsonData ||
-    !!selection.importBookmarks ||
-    selection.tabScope !== undefined; // tabScope can be a stringy enum; check explicitly
-
   const [commitError, setCommitError] = useState<string | null>(null);
   const [isCommitting, setIsCommitting] = useState(false);
   const [commitMessage, setCommitMessage] = useState<string>(""); // optional
-  /* ---------------------------------------------------------- */
 
-  /* -------------------- Helper functions -------------------- */
-  const commitAllImports = useCallback(async () => {
-    if (!primaryWorkspace) throw new Error("Workspace not ready yet.");
-
-    setCommitError(null);
-    setIsCommitting(true);
-
-    try {
-      await commitManualImportIntoWorkspace({
-        selection,
-        purposes,
-        workspaceId: primaryWorkspace.id,
-        purpose: primaryWorkspace.purpose,
-        workspaceService,
-        onProgress: setCommitMessage,
-      });
-
-      bumpWorkspacesVersion();
-      setWizardDone(true);
-    } catch (e: any) {
-      console.error("[ManualImportStep] commit failed", e);
-      setCommitError(e?.message || "Import failed");
-    } finally {
-      setIsCommitting(false);
-      setCommitMessage("");
-    }
-  }, [primaryWorkspace, selection, purposes, workspaceService, bumpWorkspacesVersion]);
+  const onDoneRef = useRef(onDone);
+  // Create a stable key for purposes so deps don't thrash
+  const purposesKey = useMemo(() => (purposes ?? []).join("|"), [purposes]);
+  const hasRunRef = useRef(false);
   /* ---------------------------------------------------------- */
 
   /* -------------------- Effects -------------------- */
   useEffect(() => {
+    onDoneRef.current = onDone;
+  }, [onDone]);
+
+  useEffect(() => {
+    if (!purposes || purposes.length === 0) return;
+
+    // Prevent duplicates (StrictMode double-mount, re-renders, back/forward)
+    if (hasRunRef.current) return;
+    hasRunRef.current = true;
+
     let cancelled = false;
 
     (async () => {
-      if (!purposes || purposes.length === 0) return;
+      setCommitError(null);
+      setIsCommitting(true);
+      onError?.(null);
+      onBusyChange?.(true);
+      onProgress?.("Preparing workspaces ...");
 
       try {
         const refs: { id: string; purpose: PurposeIdType }[] = [];
         for (const p of purposes) {
           refs.push(await workspaceService.createWorkspaceForPurpose(p));
         }
+        if (cancelled) return;
+
+        bumpWorkspacesVersion();
+
+        const primary = refs[0];
+        if (!primary) throw new Error("Workspace not ready yet.");
+
+        await commitManualImportIntoWorkspace({
+          selection,
+          purposes,
+          workspaceId: primary.id,
+          purpose: primary.purpose,
+          workspaceService,
+          onProgress: (msg) => {
+            if (cancelled) return;
+            setCommitMessage(msg);
+            onProgress?.(msg);
+          },
+        });
+
+        if (cancelled) return;
+
+        bumpWorkspacesVersion();
+        onProgress?.("Import complete.");
+        onDoneRef.current(primary.id);
+      } catch (e: any) {
+        const msg = e?.message || "Import failed";
         if (!cancelled) {
-          setWorkspaceRefs(refs);
-          bumpWorkspacesVersion();
+          setCommitError(msg);
+          onError?.(msg);
         }
-      } catch (e) {
-        console.error("[ManualImportStep] failed to create workspaces", e);
+      } finally {
+        if (!cancelled) {
+          setIsCommitting(false);
+          setCommitMessage("");
+          onBusyChange?.(false);
+        }
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [purposes, workspaceService, bumpWorkspacesVersion]);
 
-  useEffect(() => {
-    // Disable primary button until:
-    // - they’ve made a selection AND wizard is not done
-    setPrimaryDisabled?.(!hasAnySelection && !wizardDone);
-  }, [hasAnySelection, wizardDone, setPrimaryDisabled]);
-
-  useEffect(() => {
-    if (!wizardDone || !primaryWorkspaceId) return;
-    onDone(primaryWorkspaceId);
-  }, [wizardDone, primaryWorkspaceId, onDone]);
+    // IMPORTANT: depend on purposesKey, not purposes array identity
+  }, [purposesKey, workspaceService, bumpWorkspacesVersion, selection]);
   /* ---------------------------------------------------------- */
 
   /* -------------------- Main component rendering-------------------- */
-  if (!primaryWorkspaceId) {
-    return <div className="m_import-container">Preparing your workspaces…</div>;
-  }
-
   return (
     <div className="m_import-container">
-      <ImportBookmarksEmbedded
-        onSelectionChange={setSelection}
-        onComplete={commitAllImports}
-        busy={isCommitting}
-        busyMessage={commitMessage}
-        errorMessage={commitError ?? undefined}
-      />
+      {commitError ? (
+        <div className="text-sm text-red-600">{commitError}</div>
+      ) : (
+        <div className="text-sm text-neutral-600 dark:text-neutral-400">
+          {isCommitting
+            ? (commitMessage || "Importing ...")
+            : "All set — you can open Mindful."}
+        </div>
+      )}
     </div>
   );
   /* ---------------------------------------------------------- */
