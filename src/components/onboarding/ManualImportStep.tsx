@@ -1,5 +1,5 @@
 /* -------------------- Imports -------------------- */
-import React, { useContext, useEffect, useMemo, useState, useRef } from "react";
+import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 
 /* Types */
 import type { ManualImportSelectionType } from "@/core/types/import";
@@ -39,19 +39,15 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
   /* -------------------- Context / state -------------------- */
   const { userId, bumpWorkspacesVersion } = useContext(AppContext);
 
-  const workspaceService = useMemo(
-    () => createWorkspaceServiceLocal(userId),
-    [userId]
-  );
+  const workspaceService = useMemo(() => createWorkspaceServiceLocal(userId), [userId]);
 
   const [commitError, setCommitError] = useState<string | null>(null);
   const [isCommitting, setIsCommitting] = useState(false);
-  const [commitMessage, setCommitMessage] = useState<string>(""); // optional
+  const [commitMessage, setCommitMessage] = useState<string>("");
 
+  // Keep latest callbacks/selection without re-triggering effect
   const onDoneRef = useRef(onDone);
-  // Create a stable key for purposes so deps don't thrash
-  const purposesKey = useMemo(() => (purposes ?? []).join("|"), [purposes]);
-  const hasRunRef = useRef(false);
+  const selectionRef = useRef(selection);
   /* ---------------------------------------------------------- */
 
   /* -------------------- Effects -------------------- */
@@ -60,27 +56,37 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
   }, [onDone]);
 
   useEffect(() => {
+    selectionRef.current = selection;
+  }, [selection]);
+
+   // Stable purpose key
+  const purposesKey = useMemo(() => (purposes ?? []).join("|"), [purposes]);
+
+  // StrictMode-safe run token
+  const runTokenRef = useRef(0);
+
+  useEffect(() => {
     if (!purposes || purposes.length === 0) return;
 
-    // Prevent duplicates (StrictMode double-mount, re-renders, back/forward)
-    if (hasRunRef.current) return;
-    hasRunRef.current = true;
-
+    const token = ++runTokenRef.current;
     let cancelled = false;
 
     (async () => {
       setCommitError(null);
       setIsCommitting(true);
+      setCommitMessage("");
       onError?.(null);
       onBusyChange?.(true);
-      onProgress?.("Preparing workspaces ...");
+      onProgress?.("Preparing workspaces...");
 
       try {
         const refs: { id: string; purpose: PurposeIdType }[] = [];
         for (const p of purposes) {
           refs.push(await workspaceService.createWorkspaceForPurpose(p));
         }
-        if (cancelled) return;
+
+        // Abort if superseded / unmounted
+        if (cancelled || token !== runTokenRef.current) return;
 
         bumpWorkspacesVersion();
 
@@ -88,44 +94,40 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
         if (!primary) throw new Error("Workspace not ready yet.");
 
         await commitManualImportIntoWorkspace({
-          selection,
+          selection: selectionRef.current,
           purposes,
           workspaceId: primary.id,
           purpose: primary.purpose,
           workspaceService,
           onProgress: (msg) => {
-            if (cancelled) return;
+            if (cancelled || token !== runTokenRef.current) return;
             setCommitMessage(msg);
             onProgress?.(msg);
           },
         });
 
-        if (cancelled) return;
+        if (cancelled || token !== runTokenRef.current) return;
 
         bumpWorkspacesVersion();
         onProgress?.("Import complete.");
         onDoneRef.current(primary.id);
       } catch (e: any) {
+        if (cancelled || token !== runTokenRef.current) return;
         const msg = e?.message || "Import failed";
-        if (!cancelled) {
-          setCommitError(msg);
-          onError?.(msg);
-        }
+        setCommitError(msg);
+        onError?.(msg);
       } finally {
-        if (!cancelled) {
-          setIsCommitting(false);
-          setCommitMessage("");
-          onBusyChange?.(false);
-        }
+        if (cancelled || token !== runTokenRef.current) return;
+        setIsCommitting(false);
+        setCommitMessage("");
+        onBusyChange?.(false);
       }
     })();
 
     return () => {
       cancelled = true;
     };
-
-    // IMPORTANT: depend on purposesKey, not purposes array identity
-  }, [purposesKey, workspaceService, bumpWorkspacesVersion, selection]);
+  }, [purposesKey, workspaceService, bumpWorkspacesVersion, onBusyChange, onProgress, onError]); 
   /* ---------------------------------------------------------- */
 
   /* -------------------- Main component rendering-------------------- */
@@ -135,9 +137,7 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
         <div className="text-sm text-red-600">{commitError}</div>
       ) : (
         <div className="text-sm text-neutral-600 dark:text-neutral-400">
-          {isCommitting
-            ? (commitMessage || "Importing ...")
-            : "All set — you can open Mindful."}
+          {isCommitting ? (commitMessage || "Importing ...") : "All set — you can open Mindful."}
         </div>
       )}
     </div>
