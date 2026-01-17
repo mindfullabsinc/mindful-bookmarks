@@ -91,6 +91,9 @@ export const OnboardingOverlay: React.FC = () => {
   const [manualCommitBusy, setManualCommitBusy] = useState(false);
   const [manualCommitMessage, setManualCommitMessage] = useState<string>("");
   const [manualCommitError, setManualCommitError] = useState<string | null>(null);
+
+  // Smart import state
+  const [smartImportBusy, setSmartImportBusy] = useState(false);
   /* ---------------------------------------------------------- */
 
   /* -------------------- Step config (dynamic) -------------------- */
@@ -148,13 +151,14 @@ export const OnboardingOverlay: React.FC = () => {
       body: (
         <SmartImportStep
           purposes={onboardingPurposes}
+          onBusyChange={setSmartImportBusy}
           // When Smart Import finishes, capture the primary workspace id
           onDone={(primaryWorkspaceId) => {
             setSmartImportPrimaryWorkspaceId(primaryWorkspaceId);
           }}
         />
       ),
-      primaryLabel: "Open Mindful",
+      primaryLabel: smartImportBusy ? "Thinking ..." : "Open Mindful",
       secondaryLabel: "Back",
       isFinal: true,
       // We'll compute disabled dynamically for this step below
@@ -246,7 +250,7 @@ export const OnboardingOverlay: React.FC = () => {
           onDone={(primaryWorkspaceId) => setManualImportPrimaryWorkspaceId(primaryWorkspaceId)}
         />
       ),
-      primaryLabel: "Open Mindful",
+      primaryLabel: manualCommitBusy ? "Thinking ..." : "Open Mindful",
       secondaryLabel: "Back",
       isFinal: true,
     });
@@ -291,7 +295,9 @@ export const OnboardingOverlay: React.FC = () => {
   const step = STEPS[clampedIndex];
   const isFirst = clampedIndex === 0;
   const isLast = !!step.isFinal || clampedIndex === totalSteps - 1;
-  const lockNav = step.id === "manualImportCommit" && manualCommitBusy;
+  const lockNav =
+    (step.id === "manualImportCommit" && manualCommitBusy) ||
+    (step.id === "smartImport" && smartImportBusy);
 
   // Primary button disabled logic:
   //   - For Smart and Manual Import steps: disabled until we have a primary workspace id

@@ -31,6 +31,7 @@ import { remoteGroupingLLM } from "@/scripts/import/groupingLLMRemote";
 type SmartImportStepProps = {
   purposes: PurposeIdType[];
   onDone: (primaryWorkspaceId: string) => void;
+  onBusyChange?: (busy: boolean) => void;
 };
 /* ---------------------------------------------------------- */
 
@@ -55,6 +56,7 @@ const MIN_PHASE_DURATION_MS = 800;
 export const SmartImportStep: React.FC<SmartImportStepProps> = ({
   purposes,
   onDone,
+  onBusyChange,
 }) => {
   const { userId, bumpWorkspacesVersion } = useContext(AppContext);
 
@@ -105,6 +107,7 @@ export const SmartImportStep: React.FC<SmartImportStepProps> = ({
     startedRef.current = true;
 
     let cancelled = false;
+    onBusyChange?.(true);
 
     (async () => {
       try {
@@ -118,13 +121,18 @@ export const SmartImportStep: React.FC<SmartImportStepProps> = ({
         if (!cancelled) {
           bumpWorkspacesVersion();
         }
+      } finally {
+        if (!cancelled) {
+          onBusyChange?.(false);
+        }
       }
     })();
 
     return () => {
       cancelled = true;
+      onBusyChange?.(false);
     };
-  }, [purposes, start, bumpWorkspacesVersion]);  
+  }, [purposes, start, bumpWorkspacesVersion, onBusyChange]);  
 
   /**
    * After backend is done, tell parent which workspace to activate.
@@ -136,9 +144,10 @@ export const SmartImportStep: React.FC<SmartImportStepProps> = ({
       primaryWorkspaceId
     ) {
       notifiedRef.current = true;
+      onBusyChange?.(false);
       onDone(primaryWorkspaceId);
     }
-  }, [backendPhase, primaryWorkspaceId, onDone]);
+  }, [backendPhase, primaryWorkspaceId, onDone, onBusyChange]);
   /* ---------------------------------------------------------- */
 
   /* -------------------- Visual phase smoothing -------------------- */
