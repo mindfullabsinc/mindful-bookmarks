@@ -101,7 +101,6 @@ export const OnboardingOverlay: React.FC = () => {
       'Create visual groups for different projects, save pages into those groups, and see your "board" every time you open a new tab.',
     body: <ThemeSelectorStep />,
     primaryLabel: "Next",
-    secondaryLabel: "Skip for now",
     hideBack: true,
   });
 
@@ -232,8 +231,7 @@ export const OnboardingOverlay: React.FC = () => {
 
     STEPS.push({
       id: "manualImportCommit" as any,
-      title: "Finishing up",
-      subtitle: "Hang tight while we set up your workspaces and bring everything in.",
+      title: "Finishing up.",
       body: (
         <ManualImportStep
           purposes={onboardingPurposes}
@@ -376,18 +374,7 @@ export const OnboardingOverlay: React.FC = () => {
           <div className="mt-4">{step.body}</div>
 
           {/* Footer: navigation + dots */}
-          <div className="mt-6 flex items-center justify-between">
-            <button
-              type="button"
-              className={`text-sm text-neutral-500 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 cursor-pointer ${
-                isFirst || step.hideBack ? "invisible" : ""
-              }`}
-              onClick={() => setStepIndex((prev) => Math.max(prev - 1, 0))}
-              disabled={isFirst || step.hideBack || lockNav}
-            >
-              Back
-            </button>
-
+          <div className="mt-6 flex items-center justify-end">
             <div className="flex items-center gap-3">
               {/* Dots */}
               <div className="flex gap-1">
