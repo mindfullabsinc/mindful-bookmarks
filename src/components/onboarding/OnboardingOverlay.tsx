@@ -6,6 +6,9 @@ import { AppContext, OnboardingStatus } from "@/scripts/AppContextProvider";
 /* Types */
 import type { WizardStep } from "@/components/shared/ImportBookmarksStepBody";
 
+/* Constants */
+import { ImportPostProcessMode } from "@/core/constants/import";
+
 /* Hooks */
 import { useManualImportWizardState } from "@/hooks/useManualImportWizardState";
 
@@ -173,7 +176,7 @@ export const OnboardingOverlay: React.FC = () => {
           />
         </div>
       ),
-      primaryLabel: "Next",
+      primaryLabel: nextOrSkip(manualState.jsonYes),
       secondaryLabel: "Back",
       primaryDisabled: manualState.jsonYes && !manualState.jsonData, // require file if they said yes
     });
@@ -191,7 +194,7 @@ export const OnboardingOverlay: React.FC = () => {
           />
         </div>
       ),
-      primaryLabel: "Next",
+      primaryLabel: nextOrSkip(manualState.bookmarksYes),
       secondaryLabel: "Back",
     });
 
@@ -208,11 +211,12 @@ export const OnboardingOverlay: React.FC = () => {
           />
         </div>
       ),
-      primaryLabel: "Next",
+      primaryLabel: nextOrSkip(manualState.tabsYes),
       secondaryLabel: "Back",
     });
 
     const step4Copy = getImportBookmarksStepCopy(4);
+    const autoOrganizeEnabled = manualState.postProcessMode === ImportPostProcessMode.SemanticGrouping;
     STEPS.push({
       id: "manualImportOrganize" as any,
       title: step4Copy.title,
@@ -225,7 +229,7 @@ export const OnboardingOverlay: React.FC = () => {
           />
         </div>
       ),
-      primaryLabel: "Next",
+      primaryLabel: nextOrSkip(autoOrganizeEnabled),
       secondaryLabel: "Back",
     });
 
@@ -331,6 +335,12 @@ export const OnboardingOverlay: React.FC = () => {
       setStepIndex((prev) => Math.max(prev - 1, 0));
     }
   };
+  /* ---------------------------------------------------------- */
+
+  /* -------------------- Helper functions -------------------- */
+  function nextOrSkip(checked: boolean): string {
+    return checked ? "Next" : "Skip";
+  }
   /* ---------------------------------------------------------- */
 
   /* -------------------- Main component rendering -------------------- */
