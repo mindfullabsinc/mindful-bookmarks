@@ -6,13 +6,10 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Loader2, Wand2 } from "lucide-react";
 
 /* Types */
 import type { PurposeIdType } from "@shared/types/purposeId";
-
-/* Constants */
-import { PHASE_MESSAGES } from "@/core/constants/smartImportPhase";
+import type { ImportPhase } from "@/core/types/importPhase";
 
 /* Hooks */
 import { useSmartImport } from "@/hooks/useSmartImport";
@@ -25,6 +22,9 @@ import { createWorkspaceServiceLocal } from "@/scripts/import/workspaceServiceLo
 import { chromeBrowserSourceService } from "@/scripts/import/browserSourceServiceChrome";
 import { basicNsfwFilter } from "@/scripts/import/nsfwFilter";
 import { remoteGroupingLLM } from "@/scripts/import/groupingLLMRemote";
+
+/* Components */
+import { ImportProgress } from "@/components/shared/ImportProgress";
 /* ---------------------------------------------------------- */
 
 /* -------------------- Local types -------------------- */
@@ -44,9 +44,6 @@ const PHASE_SEQUENCE = [
   "persisting",
   "done",
 ] as const;
-type VisualPhase = (typeof PHASE_SEQUENCE)[number];
-
-const MIN_PHASE_DURATION_MS = 800;
 
 /**
  * Smart import progress step that orchestrates the background import and shows visual phase updates.
@@ -90,13 +87,9 @@ export const SmartImportStep: React.FC<SmartImportStepProps> = ({
   // Guard so we only call onDone once per mount
   const notifiedRef = useRef(false);
 
-  // Visual phase index for the loading UI
-  const [visualPhaseIndex, setVisualPhaseIndex] = useState(0);
   const [primaryWorkspaceId, setPrimaryWorkspaceId] = useState<string | null>(
     null
   );
-
-  const visualPhase: VisualPhase = PHASE_SEQUENCE[visualPhaseIndex];
 
   /**
    * Kick off the smart import job once the component mounts and purposes are available.
@@ -150,89 +143,50 @@ export const SmartImportStep: React.FC<SmartImportStepProps> = ({
   }, [backendPhase, primaryWorkspaceId, onDone, onBusyChange]);
   /* ---------------------------------------------------------- */
 
-  /* -------------------- Visual phase smoothing -------------------- */
-  // Whenever the backend phase moves ahead in the sequence, walk the
-  // visual phase forward one step every MIN_PHASE_DURATION_MS until
-  // it catches up. This guarantees intermediate steps are visible.
-  /**
-   * Smooth the UI progress by advancing one phase at a time until it catches up with the backend.
-   */
-  useEffect(() => {
-    const backendIndex = PHASE_SEQUENCE.indexOf(
-      backendPhase as VisualPhase
-    );
-    if (backendIndex === -1) return;
-
-    if (backendIndex <= visualPhaseIndex) return;
-
-    const timeout = setTimeout(() => {
-      setVisualPhaseIndex((prev) =>
-        Math.min(prev + 1, backendIndex)
-      );
-    }, MIN_PHASE_DURATION_MS);
-
-    return () => clearTimeout(timeout);
-  }, [backendPhase, visualPhaseIndex]);
-  /* ---------------------------------------------------------- */
-
-  const effectiveMessage =
-    visualPhase === "done"
-      ? message || PHASE_MESSAGES[visualPhase]
-      : PHASE_MESSAGES[visualPhase] || "Working on your Smart Import…";
-
-  // Map visual phases → progress width
-  const progressWidthClass =
-    visualPhase === "initializing"
-      ? "w-1/6"
-      : visualPhase === "collecting"
-      ? "w-2/6"
-      : visualPhase === "filtering"
-      ? "w-3/6"
-      : visualPhase === "categorizing"
-      ? "w-4/6"
-      : visualPhase === "persisting"
-      ? "w-5/6"
-      : visualPhase === "done"
-      ? "w-full"
-      : "w-0";
-
   /* -------------------- Main component logic -------------------- */
   return (
-    <div className="s_import-container">
+    <ImportProgress
+      phaseSequence={PHASE_SEQUENCE}
+      backendPhase={backendPhase as ImportPhase}
+      backendMessage={message}
+      donePhaseId="done"
+    /> 
+
+    // <div className="s_import-container">
       
-      {/* Icon */}
-      <div className="s_import-icon-container">
-        {visualPhase === "done" ? (
-          <Wand2 className="s_import-icon s_import-icon-wand" />
-        ) : (
-          <Loader2 className="s_import-icon s_import-icon-loader" />
-        )}
-      </div>
+    //   {/* Icon */}
+    //   <div className="s_import-icon-container">
+    //     {visualPhase === "done" ? (
+    //       <Wand2 className="s_import-icon s_import-icon-wand" />
+    //     ) : (
+    //       <Loader2 className="s_import-icon s_import-icon-loader" />
+    //     )}
+    //   </div>
 
-      {/* Title */}
-      <h2 className="s_import-title">
-        {visualPhase === "done" ? "You're all set!" : "Preparing your space ..."}
-      </h2>
+    //   {/* Title */}
+    //   <h2 className="s_import-title">
+    //     {visualPhase === "done" ? "You're all set!" : "Preparing your space ..."}
+    //   </h2>
 
-      {/* Dynamic message from backend/visual progress */}
-      <p className="s_import-dynamic-message">
-        {effectiveMessage}
-      </p>
+    //   {/* Dynamic message from backend/visual progress */}
+    //   <p className="s_import-dynamic-message">
+    //     {effectiveMessage}
+    //   </p>
 
-      {/* Progress bar */}
-      <div className="s_import-progress-bar-container">
-        <div
-          className={`s_import-progress-bar ${progressWidthClass}`}
-        />
-      </div>
+    //   {/* Progress bar */}
+    //   <div className="s_import-progress-bar-container">
+    //     <div
+    //       className={`s_import-progress-bar ${progressWidthClass}`}
+    //     />
+    //   </div>
 
-      {/* Tiny reassurance text */}
-      {visualPhase !== "done" && (
-        <p className="s_import-reassurance-text">
-          This only takes a few seconds.
-        </p>
-      )}
+    //   {/* Tiny reassurance text */}
+    //   {visualPhase !== "done" && (
+    //     <p className="s_import-reassurance-text">
+    //       This only takes a few seconds.
+    //     </p>
+    //   )}
 
-    </div>
+    // </div>
   );
 };

@@ -239,7 +239,7 @@ export const OnboardingOverlay: React.FC = () => {
 
     STEPS.push({
       id: "manualImportCommit" as any,
-      title: "Finishing up.",
+      title: "Finishing up ...",
       body: (
         <ManualImportStep
           purposes={onboardingPurposes}

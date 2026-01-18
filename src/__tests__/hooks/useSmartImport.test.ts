@@ -2,7 +2,7 @@ import { renderHook, act } from "@testing-library/react";
 import { useSmartImport } from "@/hooks/useSmartImport";
 import { runSmartImport } from "@/scripts/import/smartImport";
 import { PurposeId } from "@shared/constants/purposeId";
-import type { SmartImportPhase } from "@/core/types/smartImportPhase";
+import type { ImportPhase } from "@/core/types/importPhase";
 import type { PurposeIdType } from "@shared/types/purposeId";
 
 jest.mock("@/scripts/import/smartImport", () => ({
@@ -22,7 +22,7 @@ describe("useSmartImport", () => {
     mockedRunSmartImport.mockImplementation(async (options: any) => {
       // Simulate progress callback being invoked by the pipeline
       options.onProgress({
-        phase: "initializing" as SmartImportPhase,
+        phase: "initializing" as ImportPhase,
         message: "Importing your stuff…",
         totalItems: 42,
         processedItems: 10,

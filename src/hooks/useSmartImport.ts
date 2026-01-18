@@ -8,7 +8,7 @@ import {
 } from "@/scripts/import/smartImport";
 
 /* Types */
-import type { SmartImportPhase } from "@/core/types/smartImportPhase";
+import type { ImportPhase } from "@/core/types/importPhase";
 import type { PurposeIdType } from "@shared/types/purposeId";
 
 /**
@@ -20,15 +20,15 @@ import type { PurposeIdType } from "@shared/types/purposeId";
 export function useSmartImport(
   baseOptions: Omit<SmartImportOptions, "purposes" | "onProgress">
 ) {
-  const [phase, setPhase] = useState<SmartImportPhase>("initializing");
-  const [message, setMessage] = useState<string>("Starting Smart Import…");
+  const [phase, setPhase] = useState<ImportPhase>("initializing");
+  const [message, setMessage] = useState<string>("Starting Smart Import ...");
   const [totalItems, setTotalItems] = useState<number | undefined>();
   const [processedItems, setProcessedItems] = useState<number | undefined>();
 
   const start = useCallback(
     async (purposes: PurposeIdType[]): Promise<string | null> => {
       setPhase("initializing");
-      setMessage("Starting Smart Import…");
+      setMessage("Starting Smart Import ...");
       setTotalItems(undefined);
       setProcessedItems(undefined);
 
