@@ -26,6 +26,7 @@ type ImportProgressProps = {
   idleTitle?: string;
   doneTitle?: string;
   reassuranceText?: string;
+  onVisualDoneChange?: (done: boolean) => void;
 };
 /* ---------------------------------------------------------- */
 
@@ -91,6 +92,7 @@ export const ImportProgress: React.FC<ImportProgressProps> = ({
   idleTitle = "Preparing your space ...",
   doneTitle = "You're all set!",
   reassuranceText = "This only takes a few seconds.",
+  onVisualDoneChange,
 }) => {
   const { visualPhase, visualPhaseIndex } = useSmoothedPhase(
     phaseSequence,
@@ -98,6 +100,10 @@ export const ImportProgress: React.FC<ImportProgressProps> = ({
   );
 
   const isDone = visualPhase === donePhaseId;
+
+  useEffect(() => {
+    onVisualDoneChange?.(isDone);
+  }, [isDone, onVisualDoneChange]);
 
   const effectiveMessage =
     isDone

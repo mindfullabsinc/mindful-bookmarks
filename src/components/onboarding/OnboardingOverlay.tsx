@@ -158,7 +158,7 @@ export const OnboardingOverlay: React.FC = () => {
           }}
         />
       ),
-      primaryLabel: smartImportBusy ? "Thinking ..." : "Open Mindful",
+      primaryLabel: "Open Mindful",
       secondaryLabel: "Back",
       isFinal: true,
       // We'll compute disabled dynamically for this step below
@@ -239,7 +239,7 @@ export const OnboardingOverlay: React.FC = () => {
 
     STEPS.push({
       id: "manualImportCommit" as any,
-      title: "Finishing up ...",
+      title: "Setting things up ...",
       body: (
         <ManualImportStep
           purposes={onboardingPurposes}
@@ -250,7 +250,7 @@ export const OnboardingOverlay: React.FC = () => {
           onDone={(primaryWorkspaceId) => setManualImportPrimaryWorkspaceId(primaryWorkspaceId)}
         />
       ),
-      primaryLabel: manualCommitBusy ? "Thinking ..." : "Open Mindful",
+      primaryLabel: "Open Mindful",
       secondaryLabel: "Back",
       isFinal: true,
     });
@@ -295,19 +295,28 @@ export const OnboardingOverlay: React.FC = () => {
   const step = STEPS[clampedIndex];
   const isFirst = clampedIndex === 0;
   const isLast = !!step.isFinal || clampedIndex === totalSteps - 1;
+
   const lockNav =
     (step.id === "manualImportCommit" && manualCommitBusy) ||
     (step.id === "smartImport" && smartImportBusy);
+
+  const isFinishGatedStep =
+    step.id === "smartImport" || step.id === "manualImportCommit";
+
+  const canFinish =
+    step.id === "smartImport"
+      ? !!smartImportPrimaryWorkspaceId
+      : step.id === "manualImportCommit"
+      ? !!manualImportPrimaryWorkspaceId
+      : false;
 
   // Primary button disabled logic:
   //   - For Smart and Manual Import steps: disabled until we have a primary workspace id
   //   - For others: use step.primaryDisabled
   const primaryDisabled =
-    lockNav || 
-    (step.id === "smartImport"
-      ? !smartImportPrimaryWorkspaceId
-      : step.id === "manualImportCommit"
-      ? !manualImportPrimaryWorkspaceId || !!step.primaryDisabled
+    lockNav ||
+    (step.id === "smartImport" || step.id === "manualImportCommit"
+      ? !canFinish
       : !!step.primaryDisabled);
 
   /* -------------------- Handlers -------------------- */
@@ -424,7 +433,9 @@ export const OnboardingOverlay: React.FC = () => {
                   onClick={handlePrimary}
                   disabled={primaryDisabled}
                 >
-                  {step.primaryLabel}
+                  {isFinishGatedStep
+                    ? (canFinish ? step.primaryLabel : "Finishing up ...")
+                    : step.primaryLabel}
                 </button>
               </div>
             </div>

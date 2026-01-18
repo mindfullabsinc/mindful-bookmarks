@@ -77,6 +77,9 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
   // Backend phase for progress UI
   const [backendPhase, setBackendPhase] = useState<ImportPhase>("initializing");
 
+  const [visualDone, setVisualDone] = useState(false);
+  const [pendingDoneWorkspaceId, setPendingDoneWorkspaceId] = useState<string | null>(null);
+
   // Keep latest callbacks/selection without re-triggering effect
   const onDoneRef = useRef(onDone);
   const selectionRef = useRef(selection);
@@ -108,6 +111,8 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
       setIsCommitting(true);
       setCommitMessage("");
       setBackendPhase("initializing");
+      setPendingDoneWorkspaceId(null);
+      setVisualDone(false);
       onError?.(null);
       onBusyChange?.(true);
       onProgress?.("Preparing workspaces...");
@@ -157,11 +162,12 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
 
         bumpWorkspacesVersion();
         setBackendPhase("finalizing");
+        setCommitMessage("Import complete.");
         onProgress?.("Import complete.");
 
         // Done
         setBackendPhase("done");
-        onDoneRef.current(primary.id);
+        setPendingDoneWorkspaceId(primary.id);
       } catch (e: any) {
         if (cancelled || token !== runTokenRef.current) return;
         const msg = e?.message || "Import failed";
@@ -170,7 +176,7 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
       } finally {
         if (cancelled || token !== runTokenRef.current) return;
         setIsCommitting(false);
-        setCommitMessage("");
+        // Keep last commit message around so the UI doesn't go empty while it smooths to done.
         onBusyChange?.(false);
       }
     })();
@@ -187,6 +193,12 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
     onError,
     autoOrganizeEnabled,
   ]);
+
+  useEffect(() => {
+    if (!pendingDoneWorkspaceId) return;
+    if (!visualDone) return;
+    onDoneRef.current(pendingDoneWorkspaceId);
+  }, [pendingDoneWorkspaceId, visualDone]);
   /* ---------------------------------------------------------- */
 
   /* -------------------- Main component rendering-------------------- */
@@ -198,6 +210,7 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
         backendPhase={backendPhase}
         backendMessage={commitMessage}
         donePhaseId="done"
+        onVisualDoneChange={setVisualDone}
       />
     );
   }

@@ -91,6 +91,8 @@ export const SmartImportStep: React.FC<SmartImportStepProps> = ({
     null
   );
 
+  const [visualDone, setVisualDone] = useState(false);
+
   /**
    * Kick off the smart import job once the component mounts and purposes are available.
    */
@@ -134,13 +136,14 @@ export const SmartImportStep: React.FC<SmartImportStepProps> = ({
     if (
       !notifiedRef.current &&
       backendPhase === "done" &&
-      primaryWorkspaceId
+      primaryWorkspaceId &&
+      visualDone 
     ) {
       notifiedRef.current = true;
       onBusyChange?.(false);
       onDone(primaryWorkspaceId);
     }
-  }, [backendPhase, primaryWorkspaceId, onDone, onBusyChange]);
+  }, [backendPhase, primaryWorkspaceId, visualDone, onDone, onBusyChange]);
   /* ---------------------------------------------------------- */
 
   /* -------------------- Main component logic -------------------- */
@@ -150,43 +153,7 @@ export const SmartImportStep: React.FC<SmartImportStepProps> = ({
       backendPhase={backendPhase as ImportPhase}
       backendMessage={message}
       donePhaseId="done"
+      onVisualDoneChange={setVisualDone}
     /> 
-
-    // <div className="s_import-container">
-      
-    //   {/* Icon */}
-    //   <div className="s_import-icon-container">
-    //     {visualPhase === "done" ? (
-    //       <Wand2 className="s_import-icon s_import-icon-wand" />
-    //     ) : (
-    //       <Loader2 className="s_import-icon s_import-icon-loader" />
-    //     )}
-    //   </div>
-
-    //   {/* Title */}
-    //   <h2 className="s_import-title">
-    //     {visualPhase === "done" ? "You're all set!" : "Preparing your space ..."}
-    //   </h2>
-
-    //   {/* Dynamic message from backend/visual progress */}
-    //   <p className="s_import-dynamic-message">
-    //     {effectiveMessage}
-    //   </p>
-
-    //   {/* Progress bar */}
-    //   <div className="s_import-progress-bar-container">
-    //     <div
-    //       className={`s_import-progress-bar ${progressWidthClass}`}
-    //     />
-    //   </div>
-
-    //   {/* Tiny reassurance text */}
-    //   {visualPhase !== "done" && (
-    //     <p className="s_import-reassurance-text">
-    //       This only takes a few seconds.
-    //     </p>
-    //   )}
-
-    // </div>
   );
 };
