@@ -21,6 +21,7 @@ import { ManualImportStep } from "@/components/onboarding/ManualImportStep";
 import { FinishUpStep } from "@/components/onboarding/FinishUpStep";
 import { ImportBookmarksStepBody } from "@/components/shared/ImportBookmarksStepBody";
 import { getImportBookmarksStepCopy } from "@/components/shared/ImportBookmarksStepBody";
+import { AiDisclosure } from "@/components/privacy/AiDisclosure";
 /* ---------------------------------------------------------- */
 
 /* -------------------- Local types / interfaces -------------------- */

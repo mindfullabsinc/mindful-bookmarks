@@ -20,6 +20,7 @@ import { commitManualImportIntoWorkspace } from "@/scripts/import/commitManualIm
 
 /* Components */
 import { ImportProgress } from "@/components/shared/ImportProgress";
+import { AiDisclosure } from "@/components/privacy/AiDisclosure";
 /* ---------------------------------------------------------- */
 
 /* -------------------- Constants -------------------- */
@@ -196,22 +197,33 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
 
   useEffect(() => {
     if (!pendingDoneWorkspaceId) return;
-    if (!visualDone) return;
-    onDoneRef.current(pendingDoneWorkspaceId);
-  }, [pendingDoneWorkspaceId, visualDone]);
+      // If AI is enabled, wait until the progress UI finishes its visual "done" animation.
+      if (autoOrganizeEnabled) {
+        if (!visualDone) return;
+      }
+      // If AI is NOT enabled, we never render ImportProgress, so visualDone will never flip.
+      // In that case, notify immediately once the commit is complete.
+      onDoneRef.current(pendingDoneWorkspaceId);
+    }, [pendingDoneWorkspaceId, visualDone, autoOrganizeEnabled]);
   /* ---------------------------------------------------------- */
 
   /* -------------------- Main component rendering-------------------- */
   // If AI is enabled, show the shared SmartImport-style UI
   if (autoOrganizeEnabled) {
     return (
-      <ImportProgress
-        phaseSequence={phaseSequence}
-        backendPhase={backendPhase}
-        backendMessage={commitMessage}
-        donePhaseId="done"
-        onVisualDoneChange={setVisualDone}
-      />
+      <div className="space-y-3">
+        <div className="flex justify-end">
+          <AiDisclosure variant="compact" serviceName="OpenAI" />
+        </div>
+
+        <ImportProgress
+          phaseSequence={phaseSequence}
+          backendPhase={backendPhase}
+          backendMessage={commitMessage}
+          donePhaseId="done"
+          onVisualDoneChange={setVisualDone}
+        />
+      </div>
     );
   }
 

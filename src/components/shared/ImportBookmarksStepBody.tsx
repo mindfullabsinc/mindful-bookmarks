@@ -7,6 +7,9 @@ import { ImportPostProcessMode, OpenTabsScope } from "@/core/constants/import";
 /* Types */
 import type { ImportPostProcessModeType, OpenTabsScopeType } from "@/core/types/import";
 
+/* Components */
+import { AiDisclosure } from "@/components/privacy/AiDisclosure";
+
 /* CSS */
 import "@/styles/components/shared/ImportBookmarksContent.css";
 /* ---------------------------------------------------------- */
@@ -156,6 +159,7 @@ export function ImportBookmarksStepBody({
     return (
       <div className="body-container">
         {renderStepHeader()}
+
         <YesCheckboxRow
           checked={state.jsonYes}
           onToggle={() => {
@@ -293,6 +297,12 @@ export function ImportBookmarksStepBody({
   return (
     <div className="body-container">
       {renderStepHeader()}
+
+      {/* Disclosure lives here so it appears in BOTH onboarding + modal manual import flows */}
+      <div className="mb-3">
+        <AiDisclosure variant="inline" serviceName="OpenAI" />
+      </div>
+
       <YesCheckboxRow
         checked={semanticYes}
         onToggle={() => {

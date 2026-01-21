@@ -4,6 +4,9 @@ import {
   Wand2,
   PlusSquare,
 } from "lucide-react";
+
+/* Components */
+import { AiDisclosure } from "@/components/privacy/AiDisclosure";
 /* ---------------------------------------------------------- */
 
 /* -------------------- Local types -------------------- */
@@ -50,7 +53,7 @@ export const ImportBookmarksStep: React.FC<ImportBookmarksStepProps> = ({
   useEffect(() => {
     const disabled = importChoice === null;
     setPrimaryDisabled?.(disabled);
-  }, [importChoice, setPrimaryDisabled, onSelectionChange]);
+  }, [importChoice, setPrimaryDisabled]);
   /* ---------------------------------------------------------- */
 
   /* -------------------- Main component logic -------------------- */
@@ -82,6 +85,13 @@ export const ImportBookmarksStep: React.FC<ImportBookmarksStepProps> = ({
               </p>
             </div>
           </button>
+
+          {/* Informational disclosure (no gating) */}
+          {importChoice === "smart" && (
+            <div className="mt-3">
+              <AiDisclosure variant="inline" serviceName="OpenAI" />
+            </div>
+          )}
 
           {/* Manual Import */}
           <button

@@ -25,6 +25,7 @@ import { remoteGroupingLLM } from "@/scripts/import/groupingLLMRemote";
 
 /* Components */
 import { ImportProgress } from "@/components/shared/ImportProgress";
+import { AiDisclosure } from "@/components/privacy/AiDisclosure";
 /* ---------------------------------------------------------- */
 
 /* -------------------- Local types -------------------- */
@@ -148,12 +149,18 @@ export const SmartImportStep: React.FC<SmartImportStepProps> = ({
 
   /* -------------------- Main component logic -------------------- */
   return (
-    <ImportProgress
-      phaseSequence={PHASE_SEQUENCE}
-      backendPhase={backendPhase as ImportPhase}
-      backendMessage={message}
-      donePhaseId="done"
-      onVisualDoneChange={setVisualDone}
-    /> 
-  );
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <AiDisclosure variant="compact" serviceName="OpenAI" />
+      </div>
+    
+      <ImportProgress
+        phaseSequence={PHASE_SEQUENCE}
+        backendPhase={backendPhase as ImportPhase}
+        backendMessage={message}
+        donePhaseId="done"
+        onVisualDoneChange={setVisualDone}
+      />
+    </div> 
+  )
 };
