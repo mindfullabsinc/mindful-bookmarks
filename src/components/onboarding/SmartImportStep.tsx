@@ -150,10 +150,6 @@ export const SmartImportStep: React.FC<SmartImportStepProps> = ({
   /* -------------------- Main component logic -------------------- */
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
-        <AiDisclosure variant="compact" serviceName="OpenAI" />
-      </div>
-    
       <ImportProgress
         phaseSequence={PHASE_SEQUENCE}
         backendPhase={backendPhase as ImportPhase}

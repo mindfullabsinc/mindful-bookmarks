@@ -212,10 +212,6 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
   if (autoOrganizeEnabled) {
     return (
       <div className="space-y-3">
-        <div className="flex justify-end">
-          <AiDisclosure variant="compact" serviceName="OpenAI" />
-        </div>
-
         <ImportProgress
           phaseSequence={phaseSequence}
           backendPhase={backendPhase}

@@ -13,57 +13,59 @@ export function AiDisclosure({
 
   if (variant === "compact") {
     return (
-      <button
-        type="button"
-        className="text-xs text-slate-600 underline hover:text-slate-800"
-        onClick={() => setOpen((v) => !v)}
-      >
-        How automatic organization works
-        {open && (
-          <div className="mt-2 rounded-lg border border-slate-200 bg-white p-3 text-left text-xs text-slate-700 shadow-sm">
-            <AiDisclosureBody serviceName={serviceName} />
-          </div>
-        )}
-      </button>
+      <div className="ai-disclosure-styles">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+        >
+          How automatic organization works
+          {open && (
+            <div className="body-container-compact">
+              <AiDisclosureBody serviceName={serviceName} />
+            </div>
+          )}
+        </button>
+      </div>
     );
   }
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="text-sm font-semibold text-slate-900">
-            How automatic organization works
+    <div className="ai-disclosure-styles">
+      <div className="container-inline">
+        <div className="subcontainer-inline">
+          <div>
+            <div className="inline-title">
+              How automatic organization works
+            </div>
+            <div className="inline-subtitle">
+              Mindful can organize bookmarks using an AI service ({serviceName}).
+            </div>
           </div>
-          <div className="mt-1 text-sm text-slate-700">
-            Mindful can organize bookmarks using an AI service ({serviceName}).
-          </div>
+
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+          >
+            {open ? "Hide" : "Learn more"}
+          </button>
         </div>
 
-        <button
-          type="button"
-          className="text-sm text-slate-600 underline hover:text-slate-800"
-          onClick={() => setOpen((v) => !v)}
-        >
-          {open ? "Hide" : "Learn more"}
-        </button>
+        {open && (
+          <div className="body-container-inline">
+            <AiDisclosureBody serviceName={serviceName} />
+          </div>
+        )}
       </div>
-
-      {open && (
-        <div className="mt-3 text-sm text-slate-700">
-          <AiDisclosureBody serviceName={serviceName} />
-        </div>
-      )}
     </div>
   );
 }
 
 function AiDisclosureBody({ serviceName }: { serviceName: string }) {
   return (
-    <ul className="list-disc space-y-1 pl-5">
+    <ul>
       <li>
-        Mindful sends <span className="font-medium">bookmark titles</span> and{" "}
-        <span className="font-medium">sanitized URLs</span> to {serviceName} to
+        Mindful sends <span>bookmark titles</span> and{" "}
+        <span>sanitized URLs</span> to {serviceName} to
         generate groups.
       </li>
       <li>No page content is sent.</li>
