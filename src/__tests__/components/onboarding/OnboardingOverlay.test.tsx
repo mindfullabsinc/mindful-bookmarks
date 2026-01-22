@@ -62,10 +62,6 @@ jest.mock("@/components/onboarding/SmartImportStep", () => ({
   },
 }));
 
-jest.mock("@/components/onboarding/FinishUpStep", () => ({
-  FinishUpStep: () => <div data-testid="finish-step" />,
-}));
-
 // ---- Helpers ----
 
 type CtxOverrides = Partial<React.ContextType<typeof AppContext>>;

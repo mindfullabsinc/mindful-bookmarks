@@ -18,7 +18,7 @@ import { PurposeStep } from "@/components/onboarding/PurposeStep";
 import { ImportBookmarksStep } from "@/components/onboarding/ImportBookmarksStep";
 import { SmartImportStep } from "@/components/onboarding/SmartImportStep";
 import { ManualImportStep } from "@/components/onboarding/ManualImportStep";
-import { FinishUpStep } from "@/components/onboarding/FinishUpStep";
+import { PinExtensionStep } from "@/components/onboarding/PinExtensionStep";
 import { ImportBookmarksStepBody } from "@/components/shared/ImportBookmarksStepBody";
 import { getImportBookmarksStepCopy } from "@/components/shared/ImportBookmarksStepBody";
 /* ---------------------------------------------------------- */
@@ -34,7 +34,7 @@ type OnboardingStepId =
   | "manualImportTabs"
   | "manualImportOrganize"
   | "manualImportCommit"
-  | "finishUp"
+  | "pinExtension"
   | "tips";
 
 type OnboardingStepConfig = {
@@ -158,9 +158,8 @@ export const OnboardingOverlay: React.FC = () => {
           }}
         />
       ),
-      primaryLabel: "Open Mindful",
+      primaryLabel: "Next",
       secondaryLabel: "Back",
-      isFinal: true,
       // We'll compute disabled dynamically for this step below
     });
 
@@ -250,11 +249,20 @@ export const OnboardingOverlay: React.FC = () => {
           onDone={(primaryWorkspaceId) => setManualImportPrimaryWorkspaceId(primaryWorkspaceId)}
         />
       ),
-      primaryLabel: "Open Mindful",
+      primaryLabel: "Next",
       secondaryLabel: "Back",
-      isFinal: true,
     });
   }
+
+  STEPS.push({
+    id: "pinExtension",
+    title: "Pin Mindful to your toolbar",
+    subtitle: "So Mindful is always one click away.",
+    body: <PinExtensionStep />,
+    primaryLabel: "Open Mindful",
+    secondaryLabel: "Back",
+    isFinal: true,
+  });
   /* ---------------------------------------------------------- */
 
   /* -------------------- Effects -------------------- */
@@ -321,17 +329,17 @@ export const OnboardingOverlay: React.FC = () => {
 
   /* -------------------- Handlers -------------------- */
   const handlePrimary = async () => {
-    // If the button is disabled, do nothing (extra safety)
     if (primaryDisabled) return;
 
     if (isLast) {
-      // On the final Smart or Manual Import step, set the active workspace before completing onboarding
-      if (step.id === "smartImport" && smartImportPrimaryWorkspaceId) {
-        await setActiveWorkspaceId(smartImportPrimaryWorkspaceId as any);
+      // ✅ pick whichever workflow produced a workspace id
+      const primaryWorkspaceId =
+        smartImportPrimaryWorkspaceId ?? manualImportPrimaryWorkspaceId;
+
+      if (primaryWorkspaceId) {
+        await setActiveWorkspaceId(primaryWorkspaceId as any);
       }
-      if (step.id === "manualImportCommit" && manualImportPrimaryWorkspaceId) {
-        await setActiveWorkspaceId(manualImportPrimaryWorkspaceId as any);
-      }
+
       await completeOnboarding();
       return;
     }
