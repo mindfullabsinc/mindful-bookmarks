@@ -125,17 +125,17 @@ it("renders the first step with the welcome title", () => {
   expect(nextButton).toBeEnabled();
 });
 
-it("invokes skipOnboarding when 'Skip for now' is clicked on the first step", async () => {
+it("invokes skipOnboarding when 'Skip onboarding' is clicked on the first step", async () => {
   const user = userEvent.setup();
   const skipOnboarding = jest.fn().mockResolvedValue(undefined);
 
   const { value } = renderWithContext({ skipOnboarding });
 
-  const skipForNowButton = screen.getByRole("button", {
-    name: /skip for now/i,
+  const skipButton = screen.getByRole("button", {
+    name: /skip onboarding/i,
   });
 
-  await user.click(skipForNowButton);
+  await user.click(skipButton);
 
   expect(value.skipOnboarding).toHaveBeenCalledTimes(1);
 });
@@ -188,41 +188,31 @@ it("steps through the flow and finishes Smart Import, setting active workspace a
 
   // Step 4: smart import
   expect(screen.getByTestId("smart-import-step")).toBeInTheDocument();
-  const openButton = screen.getByRole("button", {
-   name: /open mindful/i,
-  });
 
-  // Disabled until SmartImportStep reports primary workspace id
-  expect(openButton).toBeDisabled();
+  // Primary is gated; while not done it shows "Finishing up ..." and is disabled
+  const finishingUpButton = screen.getByRole("button", {
+    name: /finishing up/i,
+  });
+  expect(finishingUpButton).toBeDisabled();
 
   act(() => {
     lastSmartImportStepProps.onDone("ws-123");
   });
 
-  const enabledOpenButton = screen.getByRole("button", {
+  // Once done, the label switches to the step's primaryLabel ("Next") and becomes enabled
+  const nextAfterImport = screen.getByRole("button", { name: /next/i });
+  expect(nextAfterImport).toBeEnabled();
+  await user.click(nextAfterImport);
+  
+  // Step 5: pin extension (final)
+  const openMindfulButton = screen.getByRole("button", {
     name: /open mindful/i,
   });
-  expect(enabledOpenButton).toBeEnabled();
-
-  await user.click(enabledOpenButton);
+  expect(openMindfulButton).toBeEnabled();
+  await user.click(openMindfulButton);
 
   await waitFor(() => {
     expect(value.setActiveWorkspaceId).toHaveBeenCalledWith("ws-123");
     expect(value.completeOnboarding).toHaveBeenCalledTimes(1);
   });
-});
-
-it("calls skipOnboarding when 'Skip onboarding' header button is clicked", async () => {
-  const user = userEvent.setup();
-  const skipOnboarding = jest.fn().mockResolvedValue(undefined);
-
-  const { value } = renderWithContext({ skipOnboarding });
-
-  const headerSkipButton = screen.getByRole("button", {
-    name: /skip onboarding/i,
-  });
-
-  await user.click(headerSkipButton);
-
-  expect(value.skipOnboarding).toHaveBeenCalledTimes(1);
 });

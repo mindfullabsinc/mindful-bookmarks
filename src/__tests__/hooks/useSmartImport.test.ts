@@ -23,7 +23,7 @@ describe("useSmartImport", () => {
       // Simulate progress callback being invoked by the pipeline
       options.onProgress({
         phase: "initializing" as ImportPhase,
-        message: "Importing your stuff…",
+        message: "Importing your stuff ...",
         totalItems: 42,
         processedItems: 10,
       });
@@ -38,7 +38,7 @@ describe("useSmartImport", () => {
 
     // Initial state
     expect(result.current.phase).toBe("initializing");
-    expect(result.current.message).toBe("Starting Smart Import…");
+    expect(result.current.message).toBe("Starting Smart Import ...");
     expect(result.current.totalItems).toBeUndefined();
     expect(result.current.processedItems).toBeUndefined();
 
@@ -61,7 +61,7 @@ describe("useSmartImport", () => {
 
     // State updated from onProgress
     expect(result.current.phase).toBe("initializing"); // from our mock
-    expect(result.current.message).toBe("Importing your stuff…");
+    expect(result.current.message).toBe("Importing your stuff ...");
     expect(result.current.totalItems).toBe(42);
     expect(result.current.processedItems).toBe(10);
 
