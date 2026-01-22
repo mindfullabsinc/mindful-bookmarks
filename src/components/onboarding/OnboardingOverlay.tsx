@@ -3,13 +3,24 @@ import React, { useContext, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AppContext, OnboardingStatus } from "@/scripts/AppContextProvider";
 
+/* Types */
+import type { WizardStep } from "@/components/shared/ImportBookmarksStepBody";
+
+/* Constants */
+import { ImportPostProcessMode } from "@/core/constants/import";
+
+/* Hooks */
+import { useManualImportWizardState } from "@/hooks/useManualImportWizardState";
+
 /* Components */
 import { ThemeSelectorStep } from "@/components/onboarding/ThemeSelectorStep";
 import { PurposeStep } from "@/components/onboarding/PurposeStep";
 import { ImportBookmarksStep } from "@/components/onboarding/ImportBookmarksStep";
 import { SmartImportStep } from "@/components/onboarding/SmartImportStep";
 import { ManualImportStep } from "@/components/onboarding/ManualImportStep";
-import { FinishUpStep } from "@/components/onboarding/FinishUpStep";
+import { PinExtensionStep } from "@/components/onboarding/PinExtensionStep";
+import { ImportBookmarksStepBody } from "@/components/shared/ImportBookmarksStepBody";
+import { getImportBookmarksStepCopy } from "@/components/shared/ImportBookmarksStepBody";
 /* ---------------------------------------------------------- */
 
 /* -------------------- Local types / interfaces -------------------- */
@@ -18,8 +29,12 @@ type OnboardingStepId =
   | "setPurpose"
   | "importBookmarks"
   | "smartImport"
-  | "manualImport"
-  | "finishUp"
+  | "manualImportJson"
+  | "manualImportBookmarks"
+  | "manualImportTabs"
+  | "manualImportOrganize"
+  | "manualImportCommit"
+  | "pinExtension"
   | "tips";
 
 type OnboardingStepConfig = {
@@ -65,6 +80,20 @@ export const OnboardingOverlay: React.FC = () => {
 
   // Track which import flow the user picked on the ImportBookmarksStep
   const [importFlow, setImportFlow] = useState<"smart" | "manual" | null>(null);
+
+  // Manual import state
+  const { 
+    state: manualState, 
+    selection: manualSelection, 
+    reset: resetManualWizard 
+  } = useManualImportWizardState();
+
+  const [manualCommitBusy, setManualCommitBusy] = useState(false);
+  const [manualCommitMessage, setManualCommitMessage] = useState<string>("");
+  const [manualCommitError, setManualCommitError] = useState<string | null>(null);
+
+  // Smart import state
+  const [smartImportBusy, setSmartImportBusy] = useState(false);
   /* ---------------------------------------------------------- */
 
   /* -------------------- Step config (dynamic) -------------------- */
@@ -78,7 +107,6 @@ export const OnboardingOverlay: React.FC = () => {
       'Create visual groups for different projects, save pages into those groups, and see your "board" every time you open a new tab.',
     body: <ThemeSelectorStep />,
     primaryLabel: "Next",
-    secondaryLabel: "Skip for now",
     hideBack: true,
   });
 
@@ -123,38 +151,118 @@ export const OnboardingOverlay: React.FC = () => {
       body: (
         <SmartImportStep
           purposes={onboardingPurposes}
+          onBusyChange={setSmartImportBusy}
           // When Smart Import finishes, capture the primary workspace id
           onDone={(primaryWorkspaceId) => {
             setSmartImportPrimaryWorkspaceId(primaryWorkspaceId);
           }}
         />
       ),
-      primaryLabel: "Open Mindful",
+      primaryLabel: "Next",
       secondaryLabel: "Back",
-      isFinal: true,
       // We'll compute disabled dynamically for this step below
     });
+
   } else if (importFlow === "manual") {
+    const step1Copy = getImportBookmarksStepCopy(1);
     STEPS.push({
-      id: "manualImport",
-      title: "Import what you need.",
-      subtitle:
-        "You can always import more later from Settings.",
+      id: "manualImportJson" as any,
+      title: step1Copy.title,
+      subtitle: step1Copy.subtitle, 
+      body: (
+        <div className="import-styles">
+          <ImportBookmarksStepBody
+            step={1}
+            showInternalHeader={false}
+            state={manualState}
+            busy={manualCommitBusy}
+          />
+        </div>
+      ),
+      primaryLabel: nextOrSkip(manualState.jsonYes),
+      secondaryLabel: "Back",
+      primaryDisabled: manualState.jsonYes && !manualState.jsonData, // require file if they said yes
+    });
+
+    const step2Copy = getImportBookmarksStepCopy(2);
+    STEPS.push({
+      id: "manualImportBookmarks" as any,
+      title: step2Copy.title, 
+      body: (
+        <div className="import-styles">
+          <ImportBookmarksStepBody
+            step={2}
+            showInternalHeader={false}
+            state={manualState}
+          />
+        </div>
+      ),
+      primaryLabel: nextOrSkip(manualState.bookmarksYes),
+      secondaryLabel: "Back",
+    });
+
+    const step3Copy = getImportBookmarksStepCopy(3);
+    STEPS.push({
+      id: "manualImportTabs" as any,
+      title: step3Copy.title,
+      body: (
+        <div className="import-styles">
+          <ImportBookmarksStepBody
+            step={3}
+            showInternalHeader={false}
+            state={manualState}
+          />
+        </div>
+      ),
+      primaryLabel: nextOrSkip(manualState.tabsYes),
+      secondaryLabel: "Back",
+    });
+
+    const step4Copy = getImportBookmarksStepCopy(4);
+    const autoOrganizeEnabled = manualState.postProcessMode === ImportPostProcessMode.SemanticGrouping;
+    STEPS.push({
+      id: "manualImportOrganize" as any,
+      title: step4Copy.title,
+      body: (
+        <div className="import-styles">
+          <ImportBookmarksStepBody
+            step={4}
+            showInternalHeader={false}
+            state={manualState}
+          />
+        </div>
+      ),
+      primaryLabel: nextOrSkip(autoOrganizeEnabled),
+      secondaryLabel: "Back",
+    });
+
+    STEPS.push({
+      id: "manualImportCommit" as any,
+      title: "Setting things up ...",
       body: (
         <ManualImportStep
-          setPrimaryDisabled={setImportPrimaryDisabled}
           purposes={onboardingPurposes}
-          onDone={(primaryWorkspaceId) => {
-            setManualImportPrimaryWorkspaceId(primaryWorkspaceId);
-          }}
+          selection={manualSelection}
+          onBusyChange={setManualCommitBusy}
+          onProgress={setManualCommitMessage}
+          onError={setManualCommitError}
+          onDone={(primaryWorkspaceId) => setManualImportPrimaryWorkspaceId(primaryWorkspaceId)}
         />
       ),
-      primaryLabel: "Open Mindful",
+      primaryLabel: "Next",
       secondaryLabel: "Back",
-      isFinal: true,
-      primaryDisabled: importPrimaryDisabled,
     });
   }
+
+  STEPS.push({
+    id: "pinExtension",
+    title: "Pin Mindful to your toolbar",
+    subtitle: "So Mindful is always one click away.",
+    body: <PinExtensionStep />,
+    primaryLabel: "Open Mindful",
+    secondaryLabel: "Back",
+    isFinal: true,
+  });
   /* ---------------------------------------------------------- */
 
   /* -------------------- Effects -------------------- */
@@ -163,14 +271,21 @@ export const OnboardingOverlay: React.FC = () => {
   useEffect(() => {
     const wasOpen = prevOpenRef.current;
     prevOpenRef.current = shouldShowOnboarding;
+
     if (!wasOpen && shouldShowOnboarding) {
       setStepIndex(0);
       setSmartImportPrimaryWorkspaceId(null);
       setManualImportPrimaryWorkspaceId(null);
       setImportPrimaryDisabled(true);
       setImportFlow(null);
+
+      resetManualWizard();
+
+      setManualCommitBusy(false);
+      setManualCommitMessage("");
+      setManualCommitError(null);
     }
-  }, [shouldShowOnboarding]);
+  }, [shouldShowOnboarding, resetManualWizard]);
 
   // Don’t render if onboarding is done or not supposed to show.
   if (!shouldShowOnboarding) return null;
@@ -189,29 +304,42 @@ export const OnboardingOverlay: React.FC = () => {
   const isFirst = clampedIndex === 0;
   const isLast = !!step.isFinal || clampedIndex === totalSteps - 1;
 
+  const lockNav =
+    (step.id === "manualImportCommit" && manualCommitBusy) ||
+    (step.id === "smartImport" && smartImportBusy);
+
+  const isFinishGatedStep =
+    step.id === "smartImport" || step.id === "manualImportCommit";
+
+  const canFinish =
+    step.id === "smartImport"
+      ? !!smartImportPrimaryWorkspaceId
+      : step.id === "manualImportCommit"
+      ? !!manualImportPrimaryWorkspaceId
+      : false;
+
   // Primary button disabled logic:
   //   - For Smart and Manual Import steps: disabled until we have a primary workspace id
   //   - For others: use step.primaryDisabled
   const primaryDisabled =
-    step.id === "smartImport"
-      ? !smartImportPrimaryWorkspaceId
-      : step.id === "manualImport"
-      ? !manualImportPrimaryWorkspaceId || !!step.primaryDisabled
-      : !!step.primaryDisabled;
+    lockNav ||
+    (step.id === "smartImport" || step.id === "manualImportCommit"
+      ? !canFinish
+      : !!step.primaryDisabled);
 
   /* -------------------- Handlers -------------------- */
   const handlePrimary = async () => {
-    // If the button is disabled, do nothing (extra safety)
     if (primaryDisabled) return;
 
     if (isLast) {
-      // On the final Smart or Manual Import step, set the active workspace before completing onboarding
-      if (step.id === "smartImport" && smartImportPrimaryWorkspaceId) {
-        await setActiveWorkspaceId(smartImportPrimaryWorkspaceId as any);
+      // ✅ pick whichever workflow produced a workspace id
+      const primaryWorkspaceId =
+        smartImportPrimaryWorkspaceId ?? manualImportPrimaryWorkspaceId;
+
+      if (primaryWorkspaceId) {
+        await setActiveWorkspaceId(primaryWorkspaceId as any);
       }
-      if (step.id === "manualImport" && manualImportPrimaryWorkspaceId) {
-        await setActiveWorkspaceId(manualImportPrimaryWorkspaceId as any);
-      }
+
       await completeOnboarding();
       return;
     }
@@ -230,6 +358,12 @@ export const OnboardingOverlay: React.FC = () => {
       setStepIndex((prev) => Math.max(prev - 1, 0));
     }
   };
+  /* ---------------------------------------------------------- */
+
+  /* -------------------- Helper functions -------------------- */
+  function nextOrSkip(checked: boolean): string {
+    return checked ? "Next" : "Skip";
+  }
   /* ---------------------------------------------------------- */
 
   /* -------------------- Main component rendering -------------------- */
@@ -273,18 +407,7 @@ export const OnboardingOverlay: React.FC = () => {
           <div className="mt-4">{step.body}</div>
 
           {/* Footer: navigation + dots */}
-          <div className="mt-6 flex items-center justify-between">
-            <button
-              type="button"
-              className={`text-sm text-neutral-500 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 cursor-pointer ${
-                isFirst || step.hideBack ? "invisible" : ""
-              }`}
-              onClick={() => setStepIndex((prev) => Math.max(prev - 1, 0))}
-              disabled={isFirst || step.hideBack}
-            >
-              Back
-            </button>
-
+          <div className="mt-6 flex items-center justify-end">
             <div className="flex items-center gap-3">
               {/* Dots */}
               <div className="flex gap-1">
@@ -307,6 +430,7 @@ export const OnboardingOverlay: React.FC = () => {
                     type="button"
                     className="rounded-full border border-neutral-300 dark:border-neutral-700 px-3 py-1.5 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-950 cursor-pointer"
                     onClick={handleSecondary}
+                    disabled={lockNav}
                   >
                     {step.secondaryLabel}
                   </button>
@@ -317,7 +441,9 @@ export const OnboardingOverlay: React.FC = () => {
                   onClick={handlePrimary}
                   disabled={primaryDisabled}
                 >
-                  {step.primaryLabel}
+                  {isFinishGatedStep
+                    ? (canFinish ? step.primaryLabel : "Finishing up ...")
+                    : step.primaryLabel}
                 </button>
               </div>
             </div>

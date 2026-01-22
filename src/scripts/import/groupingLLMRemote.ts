@@ -10,6 +10,9 @@ import type {
   CategorizedGroup,
 } from "@shared/types/llmGrouping";
 import type { PurposeIdType } from "@shared/types/purposeId";
+
+/* Privacy / minimization */
+import { sanitizeUrlForAI, truncateForAI } from "@/scripts/import/sanitizeUrlForAI";
 /* ---------------------------------------------------------- */
 
 /* -------------------- Constants -------------------- */
@@ -20,6 +23,7 @@ const API_BASE_URL = "https://eidotpc2fc.execute-api.us-west-1.amazonaws.com";
 
 const MIN_ITEMS_FOR_LLM = 6; // below this, just make one group locally
 const MAX_ITEMS = 100;
+const MAX_TITLE_LEN = 140;
 /* ---------------------------------------------------------- */
 
 /**
@@ -54,6 +58,25 @@ export const remoteGroupingLLM: GroupingLLM = {
       items: input.items.slice(0, MAX_ITEMS),
     };
 
+    // Data minimization: sanitize URLs and truncate titles before sending to remote API (OpenAI-backed)
+    const minimizedInput: GroupingInput = {
+      ...trimmedInput,
+      items: trimmedInput.items.map((item: any) => {
+        // We keep the object shape but sanitize known fields if present.
+        const next: any = { ...item };
+    
+        if (typeof next.title === "string") {
+          next.title = truncateForAI(next.title, MAX_TITLE_LEN);
+        }
+    
+        if (typeof next.url === "string") {
+          next.url = sanitizeUrlForAI(next.url);
+        }
+    
+        return next;
+      }),
+    };
+
     if (!Array.isArray(input.purposes) || input.purposes.length === 0) {
       throw new Error("Missing purposes[] (client) — input.purposes must be a non-empty array.");
     }
@@ -63,7 +86,7 @@ export const remoteGroupingLLM: GroupingLLM = {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(trimmedInput),
+      body: JSON.stringify(minimizedInput),
     });
 
     if (!res.ok) {

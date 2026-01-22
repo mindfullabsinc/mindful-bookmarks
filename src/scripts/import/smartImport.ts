@@ -1,6 +1,6 @@
 /* -------------------- Imports -------------------- */
 /* Types */
-import type { SmartImportPhase } from "@/core/types/smartImportPhase";
+import type { ImportPhase } from "@/core/types/importPhase";
 import type { WorkspaceRef, WorkspaceService } from "@/core/types/workspaces";
 import type { PurposeIdType } from "@shared/types/purposeId";
 import type {
@@ -14,7 +14,7 @@ import type {
 
 /* -------------------- Local types -------------------- */
 export type SmartImportProgress = {
-  phase: SmartImportPhase;
+  phase: ImportPhase;
   message?: string;
   // optionally, per-phase counts
   totalItems?: number;
@@ -109,7 +109,7 @@ export async function runSmartImport(
   /* 1) Initialize */
   emit(options, {
     phase: "initializing",
-    message: "Starting Smart Import…",
+    message: "Starting Smart Import ...",
   });
 
   /* 2) Create workspaces per purpose */

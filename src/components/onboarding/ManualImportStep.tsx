@@ -1,12 +1,13 @@
 /* -------------------- Imports -------------------- */
-import React, { useContext, useEffect, useMemo, useState, useCallback } from "react";
+import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 
 /* Types */
-import type { ManualImportSelectionType, ImportSourceType } from "@/core/types/import";
+import type { ManualImportSelectionType } from "@/core/types/import";
 import type { PurposeIdType } from "@shared/types/purposeId";
+import type { ImportPhase } from "@/core/types/importPhase";
 
-/* Components */
-import { ImportBookmarksEmbedded } from "@/components/modals/ImportBookmarksEmbedded";
+/* Constants */
+import { ImportPostProcessMode } from "@/core/constants/import";
 
 /* Context */
 import { AppContext } from "@/scripts/AppContextProvider";
@@ -16,131 +17,222 @@ import { createWorkspaceServiceLocal } from "@/scripts/import/workspaceServiceLo
 
 /* Commit imports */
 import { commitManualImportIntoWorkspace } from "@/scripts/import/commitManualImportIntoWorkspace";
+
+/* Components */
+import { ImportProgress } from "@/components/shared/ImportProgress";
+import { AiDisclosure } from "@/components/privacy/AiDisclosure";
+/* ---------------------------------------------------------- */
+
+/* -------------------- Constants -------------------- */
+const MANUAL_AI_PHASES: readonly ImportPhase[] = [
+  "initializing",
+  "importing",
+  "categorizing",
+  "finalizing",
+  "done",
+];
+
+const MANUAL_NOAI_PHASES: readonly ImportPhase[] = [
+  "initializing",
+  "importing",
+  "finalizing",
+  "done",
+];
 /* ---------------------------------------------------------- */
 
 /* -------------------- Local types -------------------- */
 type ManualImportStepProps = {
-  setPrimaryDisabled?: (disabled: boolean) => void;
   purposes: PurposeIdType[];
+  selection: ManualImportSelectionType;
   onDone: (primaryWorkspaceId: string) => void;
+
+  onBusyChange?: (busy: boolean) => void;
+  onProgress?: (msg: string) => void;
+  onError?: (err: string | null) => void;
 };
 /* ---------------------------------------------------------- */
 
 /* -------------------- Main component -------------------- */
 export const ManualImportStep: React.FC<ManualImportStepProps> = ({
-  setPrimaryDisabled,
   purposes,
+  selection,
   onDone,
+  onBusyChange,
+  onProgress,
+  onError,
 }) => {
   /* -------------------- Context / state -------------------- */
   const { userId, bumpWorkspacesVersion } = useContext(AppContext);
 
-  const workspaceService = useMemo(
-    () => createWorkspaceServiceLocal(userId),
-    [userId]
-  );
+  const workspaceService = useMemo(() => createWorkspaceServiceLocal(userId), [userId]);
 
-  const [wizardDone, setWizardDone] = useState(false);
-  const [selection, setSelection] = useState<ManualImportSelectionType>({});
+  const autoOrganizeEnabled =
+    selection.importPostProcessMode === ImportPostProcessMode.SemanticGrouping;
 
-  const [workspaceRefs, setWorkspaceRefs] = useState<
-    { id: string; purpose: PurposeIdType }[]
-  >([]);
-
-  const primaryWorkspace = workspaceRefs[0] ?? null;
-  const primaryWorkspaceId = primaryWorkspace?.id ?? null;
-
-  const hasAnySelection =
-    !!selection.jsonData ||
-    !!selection.importBookmarks ||
-    selection.tabScope !== undefined; // tabScope can be a stringy enum; check explicitly
+  const phaseSequence = autoOrganizeEnabled ? MANUAL_AI_PHASES : MANUAL_NOAI_PHASES;
 
   const [commitError, setCommitError] = useState<string | null>(null);
   const [isCommitting, setIsCommitting] = useState(false);
-  const [commitMessage, setCommitMessage] = useState<string>(""); // optional
-  /* ---------------------------------------------------------- */
+  const [commitMessage, setCommitMessage] = useState<string>("");
 
-  /* -------------------- Helper functions -------------------- */
-  const commitAllImports = useCallback(async () => {
-    if (!primaryWorkspace) throw new Error("Workspace not ready yet.");
+  // Backend phase for progress UI
+  const [backendPhase, setBackendPhase] = useState<ImportPhase>("initializing");
 
-    setCommitError(null);
-    setIsCommitting(true);
+  const [visualDone, setVisualDone] = useState(false);
+  const [pendingDoneWorkspaceId, setPendingDoneWorkspaceId] = useState<string | null>(null);
 
-    try {
-      await commitManualImportIntoWorkspace({
-        selection,
-        purposes,
-        workspaceId: primaryWorkspace.id,
-        purpose: primaryWorkspace.purpose,
-        workspaceService,
-        onProgress: setCommitMessage,
-      });
-
-      bumpWorkspacesVersion();
-      setWizardDone(true);
-    } catch (e: any) {
-      console.error("[ManualImportStep] commit failed", e);
-      setCommitError(e?.message || "Import failed");
-    } finally {
-      setIsCommitting(false);
-      setCommitMessage("");
-    }
-  }, [primaryWorkspace, selection, purposes, workspaceService, bumpWorkspacesVersion]);
+  // Keep latest callbacks/selection without re-triggering effect
+  const onDoneRef = useRef(onDone);
+  const selectionRef = useRef(selection);
   /* ---------------------------------------------------------- */
 
   /* -------------------- Effects -------------------- */
   useEffect(() => {
+    onDoneRef.current = onDone;
+  }, [onDone]);
+
+  useEffect(() => {
+    selectionRef.current = selection;
+  }, [selection]);
+
+   // Stable purpose key
+  const purposesKey = useMemo(() => (purposes ?? []).join("|"), [purposes]);
+
+  // StrictMode-safe run token
+  const runTokenRef = useRef(0);
+
+  useEffect(() => {
+    if (!purposes || purposes.length === 0) return;
+
+    const token = ++runTokenRef.current;
     let cancelled = false;
 
     (async () => {
-      if (!purposes || purposes.length === 0) return;
+      setCommitError(null);
+      setIsCommitting(true);
+      setCommitMessage("");
+      setBackendPhase("initializing");
+      setPendingDoneWorkspaceId(null);
+      setVisualDone(false);
+      onError?.(null);
+      onBusyChange?.(true);
+      onProgress?.("Preparing workspaces...");
 
       try {
         const refs: { id: string; purpose: PurposeIdType }[] = [];
         for (const p of purposes) {
           refs.push(await workspaceService.createWorkspaceForPurpose(p));
         }
-        if (!cancelled) {
-          setWorkspaceRefs(refs);
-          bumpWorkspacesVersion();
-        }
-      } catch (e) {
-        console.error("[ManualImportStep] failed to create workspaces", e);
+
+        if (cancelled || token !== runTokenRef.current) return;
+
+        bumpWorkspacesVersion();
+
+        const primary = refs[0];
+        if (!primary) throw new Error("Workspace not ready yet.");
+
+        // Now committing the import payload
+        setBackendPhase("importing");
+
+        await commitManualImportIntoWorkspace({
+          selection: selectionRef.current,
+          purposes,
+          workspaceId: primary.id,
+          purpose: primary.purpose,
+          workspaceService,
+          onProgress: (msg) => {
+            if (cancelled || token !== runTokenRef.current) return;
+
+            // Optional heuristic until commitManualImportIntoWorkspace emits phases:
+            if (autoOrganizeEnabled && /organ|group|categor/i.test(msg)) {
+              setBackendPhase("categorizing");
+            }
+
+            setCommitMessage(msg);
+            onProgress?.(msg);
+          },
+
+          // Best: if you add this optional callback in commitManualImportIntoWorkspace later:
+          // onPhaseChange: (phase: ImportPhase) => {
+          //   if (cancelled || token !== runTokenRef.current) return;
+          //   setBackendPhase(phase);
+          // },
+        });
+
+        if (cancelled || token !== runTokenRef.current) return;
+
+        bumpWorkspacesVersion();
+        setBackendPhase("finalizing");
+        setCommitMessage("Import complete.");
+        onProgress?.("Import complete.");
+
+        // Done
+        setBackendPhase("done");
+        setPendingDoneWorkspaceId(primary.id);
+      } catch (e: any) {
+        if (cancelled || token !== runTokenRef.current) return;
+        const msg = e?.message || "Import failed";
+        setCommitError(msg);
+        onError?.(msg);
+      } finally {
+        if (cancelled || token !== runTokenRef.current) return;
+        setIsCommitting(false);
+        // Keep last commit message around so the UI doesn't go empty while it smooths to done.
+        onBusyChange?.(false);
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [purposes, workspaceService, bumpWorkspacesVersion]);
+  }, [
+    purposesKey,
+    workspaceService,
+    bumpWorkspacesVersion,
+    onBusyChange,
+    onProgress,
+    onError,
+    autoOrganizeEnabled,
+  ]);
 
   useEffect(() => {
-    // Disable primary button until:
-    // - they’ve made a selection AND wizard is not done
-    setPrimaryDisabled?.(!hasAnySelection && !wizardDone);
-  }, [hasAnySelection, wizardDone, setPrimaryDisabled]);
-
-  useEffect(() => {
-    if (!wizardDone || !primaryWorkspaceId) return;
-    onDone(primaryWorkspaceId);
-  }, [wizardDone, primaryWorkspaceId, onDone]);
+    if (!pendingDoneWorkspaceId) return;
+      // If AI is enabled, wait until the progress UI finishes its visual "done" animation.
+      if (autoOrganizeEnabled) {
+        if (!visualDone) return;
+      }
+      // If AI is NOT enabled, we never render ImportProgress, so visualDone will never flip.
+      // In that case, notify immediately once the commit is complete.
+      onDoneRef.current(pendingDoneWorkspaceId);
+    }, [pendingDoneWorkspaceId, visualDone, autoOrganizeEnabled]);
   /* ---------------------------------------------------------- */
 
   /* -------------------- Main component rendering-------------------- */
-  if (!primaryWorkspaceId) {
-    return <div className="m_import-container">Preparing your workspaces…</div>;
+  // If AI is enabled, show the shared SmartImport-style UI
+  if (autoOrganizeEnabled) {
+    return (
+      <div className="space-y-3">
+        <ImportProgress
+          phaseSequence={phaseSequence}
+          backendPhase={backendPhase}
+          backendMessage={commitMessage}
+          donePhaseId="done"
+          onVisualDoneChange={setVisualDone}
+        />
+      </div>
+    );
   }
 
+  // Otherwise keep the simpler UI for non-AI manual commit
   return (
     <div className="m_import-container">
-      <ImportBookmarksEmbedded
-        onSelectionChange={setSelection}
-        onComplete={commitAllImports}
-        busy={isCommitting}
-        busyMessage={commitMessage}
-        errorMessage={commitError ?? undefined}
-      />
+      {commitError ? (
+        <div className="text-sm text-red-600">{commitError}</div>
+      ) : (
+        <div className="text-sm text-neutral-600 dark:text-neutral-400">
+          {isCommitting ? (commitMessage || "Importing ...") : "All set! You can open Mindful."}
+        </div>
+      )}
     </div>
   );
   /* ---------------------------------------------------------- */

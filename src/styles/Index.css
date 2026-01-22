@@ -8,6 +8,7 @@
 @import "@/styles/components/top-banner.css";
 @import "@/styles/PopUp.css";
 @import "@/styles/components/onboarding/OnboardingOverlay.css";
+@import "@/styles/components/privacy/AiDisclosure.css";
 @import "@/styles/components/modals/ImportBookmarksModal.css";
 @import "@/styles/components/shared/ImportBookmarksContent.css";
 @import "@fortawesome/fontawesome-free/css/all.min.css";
