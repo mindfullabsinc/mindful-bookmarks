@@ -9,7 +9,7 @@ import { ImportSource } from "@/core/constants/import";
 import type { GroupingInput, GroupingLLMResponse } from "@shared/types/llmGrouping";
 
 describe("remoteGroupingLLM.group", () => {
-  const API_BASE_URL = "https://eidotpc2fc.execute-api.us-west-1.amazonaws.com";
+  const API_BASE_URL = "https://api.mindfulbookmarks.com";
 
   let fetchMock: jest.Mock;
 
