@@ -52,6 +52,6 @@
   },
 
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://cognito-idp.us-west-1.amazonaws.com https://cognito-identity.us-west-1.amazonaws.com https://kT7PGxGVd.auth.us-west-1.amazoncognito.com https://api.mindfulbookmarks.com https://app.posthog.com https://eidotpc2fc.execute-api.us-west-1.amazonaws.com;"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://cognito-idp.us-west-1.amazonaws.com https://cognito-identity.us-west-1.amazonaws.com https://kT7PGxGVd.auth.us-west-1.amazoncognito.com https://api.mindfulbookmarks.com https://app.posthog.com;"
   }
 }

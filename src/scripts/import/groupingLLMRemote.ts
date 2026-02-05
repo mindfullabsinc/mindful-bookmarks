@@ -16,10 +16,8 @@ import { sanitizeUrlForAI, truncateForAI } from "@/scripts/import/sanitizeUrlFor
 /* ---------------------------------------------------------- */
 
 /* -------------------- Constants -------------------- */
-//const API_BASE_URL =
-  //process.env.MINDFUL_API_BASE_URL ?? "https://api.mindfulbookmarks.com";
-// TODO: Change this after deploying new groupBookmarks API
-const API_BASE_URL = "https://eidotpc2fc.execute-api.us-west-1.amazonaws.com";
+const API_BASE_URL =
+  process.env.MINDFUL_API_BASE_URL ?? "https://api.mindfulbookmarks.com";
 
 const MIN_ITEMS_FOR_LLM = 6; // below this, just make one group locally
 const MAX_ITEMS = 100;
