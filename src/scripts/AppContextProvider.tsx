@@ -1,7 +1,7 @@
 /* -------------------- Imports -------------------- */
 /* Libraries */
-import React, { act } from 'react';
-import { createContext, useState, useEffect, useCallback } from 'react';
+import React from 'react';
+import { createContext, useState, useEffect, useCallback, useMemo } from 'react';
 import type { ReactNode, ReactElement, Dispatch, SetStateAction } from 'react';
 import {
   fetchAuthSession,
@@ -11,6 +11,8 @@ import {
 
 /* Types */
 import type { BookmarkGroupType } from "@/core/types/bookmarks";
+import type { PurposeIdType } from '@shared/types/purposeId';
+import type { WorkspaceType, WorkspaceIdType } from '@/core/constants/workspaces';
 
 /* Scripts */
 import {
@@ -38,12 +40,21 @@ import {
 import type { BookmarkSnapshot } from '@/scripts/caching/bookmarkCache';
 
 /* Workspaces */
-import { WorkspaceType, WorkspaceIdType } from '@/core/constants/workspaces';
 import { 
   loadRegistry, 
   initializeLocalWorkspaceRegistry, 
   setActiveWorkspace, 
-} from "@/workspaces/registry";
+} from "@/scripts/workspaces/registry";
+
+/* Onboarding */
+import { ONBOARDING_STORAGE_KEY } from '@/core/constants/onboarding';
+
+/* Themes */
+import { applyTheme, loadInitialTheme, persistAndApplyTheme } from "@/hooks/applyTheme";
+import { ThemeChoice } from "@/core/constants/theme";
+
+/* Constants */
+import { WORKSPACE_REGISTRY_KEY } from "@/core/constants/workspaces";
 /* ---------------------------------------------------------- */
 
 /* -------------------- Class-level helpers -------------------- */
@@ -82,7 +93,9 @@ export interface AppContextValue {
   /* Workspaces */
   workspaces: Record<WorkspaceIdType, WorkspaceType>;
   activeWorkspaceId: WorkspaceIdType | null;  // allow null during boot
-  setActiveWorkspaceId: (id: WorkspaceIdType) => void; 
+  setActiveWorkspaceId: (id: WorkspaceIdType) => Promise<void>; 
+  workspacesVersion: number;
+  bumpWorkspacesVersion: () => void;
 
   groupsIndex: GroupsIndexEntry[];
   bookmarkGroups: BookmarkGroupType[];
@@ -99,6 +112,22 @@ export interface AppContextValue {
   setUserAttributes: Dispatch<SetStateAction<UserAttributes | null>>;
   hasHydrated: boolean;
   isHydratingRemote: boolean;
+
+  /* Onboarding */
+  onboardingReopen: boolean;
+  openOnboarding: () => void;
+  closeOnboarding: () => void;
+  onboardingStatus: OnboardingStatus;
+  shouldShowOnboarding: boolean;
+  completeOnboarding: () => Promise<void>;
+  skipOnboarding: () => Promise<void>;
+  restartOnboarding: () => Promise<void>;
+  onboardingPurposes: PurposeIdType[];
+  setOnboardingPurposes: (purposes: PurposeIdType[]) => void;
+
+  /* Theme (light/dark/system) for the UI */
+  theme: ThemeChoice;
+  setThemePreference: (choice: ThemeChoice) => Promise<void>;
 }
 
 type AppContextProviderProps = {
@@ -106,6 +135,13 @@ type AppContextProviderProps = {
   preferredStorageMode?: StorageModeType | undefined;
   children: ReactNode;
 };
+
+export enum OnboardingStatus {
+  NOT_STARTED = "not_started",
+  IN_PROGRESS = "in_progress",
+  COMPLETED = "completed",
+  SKIPPED = "skipped",
+}
 /* ---------------------------------------------------------- */
 
 export const AppContext = createContext<AppContextValue>({} as AppContextValue);
@@ -130,7 +166,8 @@ export function AppContextProvider({
 
   // Workspaces
   const [workspaces, setWorkspaces] = useState<Record<WorkspaceIdType, WorkspaceType>>({});
-  const [activeWorkspaceId, setActiveWorkspaceId] = useState<WorkspaceIdType | null>(null);
+  const [activeWorkspaceId, setActiveWorkspaceIdState] = useState<WorkspaceIdType | null>(null);
+  const [workspacesVersion, setWorkspacesVersion] = useState(0);
 
   const [bookmarkGroups, setBookmarkGroups] = useState<BookmarkGroupType[]>([]);
   const [groupsIndex, setGroupsIndex] = useState<GroupsIndexEntry[]>([]); // [{ id, groupName }]
@@ -143,6 +180,18 @@ export function AppContextProvider({
   const [isLoading, setIsLoading] = useState<boolean>(true); // only for the very first paint
   const [isMigrating, setIsMigrating] = useState<boolean>(false);
 
+  const setActiveWorkspaceId = useCallback(async (id: WorkspaceIdType) => {
+    // 1) persist single source of truth
+    await setActiveWorkspace(id);
+
+    // 2) update UI immediately (switcher highlight)
+    setActiveWorkspaceIdState(id);
+
+    // 3) optional: refresh workspaces map in case updatedAt changed
+    const reg = await loadRegistry();
+    if (reg) setWorkspaces(reg.items);
+  }, []);
+
   // Authentication
   const resolvedUserId = userId ?? LOCAL_USER_ID;
   const hasSession = !!userId && userId !== LOCAL_USER_ID; // no storage coupling
@@ -150,6 +199,20 @@ export function AppContextProvider({
   /** @deprecated Prefer `authMode === AuthMode.AUTH`. `isSignedIn` remains for backward compatibility. */
   const isSignedIn = authMode === AuthMode.AUTH;
   const authKey = authMode === AuthMode.AUTH ? resolvedUserId : 'anon-key';
+
+  // Onboarding
+  const [onboardingStatus, setOnboardingStatus] =
+    useState<OnboardingStatus>(OnboardingStatus.NOT_STARTED);
+  const [onboardingReopen, setOnboardingReopen] = useState(false);
+  const isEmpty = !bookmarkGroups || bookmarkGroups.length === 0;
+  const shouldShowOnboarding =
+    onboardingReopen ||
+    onboardingStatus === OnboardingStatus.IN_PROGRESS ||
+    (onboardingStatus === OnboardingStatus.NOT_STARTED && hasHydrated && isEmpty);
+  const [onboardingPurposes, setOnboardingPurposes] = useState<PurposeIdType[]>([]);
+
+  // Themes
+  const [theme, setTheme] = useState<ThemeChoice>(ThemeChoice.SYSTEM);
   /* ---------------------------------------------------------- */
 
   /* -------------------- Helper functions -------------------- */
@@ -168,21 +231,6 @@ export function AppContextProvider({
       return false;
     }
   };
-
-  /**
-   * Persist the active workspace change to the registry and mirror it into local state.
-   *
-   * @param id Workspace identifier selected by the user.
-   * @returns Promise that resolves once the registry has been updated.
-   */
-  const updateActiveWorkspaceId = useCallback(async (id: WorkspaceIdType) => {
-    try {
-      await setActiveWorkspace(id);     // persist to registry
-      setActiveWorkspaceId(id);         // reflect in state
-    } catch (e) {
-      console.error("Failed to set active workspace:", e);
-    }
-  }, []);
 
   /**
    * Resolve a lightweight groups index by probing session and local caches before falling back to
@@ -287,7 +335,6 @@ export function AppContextProvider({
     return full;
   }
 
-   // ----- storage type changes -----
   /**
    * Update storage mode, coercing anonymous users to LOCAL and persisting preferences back to Cognito
    * when the user is authenticated.
@@ -319,12 +366,160 @@ export function AppContextProvider({
     },
     [user],
   );
+
+  /**
+   * Reveal the onboarding overlay, restarting it when previously completed or skipped.
+   */
+  const openOnboarding = useCallback(() => {
+    setOnboardingReopen(true);
+  }, []);
+
+  /**
+   * Hide the onboarding overlay without modifying status.
+   */
+  const closeOnboarding = useCallback(() => {
+    setOnboardingReopen(false);
+  }, []);
+
+  /**
+   * Persist onboarding status to chrome.storage for future sessions.
+   *
+   * @param status Onboarding status value to store.
+   */
+  const persistOnboardingStatus = async (status: OnboardingStatus) => {
+    try {
+      await chrome?.storage?.local?.set?.({
+        [ONBOARDING_STORAGE_KEY]: status,
+      });
+    } catch {
+      // ignore
+    }
+  };
+
+  /**
+   * Mark onboarding as completed and persist the status.
+   */
+  const completeOnboarding = useCallback(async () => {
+    setOnboardingStatus(OnboardingStatus.COMPLETED);
+    setOnboardingReopen(false);
+    await persistOnboardingStatus(OnboardingStatus.COMPLETED);
+  }, []);
+
+  /**
+   * Skip onboarding entirely and persist the status.
+   */
+  const skipOnboarding = useCallback(async () => {
+    setOnboardingStatus(OnboardingStatus.SKIPPED);
+    setOnboardingReopen(false);
+    await persistOnboardingStatus(OnboardingStatus.SKIPPED);
+  }, []);
+
+  /**
+   * Restart onboarding from scratch and persist the status.
+   */
+  const restartOnboarding = useCallback(async () => {
+    setOnboardingStatus(OnboardingStatus.IN_PROGRESS);
+    setOnboardingReopen(false);
+    await persistOnboardingStatus(OnboardingStatus.IN_PROGRESS);
+  }, []);
+
+  /**
+   * Update theme preference state and persist/apply it globally.
+   *
+   * @param choice Theme selection.
+   */
+  const setThemePreference = useCallback(
+    async (choice: ThemeChoice): Promise<void> => {
+      setTheme(choice);
+      await persistAndApplyTheme(choice);
+    },
+    []
+  ); 
+
+  /**
+   * Increment a version counter so subscribers know workspace data changed.
+   */
+  const bumpWorkspacesVersion = useCallback(() => {
+    setWorkspacesVersion((v) => v + 1);
+  }, []);
   /* ---------------------------------------------------------- */
 
   /* -------------------- Effects -------------------- */
   /**
-   * Wait for the workspace registry bootstrap to finish, then hydrate local state with the
-   * registered workspaces and active workspace identifier.
+   * Load any previously stored onboarding status from chrome.storage on mount.
+   */
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const payload =
+          (await chrome?.storage?.local?.get?.(ONBOARDING_STORAGE_KEY)) ?? {};
+        const raw = (payload as Record<string, unknown>)[ONBOARDING_STORAGE_KEY];
+
+        if (cancelled) return;
+
+        // raw is a string like "completed" | "skipped" | etc.
+        if (typeof raw === "string") {
+          const values = Object.values(OnboardingStatus);
+          if (values.includes(raw as OnboardingStatus)) {
+            setOnboardingStatus(raw as OnboardingStatus);
+            return;
+          }
+        }
+
+        setOnboardingStatus(OnboardingStatus.NOT_STARTED);
+      } catch {
+        if (!cancelled) {
+          setOnboardingStatus(OnboardingStatus.NOT_STARTED);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /**
+   * Persist onboarding IN_PROGRESS status once required prerequisites (empty state, hydrated workspace) are met.
+   */
+  useEffect(() => {
+    if (!activeWorkspaceId) return;
+    if (!storageMode) return;
+    if (isLoading) return;
+    if (!hasHydrated) return;
+    
+    // Do nothing if the user already decided to skip or complete onboarding
+    if (
+      onboardingStatus === OnboardingStatus.SKIPPED ||
+      onboardingStatus === OnboardingStatus.COMPLETED
+    ) {
+      return;
+    }
+
+    if (!isEmpty) return;
+
+    // If they’re NOT_STARTED, flip to IN_PROGRESS and persist
+    if (onboardingStatus === OnboardingStatus.NOT_STARTED) {
+      setOnboardingStatus(OnboardingStatus.IN_PROGRESS);
+      try {
+        void chrome?.storage?.local?.set?.({
+          [ONBOARDING_STORAGE_KEY]: OnboardingStatus.IN_PROGRESS,
+        });
+      } catch {}
+    }
+  }, [
+    activeWorkspaceId,
+    storageMode,
+    isLoading,
+    hasHydrated,
+    onboardingStatus,
+    bookmarkGroups,
+  ]);
+
+  /**
+   * Wait for the workspace registry bootstrap to finish, then hydrate local state with the registered workspaces and active workspace identifier.
    */
   useEffect(() => {
     let cancelled = false;
@@ -335,7 +530,7 @@ export function AppContextProvider({
         if (!reg || cancelled) return;
 
         setWorkspaces(reg.items);
-        setActiveWorkspaceId(reg.activeId);
+        setActiveWorkspaceIdState(reg.activeId);
 
         if (process.env.NODE_ENV !== "production") {
           console.debug("[Mindful] Active workspace:", reg.activeId);
@@ -349,7 +544,7 @@ export function AppContextProvider({
   }, []);  // empty deps → one-time on mount
 
   /**
-   * Log when the storage mode stabilises so we can correlate downstream effects in devtools.
+   * Log environment readiness (user + storage mode) for debugging.
    */
   useEffect(() => {
     if (storageMode) {
@@ -358,8 +553,7 @@ export function AppContextProvider({
   }, [userId, storageMode]);
 
   /**
-   * Phase 0 bootstrap: resolve the initial storage mode as fast as possible by checking
-   * for explicit anon overrides, silent Amplify sessions, or falling back to LOCAL.
+   * Phase 0 bootstrap: resolve initial auth/storage context (handles anon override, silent auth, fallback to local).
    */
   useEffect(() => {
     let cancelled = false;
@@ -504,10 +698,6 @@ export function AppContextProvider({
     };
   }, [user, preferredStorageMode]);
 
-  /**
-   * Phase 1a: once storage mode is known (and we're not gating on remote), synchronously
-   * hydrate bookmarks from localStorage to avoid first-paint flicker.
-   */
   useEffect(() => {
     if (!storageMode) return;
     if (!activeWorkspaceId) return;
@@ -532,10 +722,6 @@ export function AppContextProvider({
     }
   }, [authKey, storageMode, activeWorkspaceId]); // treat anon as stable key
 
-  /**
-   * Phase 1b: asynchronously read the session cache plus groups index so UI elements can render
-   * meaningful data while the full remote hydration runs in the background.
-   */
   useEffect(() => {
     let cancelled = false;
 
@@ -591,10 +777,6 @@ export function AppContextProvider({
     };
   }, [authKey, storageMode, user, activeWorkspaceId]);
 
-  /**
-   * Phase 2: load the authoritative bookmark list (remote or local) during idle time, update caches,
-   * and clear the remote hydration gate when complete.
-   */
   useEffect(() => {
     if (isMigrating) return;
     if (!storageMode || !activeWorkspaceId) return;
@@ -661,7 +843,6 @@ export function AppContextProvider({
       }
     };
 
-    // Runtime messages (e.g., popup saved/imported)
     /**
      * React to chrome runtime messages indicating bookmark mutations from other surfaces.
      *
@@ -717,6 +898,57 @@ export function AppContextProvider({
       } catch {}
     })();
   }, [activeWorkspaceId, storageMode, isHydratingRemote]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      const initial = await loadInitialTheme();
+      if (cancelled) return;
+
+      setTheme(initial);
+      applyTheme(initial);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (theme !== ThemeChoice.SYSTEM) return;
+    if (typeof window === "undefined") return;
+
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const handler = () => applyTheme(ThemeChoice.SYSTEM);
+
+    try {
+      mq.addEventListener("change", handler);
+      return () => mq.removeEventListener("change", handler);
+    } catch {
+      // older browsers
+      mq.addListener?.(handler);
+      return () => mq.removeListener?.(handler);
+    }
+  }, [theme]);
+
+  useEffect(() => {
+    const onChanged = (changes: Record<string, chrome.storage.StorageChange>, area: string) => {
+      if (area !== "local") return;
+
+      const regChange = changes[WORKSPACE_REGISTRY_KEY];
+      if (!regChange?.newValue) return;
+
+      const reg = regChange.newValue as any;
+      if (reg?.version === 1 && reg.items && reg.activeId) {
+        setWorkspaces(reg.items);
+        setActiveWorkspaceIdState(prev => (prev === reg.activeId ? prev : reg.activeId));
+      }
+    };
+
+    chrome.storage.onChanged.addListener(onChanged);
+    return () => chrome.storage.onChanged.removeListener(onChanged);
+  }, []);
   /* ---------------------------------------------------------- */
 
   // ----- render gate: only block first paint if we truly have nothing -----
@@ -725,27 +957,53 @@ export function AppContextProvider({
   }
 
   const contextValue: AppContextValue = {
+    // Workspaces
     workspaces,
     activeWorkspaceId,
-    // Set wrapper so callers don't get a plain state setter, which could cause divergence
-    // from the registry on disk.
-    setActiveWorkspaceId: updateActiveWorkspaceId,
+    setActiveWorkspaceId,
+    workspacesVersion,
+    bumpWorkspacesVersion, 
 
+    /* Bookmarks */
     groupsIndex,
     bookmarkGroups,
     setBookmarkGroups,
+
+    /* Auth / storage */
     userId: userId ?? LOCAL_USER_ID, // Always expose the actual resolved userId (LOCAL_USER_ID when anon)
     storageMode,
     setStorageMode: handleStorageModeChange,
     isSignedIn,
     authMode,
+
+    /* Loading + migration */
     isLoading,
     isMigrating,
     setIsMigrating,
+    
+    /* User attributes */
     userAttributes,
     setUserAttributes,
+
+    /* Hydration flags */
     hasHydrated,
     isHydratingRemote,
+
+    /* Onboarding */
+    onboardingReopen,
+    openOnboarding,
+    closeOnboarding,
+    onboardingStatus,
+    shouldShowOnboarding,
+    completeOnboarding,
+    skipOnboarding,
+    restartOnboarding,
+    onboardingPurposes,
+    setOnboardingPurposes,
+
+    /* Theme */
+    theme,
+    setThemePreference,
   };
 
   return (

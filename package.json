@@ -42,6 +42,7 @@
 		"framer-motion": "^12.23.12",
 		"libphonenumber-js": "^1.12.15",
 		"lucide-react": "^0.542.0",
+		"openai": "^6.10.0",
 		"openid-client": "^6.6.2",
 		"posthog-js": "^1.282.0",
 		"react": "^18.3.1",
@@ -49,6 +50,7 @@
 		"react-hook-form": "^7.65.0",
 		"react-modal": "^3.16.3",
 		"react-phone-number-input": "^3.4.12",
+		"tailwindcss-animate": "^1.0.7",
 		"uuid": "^11.1.0",
 		"vite-plugin-static-copy": "^3.1.1"
 	},
@@ -77,6 +79,7 @@
 		"aws-sdk-client-mock": "^4.1.0",
 		"babel-jest": "^30.2.0",
 		"babel-loader": "^10.0.0",
+		"baseline-browser-mapping": "^2.9.11",
 		"constructs": "^10.4.2",
 		"copy-webpack-plugin": "^13.0.0",
 		"css-loader": "^7.1.2",

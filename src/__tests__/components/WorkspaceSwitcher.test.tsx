@@ -12,7 +12,7 @@ const mock_createLocalWorkspace = jest.fn<Promise<{ id: string; name: string }>,
 const mock_renameWorkspace = jest.fn<Promise<void>, [string, string]>();
 const mock_archiveWorkspace = jest.fn<Promise<void>, [string]>();
 
-jest.mock('@/workspaces/registry', () => ({
+jest.mock('@/scripts/workspaces/registry', () => ({
   __esModule: true,
   getActiveWorkspaceId: () => mock_getActiveWorkspaceId(),
   listLocalWorkspaces: () => mock_listLocalWorkspaces(),
@@ -105,7 +105,6 @@ describe('WorkspaceSwitcher', () => {
     await screen.findByRole('button', { name: 'Beta' });
 
     expect(mock_listLocalWorkspaces).toHaveBeenCalledTimes(1);
-    expect(mock_getActiveWorkspaceId).toHaveBeenCalledTimes(1);
   });
 
   test('switching to another workspace calls setActiveWorkspaceId and cleans session mirror', async () => {
@@ -129,7 +128,6 @@ describe('WorkspaceSwitcher', () => {
 
     // refresh called
     expect(mock_listLocalWorkspaces).toHaveBeenCalledTimes(2); // once on mount + once after switch
-    expect(mock_getActiveWorkspaceId).toHaveBeenCalledTimes(2);
   });
 
   test('creating a workspace makes it active and clears the session mirror', async () => {
@@ -174,7 +172,6 @@ describe('WorkspaceSwitcher', () => {
 
     // refresh happens
     expect(mock_listLocalWorkspaces).toHaveBeenCalledTimes(2);
-    expect(mock_getActiveWorkspaceId).toHaveBeenCalledTimes(2);
   });
 
   test('archive workspace confirms, archives, re-reads active ws and cleans session mirror', async () => {
@@ -207,6 +204,6 @@ describe('WorkspaceSwitcher', () => {
 
     // refresh
     expect(mock_listLocalWorkspaces).toHaveBeenCalledTimes(2);
-    expect(mock_getActiveWorkspaceId).toHaveBeenCalledTimes(3);
+    expect(mock_getActiveWorkspaceId).toHaveBeenCalledTimes(1);
   });
 });

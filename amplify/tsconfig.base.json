@@ -1,0 +1,12 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "module": "ESNext",
+    "moduleResolution": "node16"
+  },
+  "include": [
+    "./**/*.ts",
+    "../shared/**/*.ts"
+  ]
+}

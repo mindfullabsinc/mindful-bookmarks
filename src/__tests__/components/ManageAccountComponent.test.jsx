@@ -23,7 +23,7 @@ jest.mock("react-phone-number-input", () => {
 });
 
 // 3) Mock Avatar (purely presentational)
-jest.mock("@/components/ui/Avatar", () => ({
+jest.mock("@/components/primitives/Avatar", () => ({
   Avatar: ({ initials }) => <div data-testid="avatar">{initials}</div>,
 }));
 
@@ -37,7 +37,7 @@ jest.mock("@/scripts/AppContextProvider", () => {
 
 // 5) Stabilize toE164 so it’s identity for already-E.164,
 //    and normalizes US-ish inputs otherwise.
-jest.mock("@/core/utils/utilities", () => ({
+jest.mock("@/core/utils/phone", () => ({
   toE164: jest.fn((v) => {
     if (v == null) return "";
     const s = String(v).trim();
@@ -101,7 +101,7 @@ describe("ManageAccountComponent", () => {
     jest.clearAllMocks();
 
     // Re-apply toE164 implementation to be safe
-    const { toE164 } = jest.requireMock("@/core/utils/utilities");
+    const { toE164 } = jest.requireMock("@/core/utils/phone");
     toE164.mockImplementation((v) => {
       if (v == null) return "";
       const s = String(v).trim();
@@ -245,7 +245,7 @@ describe("ManageAccountComponent", () => {
   });
 
   test("Phone is normalized via toE164 before update", async () => {
-    const { toE164 } = jest.requireMock("@/core/utils/utilities");
+    const { toE164 } = jest.requireMock("@/core/utils/phone");
     renderWithContext(<ManageAccountComponent />);
 
     await userEvent.clear(screen.getByLabelText("Phone input"));

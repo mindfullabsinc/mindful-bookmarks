@@ -1,5 +1,5 @@
 import React from "react";
-import { Button, type ButtonVariant } from "@/components/ui/button";
+import { Button, type ButtonVariant } from "@/components/primitives/button";
 
 interface FeatureItem {
   icon: React.ReactNode;

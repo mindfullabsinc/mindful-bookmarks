@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { PricingCard } from "@/components/marketingWebsite/PricingCard";
 
 // Mock Button component to simplify testing
-jest.mock("@/components/ui/button", () => ({
+jest.mock("@/components/primitives/button", () => ({
   Button: ({ children, onClick }: any) => (
     <button onClick={onClick}>{children}</button>
   ),

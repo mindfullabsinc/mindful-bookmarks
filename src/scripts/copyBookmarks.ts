@@ -2,7 +2,7 @@ import type { WorkspaceIdType } from "@/core/constants/workspaces";
 import type { BookmarkGroupType, BookmarkType } from "@/core/types/bookmarks";
 import { getAdapter } from "@/scripts/storageAdapters";
 import { StorageMode } from "@/core/constants/storageMode";
-import { normalizeUrl } from "@/core/utils/utilities";
+import { normalizeUrl } from "@/core/utils/url";
 import { EMPTY_GROUP_IDENTIFIER } from "@/core/constants/constants";
 
 type CopyTarget =

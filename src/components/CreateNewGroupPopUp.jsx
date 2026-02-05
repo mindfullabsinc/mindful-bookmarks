@@ -5,7 +5,7 @@ import Modal from 'react-modal';
 import '@/styles/NewTab.css';
 
 /* Utilities */
-import { constructValidURL } from "@/core/utils/utilities";
+import { constructValidURL } from "@/core/utils/url";
 
 /* Bookmark Storage */
 import { useBookmarkManager } from '@/hooks/useBookmarkManager';

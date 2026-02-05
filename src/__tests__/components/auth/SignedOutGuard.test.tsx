@@ -1,36 +1,12 @@
-// src/__tests__/components/auth/SignedOutGuard.test.tsx
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import SignedOutGuard from "@/components/auth/SignedOutGuard";
 import { AppContext } from "@/scripts/AppContextProvider";
-import type { AppContextValue } from "@/scripts/AppContextProvider";
 import { AuthMode } from "@/core/constants/authMode";
-import { StorageMode } from "@/core/constants/storageMode";
-import { DEFAULT_LOCAL_WORKSPACE_ID } from "@/core/constants/workspaces";
-import { LOCAL_USER_ID } from "@/core/constants/authMode";
+import { makeAppContext } from "@/__tests__/mocks/mockAppContext";
 
-// ---- Minimal base context for tests ----
-const baseCtx: AppContextValue = {
-  workspaces: {},
-  activeWorkspaceId: DEFAULT_LOCAL_WORKSPACE_ID,
-  setActiveWorkspaceId: () => {},
-  groupsIndex: [],
-  bookmarkGroups: [],
-  setBookmarkGroups: () => {},
-  userId: LOCAL_USER_ID,
-  storageMode: StorageMode.LOCAL,
-  setStorageMode: async () => {},
-  // keep while deprecated in codebase
-  isSignedIn: false,
-  authMode: AuthMode.ANON,
-  isLoading: false,
-  isMigrating: false,
-  setIsMigrating: () => {},
-  userAttributes: null,
-  setUserAttributes: () => {},
-  hasHydrated: true,
-  isHydratingRemote: false,
-};
+
+const baseCtx = makeAppContext();
 
 describe("<SignedOutGuard/> stub", () => {
   test("renders nothing when not enabled", () => {
@@ -40,7 +16,9 @@ describe("<SignedOutGuard/> stub", () => {
 
   test("when enabled + signed out -> shows children", () => {
     render(
-      <AppContext.Provider value={{ ...baseCtx, authMode: AuthMode.ANON, isSignedIn: false }}>
+      <AppContext.Provider
+        value={{ ...baseCtx, authMode: AuthMode.ANON, isSignedIn: false }}
+      >
         <SignedOutGuard enabled>Signed out content</SignedOutGuard>
       </AppContext.Provider>
     );
@@ -49,7 +27,9 @@ describe("<SignedOutGuard/> stub", () => {
 
   test("when enabled + signed in -> shows fallback", () => {
     render(
-      <AppContext.Provider value={{ ...baseCtx, authMode: AuthMode.AUTH, isSignedIn: true }}>
+      <AppContext.Provider
+        value={{ ...baseCtx, authMode: AuthMode.AUTH, isSignedIn: true }}
+      >
         <SignedOutGuard enabled fallback={<div>Fallback</div>}>
           Signed out content
         </SignedOutGuard>

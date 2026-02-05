@@ -22,7 +22,7 @@ import { useBookmarkManager } from '@/hooks/useBookmarkManager';
 import { ensureImportedGroup } from "@/hooks/useCopyTo"; 
 
 /* Utilities */
-import { getUserStorageKey } from '@/core/utils/utilities';
+import { getUserStorageKey } from '@/core/utils/storageKeys';
 
 /* Scripts */
 import { loadInitialBookmarks } from '@/scripts/bookmarksData';
@@ -34,8 +34,8 @@ import TopBanner from "@/components/TopBanner";
 import DraggableGrid, { GridHandle } from '@/components/DraggableGrid';
 import EmptyBookmarksState from '@/components/EmptyBookmarksState';
 import { WorkspaceSwitcher } from "@/components/WorkspaceSwitcher";
-import CopyToModal from "@/components/CopyToModal";
-import { Toast } from "@/components/ui/Toast";
+import CopyToModal from "@/components/modals/CopyToModal";
+import { Toast } from "@/components/primitives/Toast";
 
 /* Events */
 import { openCopyTo, type CopyPayload } from "@/scripts/events/copyToBridge";

@@ -1,0 +1,174 @@
+@layer components {
+  /* -------------------- Shared styles -------------------- */
+  .divider {
+    @apply h-px w-full bg-neutral-200 dark:bg-neutral-800 mb-4;
+  }
+
+  .prompt-title {
+    @apply text-sm font-medium text-neutral-900 dark:text-neutral-100;
+  }
+
+  .prompt-subtitle {
+    @apply mt-1 text-sm text-neutral-600 dark:text-neutral-400;
+  }
+
+  .chip {
+    @apply border border-neutral-300 dark:border-neutral-700
+          bg-neutral-100 dark:bg-neutral-900
+          hover:bg-neutral-100 dark:hover:bg-neutral-800;
+  }
+
+  .chip--active {
+    @apply border-blue-500 ring-2 ring-blue-300;
+  }
+
+  .chip-icon {
+    @apply h-5 w-5 opacity-80 text-neutral-900 dark:text-neutral-100;
+  }
+
+  .chip-label {
+    @apply text-sm font-medium text-neutral-700 dark:text-neutral-300;
+  }
+
+  .tip {
+    @apply mt-2 text-xs text-neutral-500 dark:text-neutral-400;
+  }
+  
+  /* ---------------------------------------------------------- */
+
+  /* -------------------- selectTheme styles -------------------- */
+  .theme-chip-grid {
+    @apply mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3;
+  }
+
+  .theme-chip {
+    @apply flex flex-col rounded-2xl 
+           px-5 pt-5 pb-4
+           transition
+           cursor-pointer;
+  }
+
+  .theme-chip-header {
+    @apply flex flex-col items-center justify-center gap-2 mb-4 self-center text-center;
+  }
+
+  .theme-chip-preview {
+    @apply mb-3 h-24 w-full rounded-md object-cover border border-neutral-300/60 dark:border-neutral-700/60;
+  }
+  /* ---------------------------------------------------------- */
+
+  /* -------------------- setPurpose styles -------------------- */
+  .purpose-chip-grid {
+    @apply grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-md mx-auto;
+  }
+
+  .purpose-chip {
+    @apply rounded-lg 
+          px-4 py-3
+          flex items-center gap-2 justify-center text-center 
+          transition cursor-pointer;
+  }
+  /* ---------------------------------------------------------- */
+
+  /* -------------------- importBookmarks styles -------------------- */
+  .import-container {
+    @apply space-y-3 text-sm 
+         text-neutral-700 dark:text-neutral-300
+  }
+
+  .import-top-margin {
+    @apply mt-4 space-y-3;
+  }
+
+  .import-bottom-margin {
+    @apply space-y-2;
+  }
+
+  .import-chip {
+    @apply w-full text-left flex items-start gap-3 px-3 py-3
+           rounded-2xl border border-neutral-200 dark:border-neutral-800
+           bg-neutral-100/30 dark:bg-neutral-900/40 
+           text-neutral-950 dark:text-neutral-50
+           hover:border-neutral-400 dark:hover:border-neutral-600 
+           hover:bg-neutral-100/70 dark:hover:bg-neutral-900/70
+           transition cursor-pointer;
+  }
+
+  .import-chip__icon_container {
+    @apply mt-0.5 rounded-xl p-2
+           text-neutral-900 dark:text-neutral-100;
+  }
+
+  .import-chip__icon {
+    @apply h-5 w-5;
+  }
+
+  .import-chip__body {
+    @apply flex-1;
+  }
+
+  .import-chip__title {
+    @apply text-sm font-medium text-neutral-950 dark:text-neutral-50;
+  }
+
+  .import-chip__subtitle {
+    @apply mt-1 text-xs text-neutral-700 dark:text-neutral-300;
+  }
+
+  .import-chip__pill {
+    @apply rounded-full px-2 py-0.5
+           text-[10px] font-medium uppercase tracking-wide
+           bg-blue-500/20
+           text-blue-700 dark:text-blue-300;
+  } 
+  /* ---------------------------------------------------------- */
+
+  /* -------------------- smartImport styles -------------------- */
+  .s_import-container {
+    @apply flex flex-col items-center text-center p-8 min-h-[300px];
+  }
+
+  .s_import-icon-container {
+    @apply mb-6;
+  }
+
+  .s_import-icon {
+    @apply h-10 w-10 text-blue-500;
+  }
+
+  .s_import-icon-wand {
+    @apply animate-in fade-in;
+  }
+
+  .s_import-icon-loader {
+    @apply animate-spin; 
+  }
+
+  .s_import-title {
+    @apply text-xl font-semibold mb-2;
+  }
+
+  .s_import-dynamic-message {
+    @apply text-sm text-neutral-500 dark:text-neutral-400 mb-6;
+  }
+
+  .s_import-progress-bar-container {
+    @apply w-full max-w-xs h-1 rounded-full bg-neutral-800/50 dark:bg-neutral-700/50 overflow-hidden;
+  }
+
+  .s_import-progress-bar {
+    @apply h-full bg-blue-500 transition-all duration-700;
+  }
+
+  .s_import-reassurance-text {
+    @apply text-xs text-neutral-500 mt-4;
+  }
+
+  /* ---------------------------------------------------------- */
+
+  /* -------------------- manualImport styles -------------------- */
+  .m_import-container {
+    @apply mt-4 space-y-4;
+  }
+  /* ---------------------------------------------------------- */
+}

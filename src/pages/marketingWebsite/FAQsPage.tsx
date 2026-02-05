@@ -6,7 +6,7 @@ import "@aws-amplify/ui-react/styles.css";
 
 import AnalyticsProvider from "@/analytics/AnalyticsProvider";
 
-import { Accordion, AccordionItem, AccordionContent, AccordionTrigger } from "@/components/ui/accordion";
+import { Accordion, AccordionItem, AccordionContent, AccordionTrigger } from "@/components/primitives/accordion";
 import { MarketingNavbar } from "@/components/marketingWebsite/MarketingNavBar";
 import { MarketingFooter } from "@/components/marketingWebsite/MarketingFooter";
 

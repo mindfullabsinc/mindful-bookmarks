@@ -4,8 +4,8 @@ import * as React from "react";
 import { WAITLIST_ENDPOINT } from '@/core/constants/constants';
 
 /* Components */
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Button } from "@/components/primitives/button";
+import { Input } from "@/components/primitives/input";
 
 export default function WaitlistModal({
   open,

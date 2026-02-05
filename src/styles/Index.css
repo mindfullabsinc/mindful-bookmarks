@@ -1,12 +1,31 @@
+@config "../../tailwind.config.js";
 @import "tailwindcss";
+
 @tailwind base;
 @tailwind components;
 
 /* Put component layers after @tailwind components */
 @import "@/styles/components/top-banner.css";
+@import "@/styles/PopUp.css";
+@import "@/styles/components/onboarding/OnboardingOverlay.css";
+@import "@/styles/components/privacy/AiDisclosure.css";
+@import "@/styles/components/modals/ImportBookmarksModal.css";
+@import "@/styles/components/shared/ImportBookmarksContent.css";
 @import "@fortawesome/fontawesome-free/css/all.min.css";
 
 @tailwind utilities;
+
+@layer base {
+  html,
+  body {
+    @apply bg-neutral-50 text-neutral-900;
+  }
+
+  html.dark,
+  body.dark {
+    @apply bg-neutral-950 text-neutral-50;
+  }
+}
 
 @layer utilities {
   /* Force light colors inside this subtree even when <html class="dark"> */

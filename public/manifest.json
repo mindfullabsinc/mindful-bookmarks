@@ -26,11 +26,12 @@
 
   "permissions": [
     "storage", 
-    "tabs"
+    "tabs",
+    "bookmarks",
+    "history"
   ],
 
   "optional_permissions": [
-    "bookmarks"
   ],
 
   "host_permissions": [],
