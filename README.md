@@ -37,6 +37,8 @@ git switch -c release/chrome-1.7.0
 git commit -am "chore(release): prepare chrome 1.7.0"
 
 # build + zip for CWS, submit...
+cd dist
+zip -r ../mindful-extension-v1.2.2.zip .
 
 # after approval
 git tag v1.7.0
