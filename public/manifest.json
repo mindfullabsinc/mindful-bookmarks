@@ -27,8 +27,7 @@
   "permissions": [
     "storage", 
     "tabs",
-    "bookmarks",
-    "history"
+    "bookmarks"
   ],
 
   "optional_permissions": [
