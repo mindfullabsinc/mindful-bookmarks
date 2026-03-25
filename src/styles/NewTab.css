@@ -43,7 +43,7 @@ body, html {
 .bookmark-group-box > *:hover { cursor: initial; }
 
 /* Per-item row */
-.bookmark-container { @apply flex items-center mb-1; }
+.bookmark-container { @apply flex items-start mb-1; }
 
 .favicon {
   @apply mr-1 align-middle inline-block h-5 w-5
@@ -56,9 +56,7 @@ a { margin-right: 5px; }
 /* Prevent long unbreakable titles from pushing action buttons off-screen */
 .bookmark-container a {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  word-break: break-all;
   flex: 1 1 0;
 }
 
