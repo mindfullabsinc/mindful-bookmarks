@@ -53,9 +53,19 @@ body, html {
 
 a { margin-right: 5px; }
 
+/* Prevent long unbreakable titles from pushing action buttons off-screen */
+.bookmark-container a {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1 1 0;
+}
+
 /* Small “modify” icon button */
 .modify-link-button {
   @apply border-0 bg-transparent text-neutral-400 dark:text-neutral-400 ml-1 p-0;
+  flex-shrink: 0;
 }
 .modify-link-button:hover {
   @apply cursor-pointer text-neutral-200 dark:text-neutral-200;
