@@ -14,9 +14,6 @@ import { useBookmarkManager } from '@/hooks/useBookmarkManager';
 /* Scripts */
 import { AppContext } from '@/scripts/AppContextProvider';
 
-/* Events */
-import { openCopyTo } from '@/scripts/events/copyToBridge';
-
 /* Components */
 import SmartFavicon from '@/components/SmartFavicon';
 
@@ -35,7 +32,7 @@ type EditableBookmarkProps = {
 /* -------------------- Main component -------------------- */
 export function EditableBookmark({ bookmark, groupIndex, bookmarkIndex }: EditableBookmarkProps) {
   /* -------------------- Context / state -------------------- */
-  const { bookmarkGroups, activeWorkspaceId } = useContext(AppContext) as AppContextValue;
+  const { bookmarkGroups } = useContext(AppContext) as AppContextValue;
 
   const {
     deleteBookmark,
@@ -132,17 +129,12 @@ export function EditableBookmark({ bookmark, groupIndex, bookmarkIndex }: Editab
   }, [bookmarkGroups, groupIndex, bookmarkIndex, deleteBookmark]);
 
   /**
-   * Trigger the copy-to modal for a single bookmark within the active workspace.
+   * Copy the bookmark URL to the clipboard.
    */
   const handleBookmarkCopy = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
-    if (!activeWorkspaceId) return;
-    openCopyTo({
-      kind: 'bookmark',
-      fromWorkspaceId: activeWorkspaceId,
-      bookmarkIds: [bookmark.id],
-    });
-  }, [activeWorkspaceId, bookmark.id]);
+    navigator.clipboard.writeText(url);
+  }, [url]);
   /* ---------------------------------------------------------- */
 
   /* -------------------- Component UI -------------------- */
@@ -219,9 +211,8 @@ export function EditableBookmark({ bookmark, groupIndex, bookmarkIndex }: Editab
         type="button"
         className='modify-link-button'
         onClick={handleBookmarkCopy}
-        disabled={!activeWorkspaceId}
-        aria-label="Copy/Move bookmark"
-        title="Copy/Move bookmark"
+        aria-label="Copy link URL"
+        title="Copy link URL"
       >
         <i className="far fa-copy text-xs" />
       </button>
