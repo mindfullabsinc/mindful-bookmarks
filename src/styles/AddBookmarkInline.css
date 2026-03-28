@@ -28,12 +28,13 @@
 }
 
 .create-new-bookmark-component input[type="text"] {
-  @apply w-full text-sm py-2.5 px-3 border-0 border-b border-neutral-200
-         bg-transparent text-neutral-900 placeholder:text-neutral-400
+  @apply w-full text-sm py-2 px-3 mb-0 border-0 border-b border-neutral-200
+         rounded-none shadow-none bg-transparent
+         text-neutral-900 placeholder:text-neutral-400
          focus:outline-none focus:ring-0;
 }
 .dark .create-new-bookmark-component input[type="text"] {
-  @apply text-neutral-100 placeholder:text-neutral-500 border-neutral-700;
+  @apply bg-transparent text-neutral-100 placeholder:text-neutral-500 border-neutral-700;
 }
 
 /* Last input has no bottom border — the action row separator takes over */
@@ -68,5 +69,5 @@
   @apply border-0 bg-transparent text-neutral-400 dark:text-neutral-500 p-1.5 rounded
          hover:text-neutral-600 dark:hover:text-neutral-300
          hover:bg-neutral-100 dark:hover:bg-neutral-800
-         transition-colors;
+         hover:cursor-pointer transition-colors;
 }
