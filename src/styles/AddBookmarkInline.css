@@ -1,6 +1,6 @@
-@reference "@/styles/Index.css"; /* so utilities are available here */
-/*@import "./NewTab.css";*/
+@reference "@/styles/Index.css";
 
+/* ---- "+ Add a link" trigger ---- */
 .add-link-inline-container { @apply relative; }
 
 .bookmark-group-box .add-bookmark-button-1 {
@@ -9,55 +9,64 @@
          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60;
 }
 .dark .bookmark-group-box .add-bookmark-button-1 {
-  @apply bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200;
+  @apply bg-neutral-900 text-neutral-500 hover:bg-neutral-800 hover:text-neutral-300;
 }
 
-.create-new-bookmark-component { @apply relative rounded-lg p-2.5 bg-neutral-100; }
-.dark .create-new-bookmark-component { @apply bg-neutral-800; }
-
-.create-new-bookmark-component { @apply relative rounded-lg p-2.5 bg-neutral-100; }
-.dark .create-new-bookmark-component { @apply bg-neutral-800; }
-
-.form-container {
-  @apply static mb-2.5 rounded-md p-2.5 border shadow
+/* ---- Form card ---- */
+.create-new-bookmark-component {
+  @apply rounded-lg overflow-hidden border shadow-sm
          bg-white border-neutral-200;
 }
-.dark .form-container { @apply bg-neutral-900 border-neutral-700; }
+.dark .create-new-bookmark-component {
+  @apply bg-neutral-900 border-neutral-700;
+}
 
-form { @apply flex flex-col gap-1.5 w-full min-w-[200px] box-border rounded-lg; }
+/* ---- Inputs ---- */
+/* Scoped to the component to avoid overriding other inputs on the page */
+.create-new-bookmark-component form {
+  @apply flex flex-col gap-0 w-full;
+}
 
-input[type="text"] {
-  @apply w-full text-sm py-1.5 px-0 mb-0 border-0 rounded-none shadow-none
-         bg-white text-neutral-900 placeholder:text-neutral-400
+.create-new-bookmark-component input[type="text"] {
+  @apply w-full text-sm py-2.5 px-3 border-0 border-b border-neutral-200
+         bg-transparent text-neutral-900 placeholder:text-neutral-400
          focus:outline-none focus:ring-0;
 }
-.dark input[type="text"] {
-  @apply bg-neutral-900;          
-  @apply text-neutral-100 placeholder:text-neutral-400;
+.dark .create-new-bookmark-component input[type="text"] {
+  @apply text-neutral-100 placeholder:text-neutral-500 border-neutral-700;
 }
 
-/* If we also have textareas, include them too */
-.dark textarea {
-  @apply bg-black text-neutral-100 placeholder:text-neutral-400
-          ring-1 ring-white/10 focus:ring-2 focus:ring-white/20;
+/* Last input has no bottom border — the action row separator takes over */
+.create-new-bookmark-component input[type="text"]:last-of-type {
+  @apply border-b-0;
 }
 
-/* Optional: tame Chrome autofill yellow in dark mode */
-.dark input[type="text"]:-webkit-autofill {
+/* Chrome autofill tint fix in dark mode */
+.dark .create-new-bookmark-component input[type="text"]:-webkit-autofill {
   -webkit-text-fill-color: #e5e5e5;
-  -webkit-box-shadow: 0 0 0 1000px #000 inset;
+  -webkit-box-shadow: 0 0 0 1000px #171717 inset;
   caret-color: #e5e5e5;
 }
 
-.add-bookmark-button-2 {
-  @apply cursor-pointer flex-1 rounded-2xl px-4 py-2 font-semibold transition
-       bg-blue-600 hover:bg-blue-500 text-white;
+/* ---- Action row ---- */
+.form-actions {
+  @apply flex items-center gap-2 px-3 py-2
+         border-t border-neutral-200;
+}
+.dark .form-actions {
+  @apply border-neutral-700;
 }
 
+/* ---- Submit button ---- */
+.add-bookmark-button-2 {
+  @apply cursor-pointer flex-1 rounded-md px-3 py-1.5 text-sm font-semibold transition
+         bg-blue-600 hover:bg-blue-500 text-white;
+}
+
+/* ---- Cancel button ---- */
 .close-form-button {
-  @apply border-0 bg-transparent text-neutral-400 dark:text-neutral-400 ml-1 p-2;
+  @apply border-0 bg-transparent text-neutral-400 dark:text-neutral-500 p-1.5 rounded
+         hover:text-neutral-600 dark:hover:text-neutral-300
+         hover:bg-neutral-100 dark:hover:bg-neutral-800
+         transition-colors;
 }
-.close-form-button:hover {
-  @apply cursor-pointer text-neutral-200 dark:text-neutral-200;
-}
-.close-form-button-img { width: 16px; height: 16px; }

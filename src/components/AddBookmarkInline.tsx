@@ -338,29 +338,27 @@ function CreateNewBookmark({
   /* -------------------- Sub component UI -------------------- */
   return (
     <div className="create-new-bookmark-component">
-      <div className="form-container">
-        <form onKeyDown={handleKeyDown}>
-          <input
-            type="text"
-            placeholder="Enter a link URL"
-            value={bookmarkUrl}
-            onChange={handleBookmarkUrlChange}
-            pattern={URL_PATTERN}
-            required
-            aria-label="Link URL"
-            ref={focusField === 'url' ? setMergedRef : urlInputRef}
-          />
-          <input
-            type="text"
-            placeholder="Enter a link name (optional)"
-            value={bookmarkName}
-            onChange={handleBookmarkNameChange}
-            aria-label="Link Name"
-            ref={focusField === 'name' ? setMergedRef : nameInputRef}
-          />
-        </form>
-      </div>
-      <div className="flex items-center gap-2">
+      <form onKeyDown={handleKeyDown}>
+        <input
+          type="text"
+          placeholder="Enter a link URL"
+          value={bookmarkUrl}
+          onChange={handleBookmarkUrlChange}
+          pattern={URL_PATTERN}
+          required
+          aria-label="Link URL"
+          ref={focusField === 'url' ? setMergedRef : urlInputRef}
+        />
+        <input
+          type="text"
+          placeholder="Enter a link name (optional)"
+          value={bookmarkName}
+          onChange={handleBookmarkNameChange}
+          aria-label="Link Name"
+          ref={focusField === 'name' ? setMergedRef : nameInputRef}
+        />
+      </form>
+      <div className="form-actions">
         <button
           type="submit"
           className="add-bookmark-button-2"

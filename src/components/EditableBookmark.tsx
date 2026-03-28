@@ -149,27 +149,25 @@ export function EditableBookmark({ bookmark, groupIndex, bookmarkIndex }: Editab
   if (isEditing) {
     return (
       <div className="create-new-bookmark-component">
-        <div className="form-container">
-          <form onKeyDown={handleEditKeyDown}>
-            <input
-              type="text"
-              placeholder="Enter a link URL"
-              value={editUrl}
-              onChange={e => setEditUrl(e.target.value)}
-              required
-              aria-label="Link URL"
-              ref={editUrlRef}
-            />
-            <input
-              type="text"
-              placeholder="Enter a link name (optional)"
-              value={editName}
-              onChange={e => setEditName(e.target.value)}
-              aria-label="Link Name"
-            />
-          </form>
-        </div>
-        <div className="flex items-center gap-2">
+        <form onKeyDown={handleEditKeyDown}>
+          <input
+            type="text"
+            placeholder="Enter a link URL"
+            value={editUrl}
+            onChange={e => setEditUrl(e.target.value)}
+            required
+            aria-label="Link URL"
+            ref={editUrlRef}
+          />
+          <input
+            type="text"
+            placeholder="Enter a link name (optional)"
+            value={editName}
+            onChange={e => setEditName(e.target.value)}
+            aria-label="Link Name"
+          />
+        </form>
+        <div className="form-actions">
           <button
             type="submit"
             className="add-bookmark-button-2"
