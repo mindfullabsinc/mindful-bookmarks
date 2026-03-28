@@ -1,11 +1,12 @@
 /* -------------------- Imports -------------------- */
-import React, { useState, useRef, useContext, useCallback } from 'react';
+import React, { useState, useRef, useContext, useCallback, useEffect } from 'react';
 
 import type { BookmarkType } from "@/core/types/bookmarks";
 import type { AppContextValue } from "@/scripts/AppContextProvider";
 
 /* CSS styles */
 import '@/styles/NewTab.css';
+import '@/styles/AddBookmarkInline.css';
 
 /* Hooks */
 import { useBookmarkManager } from '@/hooks/useBookmarkManager';
@@ -18,6 +19,9 @@ import { openCopyTo } from '@/scripts/events/copyToBridge';
 
 /* Components */
 import SmartFavicon from '@/components/SmartFavicon';
+
+/* Utilities */
+import { constructValidURL } from "@/core/utils/url";
 /* ---------------------------------------------------------- */
 
 /* -------------------- Local types -------------------- */
@@ -33,76 +37,78 @@ export function EditableBookmark({ bookmark, groupIndex, bookmarkIndex }: Editab
   /* -------------------- Context / state -------------------- */
   const { bookmarkGroups, activeWorkspaceId } = useContext(AppContext) as AppContextValue;
 
-  // Get all actions from the custom bookmarks hook
-  const { 
+  const {
     deleteBookmark,
-    editBookmarkName, 
-  } = useBookmarkManager();  
+    editBookmark,
+  } = useBookmarkManager();
 
   const [text, setText] = useState<string>(bookmark.name ?? '');
-  const [url] = useState<string>(bookmark.url ?? '');       
+  const [url, setUrl] = useState<string>(bookmark.url ?? '');
 
-  const aRef = useRef<HTMLAnchorElement>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editUrl, setEditUrl] = useState('');
+  const [editName, setEditName] = useState('');
+
+  const editUrlRef = useRef<HTMLInputElement>(null);
+  /* ---------------------------------------------------------- */
+
+  /* -------------------- Effects -------------------- */
+  /**
+   * Focus the URL field whenever the edit form opens.
+   */
+  useEffect(() => {
+    if (isEditing) {
+      const t = setTimeout(() => {
+        editUrlRef.current?.focus();
+        editUrlRef.current?.select();
+      }, 0);
+      return () => clearTimeout(t);
+    }
+  }, [isEditing]);
   /* ---------------------------------------------------------- */
 
   /* -------------------- Helper functions -------------------- */
   /**
-   * Enter inline edit mode for a bookmark title and persist the change on blur/Enter.
+   * Open the inline edit form pre-filled with the current bookmark values.
    */
-  const handleBookmarkNameEdit = useCallback((
-    _event: React.MouseEvent<HTMLButtonElement>,
-    grpIndex: number,
-    bmIndex: number
-  ) => {
-    const aElement = aRef.current;
-    if (!aElement) return; 
-    if (aElement.isContentEditable) return;  // prevent double-initialization
+  const handleEditClick = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    setEditUrl(url);
+    setEditName(text);
+    setIsEditing(true);
+  }, [url, text]);
 
-    // Make the <a> element's content editable
-    aElement.setAttribute('contenteditable', 'true');
-    aElement.focus();
+  /**
+   * Persist the edited name and URL, then close the form.
+   */
+  const handleEditSubmit = useCallback(async (e: React.SyntheticEvent) => {
+    e.preventDefault();
+    const urlWithProtocol = constructValidURL(editUrl);
+    const finalName = editName.trim() || urlWithProtocol;
+    setText(finalName);
+    setUrl(urlWithProtocol);
+    setIsEditing(false);
+    await editBookmark(groupIndex, bookmarkIndex, finalName, urlWithProtocol);
+  }, [editUrl, editName, groupIndex, bookmarkIndex, editBookmark]);
 
-    // Select all text in the <a> element
-    const selection = typeof window !== 'undefined' ? window.getSelection() : null; 
-    if (selection) {
-      const range = document.createRange();
-      range.selectNodeContents(aElement);
-      selection.removeAllRanges();
-      selection.addRange(range);
+  /**
+   * Close the edit form without saving.
+   */
+  const handleEditCancel = useCallback(() => {
+    setIsEditing(false);
+  }, []);
+
+  /**
+   * Treat Enter as submit and Escape as cancel inside the edit form.
+   */
+  function handleEditKeyDown(e: React.KeyboardEvent<HTMLFormElement>) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleEditSubmit(e);
+    } else if (e.key === 'Escape') {
+      handleEditCancel();
     }
-
-    // Use native events; type them precisely
-    const onKeyDown = (ev: KeyboardEvent) => {
-      if (ev.key === 'Enter') {
-        ev.preventDefault();
-        aElement.blur(); // triggers blur handler
-      } else if (ev.key === 'Escape') {                      
-        aElement.textContent = text;
-        aElement.blur();
-      }
-    };
-
-    const cleanup = () => {                                   
-      aElement.setAttribute('contenteditable', 'false');
-      aElement.removeEventListener('keydown', onKeyDown);
-      aElement.removeEventListener('blur', onBlur);
-    };
-
-    const onBlur = async (ev: FocusEvent) => {
-      // target is EventTarget | null; narrow to HTMLAnchorElement
-      const target = ev.target as HTMLAnchorElement | null;
-      const newBookmarkName = target?.textContent?.trim() ?? '';
-
-      if (newBookmarkName !== text) {  // avoid no-op writes
-        setText(newBookmarkName);
-        await editBookmarkName(grpIndex, bmIndex, newBookmarkName);
-      }
-      cleanup(); 
-    };
-
-    aElement.addEventListener('keydown', onKeyDown);
-    aElement.addEventListener('blur', onBlur, { once: true });
-  }, [editBookmarkName, text]); 
+  }
 
   /**
    * Confirm and remove a bookmark from its group.
@@ -114,11 +120,11 @@ export function EditableBookmark({ bookmark, groupIndex, bookmarkIndex }: Editab
   ) => {
     const bookmarkGroup = bookmarkGroups[groupIndex];
     if (!bookmarkGroup) return;
-    const bookmark = bookmarkGroup.bookmarks[bookmarkIndex];
-    if (!bookmark) return;
-    
+    const bm = bookmarkGroup.bookmarks[bookmarkIndex];
+    if (!bm) return;
+
     const shouldDelete = window.confirm(
-      `Are you sure you want to delete the "${bookmark.name}" bookmark from "${bookmarkGroup.groupName}"?`
+      `Are you sure you want to delete the "${bm.name}" bookmark from "${bookmarkGroup.groupName}"?`
     );
     if (shouldDelete) {
       await deleteBookmark(bmIndex, grpIndex);
@@ -128,32 +134,75 @@ export function EditableBookmark({ bookmark, groupIndex, bookmarkIndex }: Editab
   /**
    * Trigger the copy-to modal for a single bookmark within the active workspace.
    */
-  const handleBookmarkCopy = useCallback((event: React.MouseEvent<HTMLButtonElement>) => { 
-    event.stopPropagation(); // don’t start a drag
+  const handleBookmarkCopy = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
     if (!activeWorkspaceId) return;
     openCopyTo({
       kind: 'bookmark',
       fromWorkspaceId: activeWorkspaceId,
-      bookmarkIds: [bookmark.id], // single-bookmark copy; we can extend to multiselect later
+      bookmarkIds: [bookmark.id],
     });
   }, [activeWorkspaceId, bookmark.id]);
   /* ---------------------------------------------------------- */
 
   /* -------------------- Component UI -------------------- */
+  if (isEditing) {
+    return (
+      <div className="create-new-bookmark-component">
+        <div className="form-container">
+          <form onKeyDown={handleEditKeyDown}>
+            <input
+              type="text"
+              placeholder="Enter a link URL"
+              value={editUrl}
+              onChange={e => setEditUrl(e.target.value)}
+              required
+              aria-label="Link URL"
+              ref={editUrlRef}
+            />
+            <input
+              type="text"
+              placeholder="Enter a link name (optional)"
+              value={editName}
+              onChange={e => setEditName(e.target.value)}
+              aria-label="Link Name"
+            />
+          </form>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="submit"
+            className="add-bookmark-button-2"
+            onClick={handleEditSubmit}
+            aria-label="Save"
+          >
+            Save
+          </button>
+          <button
+            className="close-form-button"
+            onClick={handleEditCancel}
+            aria-label="Cancel edit"
+          >
+            <i className="fas fa-xmark text-sm" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="bookmark-container">                      
+    <div className="bookmark-container">
       <SmartFavicon
         url={url}
         size={20}
         className="favicon"
         fallback="letter"
       />
-      
+
       <a
         href={url}
         target="_blank"
         rel="noopener noreferrer"
-        ref={aRef}
         className="text-base"
       >
         {text}
@@ -161,19 +210,18 @@ export function EditableBookmark({ bookmark, groupIndex, bookmarkIndex }: Editab
 
       <button
         type="button"
-        className='modify-link-button' 
-        // preventDefault avoids focus ripple in some browsers
-        onClick={(event) => { event.preventDefault(); handleBookmarkNameEdit(event, groupIndex, bookmarkIndex); }}
+        className='modify-link-button'
+        onClick={handleEditClick}
         aria-label="Edit bookmark"
         title="Edit bookmark"
       >
         <i className="fa fa-pencil text-xsm" />
       </button>
-      <button 
+      <button
         type="button"
-        className='modify-link-button' 
+        className='modify-link-button'
         onClick={handleBookmarkCopy}
-        disabled={!activeWorkspaceId}  // explicit disabled state
+        disabled={!activeWorkspaceId}
         aria-label="Copy/Move bookmark"
         title="Copy/Move bookmark"
       >
@@ -181,8 +229,8 @@ export function EditableBookmark({ bookmark, groupIndex, bookmarkIndex }: Editab
       </button>
       <button
         type="button"
-        className='modify-link-button' 
-        onClick={(event) => handleBookmarkDelete(event, groupIndex, bookmarkIndex)}  
+        className='modify-link-button'
+        onClick={(event) => handleBookmarkDelete(event, groupIndex, bookmarkIndex)}
         aria-label="Delete bookmark"
         title="Delete bookmark"
       >
