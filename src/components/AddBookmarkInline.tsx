@@ -162,7 +162,7 @@ function CreateNewBookmark({
   setLinkBeingEdited,
   autoFocus = false,
   inputRef,
-  focusField = 'name',
+  focusField = 'url',
   onDone,
   prefillUrl,
   prefillName,
@@ -238,8 +238,9 @@ function CreateNewBookmark({
   async function handleSubmit(e: React.SyntheticEvent) {
     e.preventDefault();
     const urlWithProtocol = constructValidURL(bookmarkUrl);
+    const finalName = bookmarkName.trim() || deriveNameFromUrl(urlWithProtocol) || urlWithProtocol;
     capture("bookmark_added", { surface: "newtab" });
-    await addNamedBookmark(bookmarkName, urlWithProtocol, groupName);
+    await addNamedBookmark(finalName, urlWithProtocol, groupName);
 
     // Find this group's id (prefer hydrated, fallback to index)
     const candidates = (bookmarkGroups?.length ? bookmarkGroups : groupsIndex) || [];
@@ -337,30 +338,27 @@ function CreateNewBookmark({
   /* -------------------- Sub component UI -------------------- */
   return (
     <div className="create-new-bookmark-component">
-      <div className="form-container">
-        <form onKeyDown={handleKeyDown}>
-          <input
-            type="text"
-            placeholder="Enter a link name"
-            value={bookmarkName}
-            onChange={handleBookmarkNameChange}
-            required
-            aria-label="Link Name"
-            ref={focusField === 'name' ? setMergedRef : nameInputRef}
-          />
-          <input
-            type="text"
-            placeholder="Enter a link URL"
-            value={bookmarkUrl}
-            onChange={handleBookmarkUrlChange}
-            pattern={URL_PATTERN}
-            required
-            aria-label="Link URL"
-            ref={focusField === 'url' ? setMergedRef : urlInputRef}
-          />
-        </form>
-      </div>
-      <div className="flex items-center gap-2">
+      <form onKeyDown={handleKeyDown}>
+        <input
+          type="text"
+          placeholder="Enter a link URL"
+          value={bookmarkUrl}
+          onChange={handleBookmarkUrlChange}
+          pattern={URL_PATTERN}
+          required
+          aria-label="Link URL"
+          ref={focusField === 'url' ? setMergedRef : urlInputRef}
+        />
+        <input
+          type="text"
+          placeholder="Enter a link name (optional)"
+          value={bookmarkName}
+          onChange={handleBookmarkNameChange}
+          aria-label="Link Name"
+          ref={focusField === 'name' ? setMergedRef : nameInputRef}
+        />
+      </form>
+      <div className="form-actions">
         <button
           type="submit"
           className="add-bookmark-button-2"
@@ -396,7 +394,7 @@ export function AddBookmarkInline(props: AddBookmarkInlineProps) {
     groupIndex,
     autoFocus = false,     // open + focus automatically
     inputRef,              // exposes the main input element to parent (Grid)
-    focusField = 'name',    // 'url' | 'name'
+    focusField = 'url',    // 'url' | 'name'
     onDone,                // called after submit/close
     // NEW: optional explicit prefills (take precedence over clipboard)
     prefillUrl,

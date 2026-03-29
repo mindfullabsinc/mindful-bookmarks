@@ -31,6 +31,7 @@ interface BookmarkManager {
   addNamedBookmark: (bookmarkName: string, url: string, groupName: string) => Promise<void>;
   deleteBookmark: (bookmarkIndex: number, groupIndex: number) => Promise<void>;
   editBookmarkName: (groupIndex: number, bookmarkIndex: number, newBookmarkName: string) => Promise<void>;
+  editBookmark: (groupIndex: number, bookmarkIndex: number, newName: string, newUrl: string) => Promise<void>;
   reorderBookmarks: (oldBookmarkIndex: number, newBookmarkIndex: number, groupIndex: number) => Promise<void>;
   moveBookmark: (source: BookmarkMoveLocation, destination: BookmarkMoveLocation) => Promise<void>;
   exportBookmarksToJSON: () => void;
@@ -321,6 +322,33 @@ export const useBookmarkManager = (): BookmarkManager => {
   };
 
   /**
+   * Update both the display name and URL for an existing bookmark.
+   *
+   * @param groupIndex Index of the parent group.
+   * @param bookmarkIndex Index of the bookmark within that group.
+   * @param newName New bookmark name to set.
+   * @param newUrl New bookmark URL to set.
+   * @returns Promise resolving once the bookmark is updated.
+   */
+  const editBookmark = async (
+    groupIndex: number,
+    bookmarkIndex: number,
+    newName: string,
+    newUrl: string
+  ): Promise<void> => {
+    await updateAndPersistGroups(prevGroups => {
+      const updatedGroups = cloneGroups(prevGroups);
+      if (updatedGroups[groupIndex]?.bookmarks[bookmarkIndex]) {
+        updatedGroups[groupIndex].bookmarks[bookmarkIndex].name = newName;
+        updatedGroups[groupIndex].bookmarks[bookmarkIndex].url = newUrl;
+      } else {
+        console.error("Error: Tried to edit a bookmark that doesn't exist.", { groupIndex, bookmarkIndex });
+      }
+      return updatedGroups;
+    });
+  };
+
+  /**
    * Append a new bookmark to the specified group, creating the group if necessary.
    *
    * @param bookmarkName Display name for the bookmark.
@@ -458,6 +486,7 @@ export const useBookmarkManager = (): BookmarkManager => {
     addNamedBookmark,
     deleteBookmark,
     editBookmarkName,
+    editBookmark,
     reorderBookmarks,
     moveBookmark,
     exportBookmarksToJSON,

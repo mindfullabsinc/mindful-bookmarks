@@ -102,13 +102,15 @@ describe('BookmarkGroup', () => {
       },
     };
 
-    it('should hide the delete button and the add bookmark form', () => {
+    it('should still render the delete button and the add bookmark form', () => {
       render(<BookmarkGroup {...emptyGroupProps} />);
-      
-      // Use queryByRole for elements that should NOT exist.
-      expect(screen.queryByRole('button', { name: /delete group/i })).not.toBeInTheDocument();
-      expect(screen.queryByTestId('add-bookmark-inline')).not.toBeInTheDocument();
-      
+
+      // Delete button and add-link form now always render regardless of whether
+      // the group has a name (the headingIsEntered guard was removed to allow
+      // adding links inline before naming the group).
+      expect(screen.getByRole('button', { name: /delete group/i })).toBeInTheDocument();
+      expect(screen.getByTestId('add-bookmark-inline')).toBeInTheDocument();
+
       // Ensure the other parts still render correctly
       expect(screen.getByTestId('editable-heading')).toBeInTheDocument();
       expect(screen.getAllByTestId('editable-bookmark')).toHaveLength(1);

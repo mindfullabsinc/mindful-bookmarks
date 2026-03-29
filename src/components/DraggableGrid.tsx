@@ -4,7 +4,7 @@ import React, {
 } from "react";
 import {
   DndContext,
-  closestCorners,
+  closestCenter,
   useSensor,
   useSensors,
   PointerSensor,
@@ -302,6 +302,18 @@ const DraggableGrid = forwardRef<GridHandle, DraggableGridProps>(function Dragga
     if (source.groupIndex === destination.groupIndex) {
       reorderBookmarks(source.bookmarkIndex, destination.bookmarkIndex, source.groupIndex);
     } else {
+      // When dropping onto a specific bookmark (not a group container), decide
+      // insert-before vs insert-after by comparing the dragged item's vertical
+      // center to the over item's center. This ensures dropping below the last
+      // item in a group appends it rather than landing above that item.
+      if (!overIsGroupContainer && active.rect?.current?.translated && over.rect) {
+        const draggedCenterY =
+          active.rect.current.translated.top + active.rect.current.translated.height / 2;
+        const overCenterY = over.rect.top + over.rect.height / 2;
+        if (draggedCenterY > overCenterY) {
+          destination.bookmarkIndex += 1;
+        }
+      }
       moveBookmark(source, destination);
     }
   }
@@ -332,7 +344,7 @@ const DraggableGrid = forwardRef<GridHandle, DraggableGridProps>(function Dragga
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCorners}
+      collisionDetection={closestCenter}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       onDragCancel={() => setActiveItem(null)}

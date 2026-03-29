@@ -1,18 +1,23 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useContext, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { WorkspaceIdType } from "@/core/constants/workspaces";
-import { listLocalWorkspaces } from "@/scripts/workspaces/registry";
+import { listLocalWorkspaces, createLocalWorkspace } from "@/scripts/workspaces/registry";
+import { AppContext } from "@/scripts/AppContextProvider";
+
+const NEW_WS = "__new__";
 
 type Props = {
   open: boolean;
   onClose: () => void;
   onConfirm: (destWorkspaceId: WorkspaceIdType, move: boolean) => void;
   currentWorkspaceId: WorkspaceIdType;
-  title?: string; 
+  title?: string;
 };
 
 /**
  * Modal that lets users pick another workspace to copy/move bookmark payloads into.
+ * When no other workspaces exist, or when the user selects "+ New workspace", a name
+ * input is shown and the workspace is created on confirm.
  *
  * @param props Component props.
  * @param props.open Whether the modal is currently displayed.
@@ -32,12 +37,21 @@ export default function CopyToModal({
     useState<Array<{ id: WorkspaceIdType; name: string }>>([]);
   const [dest, setDest] = useState<WorkspaceIdType | null>(null);
   const [move, setMove] = useState(false);
+  const [newName, setNewName] = useState("New Workspace");
+  const [creating, setCreating] = useState(false);
+
+  const { bumpWorkspacesVersion } = useContext(AppContext) as { bumpWorkspacesVersion: () => void };
 
   const panelRef = useRef<HTMLDivElement | null>(null);
   const selectRef = useRef<HTMLSelectElement | null>(null);
+  const newNameRef = useRef<HTMLInputElement | null>(null);
+
+  const isCreatingNew = dest === NEW_WS;
+  const canConfirm = !!dest && !creating;
 
   /**
    * Fetch workspace choices every time the modal opens so the list stays fresh.
+   * Pre-select "+ New workspace" when no other workspaces are available.
    */
   useEffect(() => {
     if (!open) return;
@@ -45,35 +59,61 @@ export default function CopyToModal({
       const all = await listLocalWorkspaces();
       const filtered = all.filter((w) => w.id !== currentWorkspaceId);
       setWorkspaces(filtered);
-      setDest(filtered[0]?.id ?? null);
+      setDest(filtered[0]?.id ?? NEW_WS);
       setMove(false);
+      setNewName("New Workspace");
     })();
   }, [open, currentWorkspaceId]);
 
   /**
-   * Listen for Escape/Enter key presses while the modal is open to support quick dismissal/confirm.
+   * Focus the new-workspace name input when it appears, otherwise focus the select.
+   */
+  useEffect(() => {
+    if (!open) return;
+    queueMicrotask(() => {
+      if (isCreatingNew) {
+        newNameRef.current?.focus();
+        newNameRef.current?.select();
+      } else {
+        selectRef.current?.focus();
+      }
+    });
+  }, [open, isCreatingNew]);
+
+  /**
+   * Create the destination workspace (if needed) then invoke onConfirm.
+   */
+  async function handleConfirm() {
+    if (!dest) return;
+    if (isCreatingNew) {
+      setCreating(true);
+      try {
+        const ws = await createLocalWorkspace(newName.trim() || "New Workspace", { setActive: false });
+        bumpWorkspacesVersion();
+        onConfirm(ws.id, move);
+      } finally {
+        setCreating(false);
+      }
+    } else {
+      onConfirm(dest, move);
+    }
+  }
+
+  /**
+   * Listen for Escape/Enter key presses while the modal is open.
    */
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose?.();
-      if (e.key === "Enter" && dest) {
+      if (e.key === "Enter" && canConfirm) {
         e.preventDefault();
-        onConfirm(dest, move);
+        handleConfirm();
       }
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [open, dest, move, onClose, onConfirm]);
-
-  /**
-   * Focus the destination select input as soon as the modal becomes visible.
-   */
-  useEffect(() => {
-    if (open) {
-      queueMicrotask(() => selectRef.current?.focus());
-    }
-  }, [open]);
+  }, [open, canConfirm, handleConfirm, onClose]);
 
   if (!open) return null;
 
@@ -143,9 +183,7 @@ export default function CopyToModal({
                     id="copyto-dest"
                     ref={selectRef}
                     value={dest ?? ""}
-                    onChange={(e) =>
-                      setDest(e.target.value as WorkspaceIdType)
-                    }
+                    onChange={(e) => setDest(e.target.value as WorkspaceIdType)}
                     className="block w-full appearance-none rounded-xl border border-neutral-300 bg-white px-3 py-2.5 text-sm
                                text-neutral-900 shadow-sm transition
                                hover:border-neutral-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20
@@ -157,6 +195,7 @@ export default function CopyToModal({
                         {w.name}
                       </option>
                     ))}
+                    <option value={NEW_WS}>+ New workspace</option>
                   </select>
 
                   {/* chevron */}
@@ -175,9 +214,25 @@ export default function CopyToModal({
                     </svg>
                   </div>
                 </div>
+
+                {/* New workspace name input */}
+                {isCreatingNew && (
+                  <input
+                    ref={newNameRef}
+                    type="text"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    placeholder="Workspace name"
+                    aria-label="New workspace name"
+                    className="mt-2 block w-full rounded-xl border border-neutral-300 bg-white px-3 py-2.5 text-sm
+                               text-neutral-900 shadow-sm transition placeholder:text-neutral-400
+                               hover:border-neutral-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20
+                               dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:border-neutral-600
+                               dark:focus:border-blue-500 dark:placeholder:text-neutral-500"
+                  />
+                )}
               </div>
 
-              
               <div className="rounded-xl border border-neutral-200 p-3 transition hover:border-neutral-300 dark:border-neutral-800">
                 <label className="inline-flex items-center text-sm text-neutral-800 dark:text-neutral-200">
                   <input
@@ -201,19 +256,19 @@ export default function CopyToModal({
                        hover:bg-neutral-50 dark:hover:bg-neutral-800
                        border-neutral-300 dark:border-neutral-700
                        text-neutral-800 dark:text-neutral-100
-                         shadow-sm transition 
+                         shadow-sm transition
                          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70"
             >
               Cancel
             </button>
             <button
-              onClick={() => dest && onConfirm(dest, move)}
-              disabled={!dest}
+              onClick={handleConfirm}
+              disabled={!canConfirm}
               className="inline-flex cursor-pointer items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm
                          transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60
                          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70"
             >
-              Confirm
+              {creating ? "Creating…" : "Confirm"}
             </button>
           </div>
         </div>

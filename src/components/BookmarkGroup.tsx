@@ -132,40 +132,38 @@ export const BookmarkGroup: React.FC<BookmarkGroupProps> = ({
     >
       {/* Actions (Delete + Copy/Move) */}
       {/* Only show the actions when the BookmarkGroup is hovered over */}
-      {headingIsEntered && (
-        <div
-          className="
-            absolute right-2 top-2 flex items-center 
-            text-neutral-400 dark:text-neutral-400
+      <div
+        className="
+          absolute right-2 top-2 flex items-center
+          text-neutral-400 dark:text-neutral-400
 
-            opacity-0 pointer-events-none
-            transition-opacity duration-150
+          opacity-0 pointer-events-none
+          transition-opacity duration-150
 
-            group-hover:opacity-100 group-hover:pointer-events-auto
-            focus-within:opacity-100 focus-within:pointer-events-auto
-          "
+          group-hover:opacity-100 group-hover:pointer-events-auto
+          focus-within:opacity-100 focus-within:pointer-events-auto
+        "
+      >
+        <button
+          className="icon-button p-1 hover:text-neutral-500 dark:hover:text-neutral-300 transition-colors cursor-pointer"
+          onClick={onCopyGroup}
+          onPointerDown={(e) => e.stopPropagation()}
+          aria-label="Copy/Move group"
+          title="Copy/Move group"
         >
-          <button
-            className="icon-button p-1 hover:text-neutral-500 dark:hover:text-neutral-300 transition-colors cursor-pointer"
-            onClick={onCopyGroup}
-            onPointerDown={(e) => e.stopPropagation()}
-            aria-label="Copy/Move group"
-            title="Copy/Move group"
-          >
-            <i className="far fa-copy text-sm" />
-          </button>
+          <i className="far fa-copy text-sm" />
+        </button>
 
-          <button
-            className="icon-button p-1 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
-            onClick={(event) => handleDeleteBookmarkGroup(event, groupIndex)}
-            onPointerDown={(e) => e.stopPropagation()}
-            aria-label="Delete group"
-            title="Delete group"
-          >
-            <i className="fas fa-xmark text-sm" />
-          </button>
-        </div>
-      )}
+        <button
+          className="icon-button p-1 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
+          onClick={(event) => handleDeleteBookmarkGroup(event, groupIndex)}
+          onPointerDown={(e) => e.stopPropagation()}
+          aria-label="Delete group"
+          title="Delete group"
+        >
+          <i className="fas fa-xmark text-sm" />
+        </button>
+      </div>
 
       {/* Header */}
       <div onPointerDown={stopPropagation} className="bookmark-group-header">
@@ -189,21 +187,19 @@ export const BookmarkGroup: React.FC<BookmarkGroupProps> = ({
           ))}
         </SortableContext>
 
-        {/* Inline add link: shown only when the group has a real title */}
-        {headingIsEntered && (
-          <AddBookmarkInline
-            groupIndex={groupIndex}
-            autoFocus={autoAddLink}
-            inputRef={addLinkInputRef}
-            onDone={onAddLinkDone}
+        {/* Inline add link */}
+        <AddBookmarkInline
+          groupIndex={groupIndex}
+          autoFocus={autoAddLink}
+          inputRef={addLinkInputRef}
+          onDone={onAddLinkDone}
 
-            /* Only during onboarding: pass constant prefills
-               (explicit prefills take precedence over clipboard inside the component) */
-            prefillName={autofillFromClipboard ? ONBOARDING_BOOKMARK_NAME_PREFILL : undefined}
-            prefillUrl={autofillFromClipboard ? ONBOARDING_BOOKMARK_URL_PREFILL : undefined}
-            autofillFromClipboard={autofillFromClipboard}
-          />
-        )}
+          /* Only during onboarding: pass constant prefills
+             (explicit prefills take precedence over clipboard inside the component) */
+          prefillName={autofillFromClipboard ? ONBOARDING_BOOKMARK_NAME_PREFILL : undefined}
+          prefillUrl={autofillFromClipboard ? ONBOARDING_BOOKMARK_URL_PREFILL : undefined}
+          autofillFromClipboard={autofillFromClipboard}
+        />
       </div>
     </div>
   );

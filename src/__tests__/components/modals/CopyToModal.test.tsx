@@ -1,14 +1,22 @@
-import React from "react";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import CopyToModal from "@/components/modals/CopyToModal";
-import { listLocalWorkspaces } from "@/scripts/workspaces/registry";
+jest.mock("@/scripts/AppContextProvider", () => ({
+  AppContext: require("react").createContext({ bumpWorkspacesVersion: jest.fn() }),
+}));
 
 jest.mock("@/scripts/workspaces/registry", () => ({
   listLocalWorkspaces: jest.fn(),
+  createLocalWorkspace: jest.fn(),
 }));
+
+import React from "react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import CopyToModal from "@/components/modals/CopyToModal";
+import { listLocalWorkspaces, createLocalWorkspace } from "@/scripts/workspaces/registry";
 
 const listLocalWorkspacesMock = listLocalWorkspaces as jest.MockedFunction<
   typeof listLocalWorkspaces
+>;
+const createLocalWorkspaceMock = createLocalWorkspace as jest.MockedFunction<
+  typeof createLocalWorkspace
 >;
 
 type Ws = { id: any; name: string };
@@ -81,9 +89,9 @@ describe("CopyToModal", () => {
 
     const select = screen.getByLabelText(/destination workspace/i) as HTMLSelectElement;
 
-    // Filtered out w1, leaving w2/w3
+    // Filtered out w1, leaving w2/w3 + "New workspace" option
     await waitFor(() => {
-      expect(select.options).toHaveLength(2);
+      expect(select.options).toHaveLength(3);
       expect(select.options[0].value).toBe("w2");
       expect(select.options[1].value).toBe("w3");
     });
@@ -133,7 +141,7 @@ describe("CopyToModal", () => {
     expect(onClose).toHaveBeenCalledTimes(4);
   });
 
-  it("disables Confirm when there are no destination workspaces (dest is null)", async () => {
+  it("enables Confirm when only the current workspace exists, pre-selecting + New workspace", async () => {
     setup({
       open: true,
       currentWorkspaceId: "w1",
@@ -142,8 +150,11 @@ describe("CopyToModal", () => {
 
     await screen.findByRole("dialog");
 
+    const select = screen.getByLabelText(/destination workspace/i) as HTMLSelectElement;
+    expect(select.value).toBe("__new__");
+
     const confirmBtn = screen.getByRole("button", { name: /confirm/i });
-    expect(confirmBtn).toBeDisabled();
+    expect(confirmBtn).toBeEnabled();
   });
 
   it("calls onConfirm with default destination and move=false when Confirm is clicked", async () => {
@@ -188,7 +199,15 @@ describe("CopyToModal", () => {
     expect(onConfirm).toHaveBeenCalledWith("w2", true);
   }); 
 
-  it("does not confirm on Enter if no destination exists", async () => {
+  it("creates a new workspace and confirms on Enter when + New workspace is pre-selected", async () => {
+    createLocalWorkspaceMock.mockResolvedValueOnce({
+      id: "ws-new",
+      name: "New Workspace",
+      storageMode: "local",
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    } as any);
+
     const { onConfirm } = setup({
       open: true,
       currentWorkspaceId: "w1",
@@ -198,7 +217,11 @@ describe("CopyToModal", () => {
     await screen.findByRole("dialog");
 
     fireEvent.keyDown(document, { key: "Enter" });
-    expect(onConfirm).not.toHaveBeenCalled();
+
+    await waitFor(() => {
+      expect(createLocalWorkspaceMock).toHaveBeenCalledWith("New Workspace", { setActive: false });
+      expect(onConfirm).toHaveBeenCalledWith("ws-new", false);
+    });
   });
 
   it("uses the default title when not provided, and custom title when provided", async () => {
