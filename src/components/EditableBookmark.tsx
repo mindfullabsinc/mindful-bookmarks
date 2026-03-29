@@ -45,6 +45,7 @@ export function EditableBookmark({ bookmark, groupIndex, bookmarkIndex }: Editab
   const [isEditing, setIsEditing] = useState(false);
   const [editUrl, setEditUrl] = useState('');
   const [editName, setEditName] = useState('');
+  const [copied, setCopied] = useState(false);
 
   const editUrlRef = useRef<HTMLInputElement>(null);
   /* ---------------------------------------------------------- */
@@ -134,6 +135,8 @@ export function EditableBookmark({ bookmark, groupIndex, bookmarkIndex }: Editab
   const handleBookmarkCopy = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
   }, [url]);
   /* ---------------------------------------------------------- */
 
@@ -211,10 +214,10 @@ export function EditableBookmark({ bookmark, groupIndex, bookmarkIndex }: Editab
         type="button"
         className='modify-link-button'
         onClick={handleBookmarkCopy}
-        aria-label="Copy link URL"
-        title="Copy link URL"
+        aria-label={copied ? "Copied!" : "Copy link URL"}
+        title={copied ? "Copied!" : "Copy link URL"}
       >
-        <i className="far fa-copy text-xs" />
+        <i className={copied ? "fas fa-check text-xs" : "far fa-copy text-xs"} />
       </button>
       <button
         type="button"
