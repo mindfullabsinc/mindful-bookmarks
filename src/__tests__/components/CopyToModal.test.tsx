@@ -1,15 +1,20 @@
 // src/__tests__/components/modals/CopyToModal.test.tsx
 
+jest.mock("@/scripts/AppContextProvider", () => ({
+  AppContext: require("react").createContext({ bumpWorkspacesVersion: jest.fn() }),
+}));
+
+jest.mock("@/scripts/workspaces/registry", () => ({
+  listLocalWorkspaces: jest.fn(),
+  createLocalWorkspace: jest.fn(),
+}));
+
 import React from "react";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import CopyToModal from "@/components/modals/CopyToModal"; 
+import CopyToModal from "@/components/modals/CopyToModal";
 import { listLocalWorkspaces } from "@/scripts/workspaces/registry";
-
-jest.mock("@/scripts/workspaces/registry", () => ({
-  listLocalWorkspaces: jest.fn(),
-}));
 
 const mockListLocalWorkspaces = listLocalWorkspaces as jest.MockedFunction<
   typeof listLocalWorkspaces

@@ -306,7 +306,7 @@ const DraggableGrid = forwardRef<GridHandle, DraggableGridProps>(function Dragga
       // insert-before vs insert-after by comparing the dragged item's vertical
       // center to the over item's center. This ensures dropping below the last
       // item in a group appends it rather than landing above that item.
-      if (!overIsGroupContainer && active.rect.current.translated && over.rect) {
+      if (!overIsGroupContainer && active.rect?.current?.translated && over.rect) {
         const draggedCenterY =
           active.rect.current.translated.top + active.rect.current.translated.height / 2;
         const overCenterY = over.rect.top + over.rect.height / 2;

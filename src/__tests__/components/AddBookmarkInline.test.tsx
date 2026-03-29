@@ -61,14 +61,14 @@ describe('AddBookmarkInline Component', () => {
   test('should initially render the "Add a link" button', () => {
     renderComponent();
     expect(screen.getByText('+ Add a link')).toBeInTheDocument();
-    expect(screen.queryByPlaceholderText('Enter a link name')).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('Enter a link name (optional)')).not.toBeInTheDocument();
   });
 
   test('should show the new bookmark form when "Add a link" button is clicked', () => {
     renderComponent();
     fireEvent.click(screen.getByText('+ Add a link'));
 
-    expect(screen.getByPlaceholderText('Enter a link name')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Enter a link name (optional)')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('Enter a link URL')).toBeInTheDocument();
     expect(screen.getByText('Add link')).toBeInTheDocument();
   });
@@ -77,7 +77,7 @@ describe('AddBookmarkInline Component', () => {
     renderComponent();
     fireEvent.click(screen.getByText('+ Add a link'));
 
-    const nameInput = screen.getByPlaceholderText('Enter a link name') as HTMLInputElement;
+    const nameInput = screen.getByPlaceholderText('Enter a link name (optional)') as HTMLInputElement;
     const urlInput = screen.getByPlaceholderText('Enter a link URL') as HTMLInputElement;
 
     fireEvent.change(nameInput, { target: { value: 'Google' } });
@@ -91,7 +91,7 @@ describe('AddBookmarkInline Component', () => {
     renderComponent();
     fireEvent.click(screen.getByText('+ Add a link'));
 
-    fireEvent.change(screen.getByPlaceholderText('Enter a link name'), {
+    fireEvent.change(screen.getByPlaceholderText('Enter a link name (optional)'), {
       target: { value: 'Google' },
     });
     fireEvent.change(screen.getByPlaceholderText('Enter a link URL'), {
@@ -109,14 +109,14 @@ describe('AddBookmarkInline Component', () => {
       'https://www.google.com',
       'Test Group'
     );
-    expect(screen.queryByPlaceholderText('Enter a link name')).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('Enter a link name (optional)')).not.toBeInTheDocument();
   });
 
   test('should call handleSubmit when Enter key is pressed in the form', async () => {
     renderComponent();
     fireEvent.click(screen.getByText('+ Add a link'));
 
-    const nameInput = screen.getByPlaceholderText('Enter a link name');
+    const nameInput = screen.getByPlaceholderText('Enter a link name (optional)');
     const urlInput = screen.getByPlaceholderText('Enter a link URL');
 
     fireEvent.change(nameInput, { target: { value: 'Facebook' } });
@@ -137,11 +137,11 @@ describe('AddBookmarkInline Component', () => {
   test('should hide the form when the close button is clicked', () => {
     renderComponent();
     fireEvent.click(screen.getByText('+ Add a link'));
-    expect(screen.getByPlaceholderText('Enter a link name')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Enter a link name (optional)')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /close form/i }));
 
-    expect(screen.queryByPlaceholderText('Enter a link name')).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('Enter a link name (optional)')).not.toBeInTheDocument();
     expect(screen.getByText('+ Add a link')).toBeInTheDocument();
   });
 });
