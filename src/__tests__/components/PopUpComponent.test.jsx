@@ -110,7 +110,7 @@ describe('PopUpComponent', () => {
 
     // Wait for initial tab effect to populate fields
     await waitFor(() =>
-      expect(screen.getByRole('textbox', { name: /^Name$/i })).toHaveValue('Example Site')
+      expect(screen.getByRole('textbox', { name: /^Name \(optional\)$/i })).toHaveValue('Example Site')
     );
     expect(screen.getByLabelText(/URL/i)).toHaveValue('example.com');
 
@@ -143,7 +143,7 @@ describe('PopUpComponent', () => {
     
     // Wait for effects
     await waitFor(() =>
-      expect(screen.getByRole('textbox', { name: /^Name$/i })).toHaveValue('Example Site')
+      expect(screen.getByRole('textbox', { name: /^Name \(optional\)$/i })).toHaveValue('Example Site')
     );
 
     // Disable native form validation so the onSubmit handler runs
@@ -170,7 +170,7 @@ describe('PopUpComponent', () => {
     await userEvent.type(newGroupInput, 'Reading List');
 
     // Optionally tweak name/url to ensure values are read from inputs
-    const nameInput = screen.getByRole('textbox', { name: /^Name$/i });
+    const nameInput = screen.getByRole('textbox', { name: /^Name \(optional\)$/i });
     const urlInput  = screen.getByRole('textbox', { name: /^URL$/i });
     await userEvent.clear(nameInput);
     await userEvent.type(nameInput, 'Cool Article');

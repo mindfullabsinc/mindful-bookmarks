@@ -55,6 +55,28 @@ function resolveStoredToGroupId(
   return byName ? byName.id : '';
 }
 
+/** Capitalize the first letter of each word. */
+function capitalizeWords(s = ''): string {
+  return s.replace(/\b([a-z])/g, (m, c) => c.toUpperCase());
+}
+
+/** Derive a human-readable bookmark name from a URL (mirrors AddBookmarkInline). */
+function deriveNameFromUrl(u: string): string {
+  try {
+    const { hostname, pathname } = new URL(u);
+    const host = hostname.replace(/^www\./, '');
+    const domain = host.split('.').slice(0, -1).join('.') || host;
+    const seg = pathname.split('/').filter(Boolean)[0];
+    const segPretty = seg ? decodeURIComponent(seg).replace(/[-_]+/g, ' ') : '';
+    const base = capitalizeWords(domain);
+    return segPretty && segPretty.length <= 30
+      ? `${base} – ${capitalizeWords(segPretty)}`
+      : base;
+  } catch {
+    return '';
+  }
+}
+
 /** Try to find a group's id by name, retrying briefly as state hydrates. */
 async function findGroupIdByName(
   name: string,
@@ -156,6 +178,7 @@ export default function PopUpComponent() {
     }
 
     const urlWithProtocol = constructValidURL(url);
+    const finalName = name.trim() || deriveNameFromUrl(urlWithProtocol) || urlWithProtocol;
     const key = lastGroupKey(userId, storageMode, activeWorkspaceId);
 
     // 1) If NEW: immediately persist **name** and broadcast **name** as a fallback.
@@ -169,7 +192,7 @@ export default function PopUpComponent() {
     }
 
     // 2) Do the actual add (this will create the group if NEW)
-    await addNamedBookmark(name.trim(), urlWithProtocol, groupNameToUse);
+    await addNamedBookmark(finalName, urlWithProtocol, groupNameToUse);
 
     if (selectedGroupId === SELECT_NEW) {
       // 3) Try to resolve the **id** briefly; if found, overwrite storage and rebroadcast with id
@@ -375,26 +398,6 @@ export default function PopUpComponent() {
 
         <div className="space-y-1">
           <label
-            htmlFor="bookmark-name"
-            className="text-neutral-700 dark:text-neutral-300"
-          >
-            Name
-          </label>
-          <input
-            id="bookmark-name"
-            className="w-full rounded-2xl border px-3 py-2 outline-none
-                      bg-white dark:bg-neutral-900
-                      border-neutral-200 dark:border-neutral-800
-                      text-neutral-900 dark:text-neutral-100
-                      focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-          />
-        </div>
-
-        <div className="space-y-1">
-          <label
             htmlFor="bookmark-url"
             className="text-neutral-700 dark:text-neutral-300"
           >
@@ -411,6 +414,25 @@ export default function PopUpComponent() {
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             required
+          />
+        </div>
+
+        <div className="space-y-1">
+          <label
+            htmlFor="bookmark-name"
+            className="text-neutral-700 dark:text-neutral-300"
+          >
+            Name (optional)
+          </label>
+          <input
+            id="bookmark-name"
+            className="w-full rounded-2xl border px-3 py-2 outline-none
+                      bg-white dark:bg-neutral-900
+                      border-neutral-200 dark:border-neutral-800
+                      text-neutral-900 dark:text-neutral-100
+                      focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
           />
         </div>
 
