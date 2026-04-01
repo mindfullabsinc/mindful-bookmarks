@@ -77,6 +77,15 @@ function deriveNameFromUrl(u: string): string {
   }
 }
 
+/** Build the localStorage key for the group recency order array. */
+const groupRecentOrderKey = (userId: string | null, storageMode: string | null, workspaceId: string | null) =>
+  `mindful:groupRecentOrder:${userId || 'local'}:${storageMode || 'local'}:${workspaceId || 'default'}`;
+
+/** Push an id to the front of a recency list (dedup + cap at 100). */
+function pushRecent(order: string[], id: string): string[] {
+  return [id, ...order.filter(x => x !== id)].slice(0, 100);
+}
+
 /** Try to find a group's id by name, retrying briefly as state hydrates. */
 async function findGroupIdByName(
   name: string,
@@ -112,6 +121,9 @@ export default function PopUpComponent() {
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
 
+  // Recency order (ids of most-recently-used groups, most-recent first)
+  const [recentOrder, setRecentOrder] = useState<string[]>([]);
+
   // Only choose a default once per scope (userId+storageMode+workspaceId)
   const choseInitialRef = useRef(false);
   const scopeKey = `${userId || 'local'}::${storageMode || 'local'}::${activeWorkspaceId}`;
@@ -124,6 +136,25 @@ export default function PopUpComponent() {
     }>;
     return base.filter((g) => g.groupName !== EMPTY_GROUP_IDENTIFIER);
   }, [groupsIndex, bookmarkGroups]);
+
+  // Top 3 most-recently-used groups (in recency order)
+  const RECENT_LIMIT = 5;
+  const recentGroups = useMemo(() =>
+    recentOrder
+      .map(entry =>
+        availableGroups.find(g => g.id === entry) ??
+        availableGroups.find(g => g.groupName === entry)  // fallback: name stored before ID resolved
+      )
+      .filter((g): g is { id: string; groupName: string } => !!g)
+      .slice(0, RECENT_LIMIT),
+    [availableGroups, recentOrder]
+  );
+
+  // All groups in alphabetical order
+  const alphaGroups = useMemo(() =>
+    [...availableGroups].sort((a, b) => a.groupName.localeCompare(b.groupName)),
+    [availableGroups]
+  );
 
   // Always read the freshest list (prefer hydrated)
   const getLatestGroups = () => {
@@ -145,10 +176,13 @@ export default function PopUpComponent() {
     const key = lastGroupKey(userId, storageMode, activeWorkspaceId);
     if (val !== SELECT_NEW) {
       writeLastSelectedGroup(key, val);
-      broadcastLastSelectedGroup({ 
-        workspaceId: activeWorkspaceId ?? DEFAULT_LOCAL_WORKSPACE_ID, 
-        groupId: val 
+      broadcastLastSelectedGroup({
+        workspaceId: activeWorkspaceId ?? DEFAULT_LOCAL_WORKSPACE_ID,
+        groupId: val
       });
+      const newOrder = pushRecent(recentOrder, val);
+      setRecentOrder(newOrder);
+      safeWrite(groupRecentOrderKey(userId, storageMode ?? null, activeWorkspaceId), JSON.stringify(newOrder));
     }
     choseInitialRef.current = true;
   };
@@ -195,7 +229,14 @@ export default function PopUpComponent() {
     await addNamedBookmark(finalName, urlWithProtocol, groupNameToUse);
 
     if (selectedGroupId === SELECT_NEW) {
-      // 3) Try to resolve the **id** briefly; if found, overwrite storage and rebroadcast with id
+      // 3) Immediately record the new group name in recency storage so it shows on the next
+      //    popup open even if ID resolution below times out before the popup closes.
+      const orderKey = groupRecentOrderKey(userId, storageMode ?? null, activeWorkspaceId);
+      const orderWithName = pushRecent(recentOrder, groupNameToUse);
+      setRecentOrder(orderWithName);
+      safeWrite(orderKey, JSON.stringify(orderWithName));
+
+      // 4) Try to resolve the **id** briefly; if found, upgrade name→id in recency storage
       const createdGroupId = await findGroupIdByName(
         groupNameToUse,
         getLatestGroups, /* attempts */ 10, /* delayMs */ 100
@@ -208,6 +249,9 @@ export default function PopUpComponent() {
           workspaceId: activeWorkspaceId ?? DEFAULT_LOCAL_WORKSPACE_ID,
           groupId: createdGroupId,
         });
+        const upgraded = pushRecent(orderWithName.filter(x => x !== groupNameToUse), createdGroupId);
+        setRecentOrder(upgraded);
+        safeWrite(orderKey, JSON.stringify(upgraded));
       }
     } else {
       // Existing group path: persist id and broadcast id
@@ -216,21 +260,14 @@ export default function PopUpComponent() {
         workspaceId: activeWorkspaceId ?? DEFAULT_LOCAL_WORKSPACE_ID,
         groupId: selectedGroupId,
       });
+      const newOrder = pushRecent(recentOrder, selectedGroupId);
+      setRecentOrder(newOrder);
+      safeWrite(groupRecentOrderKey(userId, storageMode ?? null, activeWorkspaceId), JSON.stringify(newOrder));
     }
 
     try { if (chrome?.runtime?.id) window.close(); } catch {}
   };
 
-  // Build options from whichever list is currently available (value = **id**)
-  const groupOptions = useMemo<React.ReactElement[]>(
-    () =>
-      availableGroups.map((g) => (
-        <option key={g.id} value={g.id}>
-          {g.groupName}
-        </option>
-      )),
-    [availableGroups]
-  );
   /* ---------------------------------------------------------- */
 
   /* -------------------- Effects -------------------- */
@@ -240,6 +277,26 @@ export default function PopUpComponent() {
   useEffect(() => {
     choseInitialRef.current = false;
   }, [scopeKey]);
+
+  /**
+   * Load recency order from localStorage when the scope changes.
+   * Falls back to seeding from the last-selected group key so returning users
+   * see at least one entry in "Recently used" on first launch of the new code.
+   */
+  useEffect(() => {
+    if (!storageMode) return;
+    try {
+      const raw = localStorage.getItem(groupRecentOrderKey(userId, storageMode ?? null, activeWorkspaceId));
+      const parsed = JSON.parse(raw || '[]');
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        setRecentOrder(parsed);
+        return;
+      }
+    } catch {}
+    // No recency history yet — seed from the last-selected group if available
+    const lastSelected = safeRead(lastGroupKey(userId, storageMode, activeWorkspaceId));
+    setRecentOrder(lastSelected ? [lastSelected] : []);
+  }, [userId, storageMode, activeWorkspaceId]);
 
   /**
    * Pick a stable initial selection once per scope, preferring previously stored ids.
@@ -360,28 +417,58 @@ export default function PopUpComponent() {
         >
           Group
         </label>
-        <select
-          id="group-dropdown"
-          className="w-full rounded-2xl border px-3 py-2 outline-none
-                    bg-white dark:bg-neutral-900
-                    border-neutral-200 dark:border-neutral-800
-                    text-neutral-700 dark:text-neutral-300
-                    focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
-          value={selectedGroupId}
-          onChange={onGroupChange}
-        >
-          {groupOptions}
-          <option value={SELECT_NEW}>New Group</option>
-        </select>
-
-        {selectedGroupId === SELECT_NEW && (
-          <div className="space-y-1">
-            <label
-              htmlFor="new-group-input"
-              className="text-neutral-700 dark:text-neutral-300"
+        {selectedGroupId !== SELECT_NEW ? (
+          <>
+            <select
+              id="group-dropdown"
+              className="w-full rounded-2xl border px-3 py-2 outline-none
+                        bg-white dark:bg-neutral-900
+                        border-neutral-200 dark:border-neutral-800
+                        text-neutral-700 dark:text-neutral-300
+                        focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+              value={selectedGroupId}
+              onChange={onGroupChange}
             >
-              New Group Name
-            </label>
+              {recentGroups.length > 0 && (
+                <optgroup label="Recently used">
+                  {recentGroups.map(g => (
+                    <option key={`recent-${g.id}`} value={g.id}>{g.groupName}</option>
+                  ))}
+                </optgroup>
+              )}
+              <optgroup label="All groups">
+                {alphaGroups.map(g => (
+                  <option key={`all-${g.id}`} value={g.id}>{g.groupName}</option>
+                ))}
+              </optgroup>
+            </select>
+            <button
+              type="button"
+              onClick={() => setSelectedGroupId(SELECT_NEW)}
+              className="w-full rounded-2xl border border-dashed border-blue-600 dark:border-blue-400
+                        px-3 py-1.5 text-sm text-blue-600 dark:text-blue-400
+                        hover:bg-blue-50 dark:hover:bg-blue-950 transition-colors cursor-pointer"
+            >
+              + New Group
+            </button>
+          </>
+        ) : (
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <label
+                htmlFor="new-group-input"
+                className="text-neutral-700 dark:text-neutral-300"
+              >
+                New Group Name
+              </label>
+              <button
+                type="button"
+                onClick={() => setSelectedGroupId(alphaGroups[0]?.id ?? '')}
+                className="text-xs text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
             <input
               id="new-group-input"
               className="w-full rounded-2xl border px-3 py-2 outline-none

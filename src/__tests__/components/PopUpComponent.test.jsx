@@ -137,10 +137,10 @@ describe('PopUpComponent', () => {
   test('selecting "New Group" requires a name; then submits with new group name', async () => {
     const groups = [
       { id: 'g0', groupName: EMPTY_GROUP_IDENTIFIER },
-      // no valid existing groups -> default to "New Group"
+      // no valid existing groups -> component defaults directly to New Group input (no combobox)
     ];
     renderWithContext(groups);
-    
+
     // Wait for effects
     await waitFor(() =>
       expect(screen.getByRole('textbox', { name: /^Name \(optional\)$/i })).toHaveValue('Example Site')
@@ -150,11 +150,8 @@ describe('PopUpComponent', () => {
     const form = screen.getByRole('form', { name: /add bookmark/i });
     form.noValidate = true; // equivalent to adding `novalidate`
 
-    // It should default to "New Group" (value is SELECT_NEW; label is "New Group")
-    const groupSelect = screen.getByRole('combobox', { name: /^Group$/i });
-    expect(groupSelect).toHaveValue(SELECT_NEW);
-    const selected = within(groupSelect).getByRole('option', { selected: true });
-    expect(selected).toHaveTextContent('New Group');
+    // With no valid groups, the combobox is hidden and "New Group Name" input shows directly
+    expect(screen.queryByRole('combobox')).toBeNull();
 
     // "New Group Name" input should be visible
     const newGroupInput = screen.getByLabelText(/New Group Name/i);
@@ -248,11 +245,10 @@ describe('PopUpComponent', () => {
       </AppContext.Provider>
     );
 
-    // Initially no selection set to a real group (value will be SELECT_NEW until groups appear)
-    const select = await screen.findByRole('combobox', { name: /^Group$/i });
-    expect(select).toHaveValue('__NEW_GROUP__');
+    // Initially no groups -> combobox is not shown; new-group input shown directly
+    await waitFor(() => expect(screen.queryByRole('combobox')).toBeNull());
 
-    // Hydrate
+    // Hydrate with a real group
     rerender(
       <AppContext.Provider value={{
         groupsIndex: [], bookmarkGroups: [{id:'g1', groupName:'Work'}],
@@ -262,6 +258,8 @@ describe('PopUpComponent', () => {
       </AppContext.Provider>
     );
 
+    // Combobox should now appear with g1 selected
+    const select = await screen.findByRole('combobox', { name: /^Group$/i });
     await waitFor(() => expect(select).toHaveValue('g1'));
   });
 
@@ -306,8 +304,8 @@ describe('PopUpComponent', () => {
     const form = screen.getByRole('form', { name: /add bookmark/i });
     form.noValidate = true;
 
-    const select = screen.getByRole('combobox', { name: /^Group$/i });
-    expect(select).toHaveValue('__NEW_GROUP__');
+    // No valid groups -> new-group input shown directly, no combobox
+    expect(screen.queryByRole('combobox')).toBeNull();
 
     const newName = screen.getByLabelText(/New Group Name/i);
     await userEvent.type(newName, 'Reading List');
