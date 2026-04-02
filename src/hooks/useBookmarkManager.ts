@@ -10,6 +10,7 @@ import { StorageMode, type StorageModeType } from '@/core/constants/storageMode'
 import { DEFAULT_LOCAL_WORKSPACE_ID } from '@/core/constants/workspaces';
 import { refreshOtherMindfulTabs } from '@/core/utils/chrome';
 import { Storage } from '@/scripts/Storage';
+import { listLocalWorkspaces } from '@/scripts/workspaces/registry';
 import type { BookmarkGroupType, BookmarkType } from '@/core/types/bookmarks';
 import amplify_outputs from '../../amplify_outputs.json';
 /* ---------------------------------------------------------- */
@@ -485,11 +486,11 @@ export const useBookmarkManager = (): BookmarkManager => {
   };
 
   /**
-   * Download the current bookmark groups as a Tabme-compatible JSON file.
+   * Download all workspaces' bookmark groups as a Tabme-compatible JSON file.
    */
-  const exportBookmarksToJSON = (): void => {
-    if (!bookmarkGroups || bookmarkGroups.length === 0) {
-      console.warn("No bookmarks to export.");
+  const exportBookmarksToJSON = async (): Promise<void> => {
+    if (!userId) {
+      console.warn("Cannot export: userId is not available.");
       return;
     }
 
@@ -507,35 +508,51 @@ export const useBookmarkManager = (): BookmarkManager => {
       } catch { return ''; }
     };
 
-    const folders = bookmarkGroups
-      .filter(g => g.groupName !== EMPTY_GROUP_IDENTIFIER)
-      .map(group => ({
-        collapsed: false,
-        color: "#dcedc8",
-        id: nextId(),
-        items: (group.bookmarks || []).map((bm: BookmarkType) => ({
-          favIconUrl: bm.faviconUrl || faviconFor(bm.url),
+    const groupsToFolders = (groups: BookmarkGroupType[]) =>
+      groups
+        .filter(g => g.groupName !== EMPTY_GROUP_IDENTIFIER)
+        .map(group => ({
+          collapsed: false,
+          color: "#dcedc8",
           id: nextId(),
-          objectType: "bookmark",
+          items: (group.bookmarks || []).map((bm: BookmarkType) => ({
+            favIconUrl: bm.faviconUrl || faviconFor(bm.url),
+            id: nextId(),
+            objectType: "bookmark",
+            position: nextPos(),
+            title: bm.name || bm.url,
+            type: "bookmark",
+            url: bm.url,
+          })),
+          objectType: "folder",
           position: nextPos(),
-          title: bm.name || bm.url,
-          type: "bookmark",
-          url: bm.url,
-        })),
-        objectType: "folder",
-        position: nextPos(),
-        title: group.groupName,
-      }));
+          title: group.groupName,
+        }));
+
+    // Load all workspaces and their bookmarks
+    const allWorkspaces = await listLocalWorkspaces();
+    const workspaceExports = await Promise.all(
+      allWorkspaces.map(async (ws) => {
+        const wsStorage = new Storage(ws.storageMode);
+        const groups = await wsStorage.load(userId, ws.id);
+        return {
+          groups: groupsToFolders(groups),
+          id: nextId(),
+          objectType: "space",
+          position: nextPos(),
+          title: ws.name,
+          widgets: [],
+        };
+      })
+    );
+
+    if (workspaceExports.every(ws => ws.groups.length === 0)) {
+      console.warn("No bookmarks to export.");
+      return;
+    }
 
     const tabmeData = {
-      workspaces: [{
-        groups: folders,
-        id: nextId(),
-        objectType: "space",
-        position: nextPos(),
-        title: "Bookmarks",
-        widgets: [],
-      }],
+      workspaces: workspaceExports,
       isTabme: true,
       version: 3,
     };
