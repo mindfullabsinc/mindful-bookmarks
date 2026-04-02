@@ -545,7 +545,14 @@ export const useBookmarkManager = (): BookmarkManager => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "mindful_bookmarks.json";
+    const now = new Date();
+    const stamp = now.getFullYear().toString() +
+      String(now.getMonth() + 1).padStart(2, '0') +
+      String(now.getDate()).padStart(2, '0') + '_' +
+      String(now.getHours()).padStart(2, '0') +
+      String(now.getMinutes()).padStart(2, '0') +
+      String(now.getSeconds()).padStart(2, '0');
+    a.download = `mindful_bookmarks_${stamp}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
