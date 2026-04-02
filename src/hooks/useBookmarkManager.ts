@@ -25,10 +25,10 @@ const API_HOST_PATTERN = `https://${new URL(amplify_outputs.custom.API.bookmarks
  */
 function parseTabmeFormat(data: Record<string, unknown>): BookmarkGroupType[] {
   const groups: BookmarkGroupType[] = [];
-  const spaces = Array.isArray(data.spaces) ? data.spaces : [];
+  const spaces = Array.isArray(data.workspaces) ? data.workspaces : Array.isArray(data.spaces) ? data.spaces : [];
 
   for (const space of spaces) {
-    const folders = Array.isArray((space as any).folders) ? (space as any).folders : [];
+    const folders = Array.isArray((space as any).groups) ? (space as any).groups : Array.isArray((space as any).folders) ? (space as any).folders : [];
     for (const folder of folders) {
       const bookmarks: BookmarkType[] = [];
       const nestedGroups: { title: string; items: unknown[] }[] = [];
@@ -528,8 +528,8 @@ export const useBookmarkManager = (): BookmarkManager => {
       }));
 
     const tabmeData = {
-      spaces: [{
-        folders,
+      workspaces: [{
+        groups: folders,
         id: nextId(),
         objectType: "space",
         position: nextPos(),
@@ -572,7 +572,7 @@ export const useBookmarkManager = (): BookmarkManager => {
           }
           const parsed = JSON.parse(contents);
           let data: BookmarkGroupType[];
-          if (parsed && parsed.isTabme && Array.isArray(parsed.spaces)) {
+          if (parsed && parsed.isTabme && (Array.isArray(parsed.workspaces) || Array.isArray(parsed.spaces))) {
             data = parseTabmeFormat(parsed);
           } else if (Array.isArray(parsed)) {
             data = parsed as BookmarkGroupType[];

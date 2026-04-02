@@ -38,12 +38,12 @@ function mapImportedGroupsToCategorized(
 
 function parseTabmeImport(obj: Record<string, unknown>): any[] {
   const groups: any[] = [];
-  const spaces = obj.spaces as any[];
+  const spaces = (Array.isArray(obj.workspaces) ? obj.workspaces : obj.spaces) as any[];
   for (const space of spaces) {
-    for (const folder of (space.folders ?? [])) {
+    for (const folder of (space.groups ?? space.folders ?? [])) {
       if (folder.objectType === "group") {
         // nested group folder — promote to top-level
-        for (const subFolder of (folder.folders ?? [])) {
+        for (const subFolder of (folder.groups ?? folder.folders ?? [])) {
           groups.push({
             groupName: subFolder.title ?? "Imported",
             bookmarks: (subFolder.items ?? [])
@@ -77,8 +77,8 @@ function parseJsonImport(jsonText: string): any[] {
   if (parsed && typeof parsed === "object") {
     const obj = parsed as Record<string, unknown>;
 
-    // Tabme format
-    if (obj.isTabme && Array.isArray(obj.spaces)) {
+    // Tabme format (accepts both workspaces/groups and legacy spaces/folders keys)
+    if (obj.isTabme && (Array.isArray(obj.workspaces) || Array.isArray(obj.spaces))) {
       return parseTabmeImport(obj);
     }
 
