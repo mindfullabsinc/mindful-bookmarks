@@ -428,14 +428,62 @@ export const useBookmarkManager = (): BookmarkManager => {
   };
 
   /**
-   * Download the current bookmark groups as a formatted JSON file.
+   * Download the current bookmark groups as a Tabme-compatible JSON file.
    */
   const exportBookmarksToJSON = (): void => {
     if (!bookmarkGroups || bookmarkGroups.length === 0) {
-        console.warn("No bookmarks to export.");
-        return;
+      console.warn("No bookmarks to export.");
+      return;
     }
-    const jsonData = JSON.stringify(bookmarkGroups, null, 2);
+
+    // Generate incrementing numeric ids and short position strings
+    let idSeed = Date.now();
+    const nextId = () => idSeed++;
+    let posSeed = 0;
+    const nextPos = () => (posSeed++).toString(36).padStart(3, '0');
+
+    // Derive favicon URL from bookmark URL (mirrors SmartFavicon's primary provider)
+    const faviconFor = (url: string): string => {
+      try {
+        const { hostname } = new URL(url);
+        return `https://www.google.com/s2/favicons?sz=32&domain=${hostname}`;
+      } catch { return ''; }
+    };
+
+    const folders = bookmarkGroups
+      .filter(g => g.groupName !== EMPTY_GROUP_IDENTIFIER)
+      .map(group => ({
+        collapsed: false,
+        color: "#dcedc8",
+        id: nextId(),
+        items: (group.bookmarks || []).map((bm: BookmarkType) => ({
+          favIconUrl: bm.faviconUrl || faviconFor(bm.url),
+          id: nextId(),
+          objectType: "bookmark",
+          position: nextPos(),
+          title: bm.name || bm.url,
+          type: "bookmark",
+          url: bm.url,
+        })),
+        objectType: "folder",
+        position: nextPos(),
+        title: group.groupName,
+      }));
+
+    const tabmeData = {
+      spaces: [{
+        folders,
+        id: nextId(),
+        objectType: "space",
+        position: nextPos(),
+        title: "Bookmarks",
+        widgets: [],
+      }],
+      isTabme: true,
+      version: 3,
+    };
+
+    const jsonData = JSON.stringify(tabmeData, null, 2);
     const blob = new Blob([jsonData], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
