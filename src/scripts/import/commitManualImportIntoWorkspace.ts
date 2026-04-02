@@ -36,6 +36,34 @@ function mapImportedGroupsToCategorized(
   }));
 }
 
+function parseTabmeImport(obj: Record<string, unknown>): any[] {
+  const groups: any[] = [];
+  const spaces = obj.spaces as any[];
+  for (const space of spaces) {
+    for (const folder of (space.folders ?? [])) {
+      if (folder.objectType === "group") {
+        // nested group folder — promote to top-level
+        for (const subFolder of (folder.folders ?? [])) {
+          groups.push({
+            groupName: subFolder.title ?? "Imported",
+            bookmarks: (subFolder.items ?? [])
+              .filter((it: any) => it.objectType !== "group")
+              .map((it: any) => ({ name: it.title ?? it.url, url: it.url })),
+          });
+        }
+      } else {
+        groups.push({
+          groupName: folder.title ?? "Imported",
+          bookmarks: (folder.items ?? [])
+            .filter((it: any) => it.objectType !== "group")
+            .map((it: any) => ({ name: it.title ?? it.url, url: it.url })),
+        });
+      }
+    }
+  }
+  return groups;
+}
+
 function parseJsonImport(jsonText: string): any[] {
   let parsed: unknown;
   try {
@@ -48,6 +76,12 @@ function parseJsonImport(jsonText: string): any[] {
 
   if (parsed && typeof parsed === "object") {
     const obj = parsed as Record<string, unknown>;
+
+    // Tabme format
+    if (obj.isTabme && Array.isArray(obj.spaces)) {
+      return parseTabmeImport(obj);
+    }
+
     const candidate = (obj.groups as unknown) ?? (obj.items as unknown) ?? (obj.data as unknown);
     if (Array.isArray(candidate)) return candidate;
   }

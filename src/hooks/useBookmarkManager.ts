@@ -18,6 +18,63 @@ import amplify_outputs from '../../amplify_outputs.json';
 const API_HOST_PATTERN = `https://${new URL(amplify_outputs.custom.API.bookmarks.endpoint).host}/*`;
 /* ---------------------------------------------------------- */
 
+/* -------------------- Import helpers -------------------- */
+/**
+ * Convert a Tabme-format export object into Mindful's BookmarkGroupType[].
+ * Nested Tabme groups (groupItems) are promoted to top-level bookmark groups.
+ */
+function parseTabmeFormat(data: Record<string, unknown>): BookmarkGroupType[] {
+  const groups: BookmarkGroupType[] = [];
+  const spaces = Array.isArray(data.spaces) ? data.spaces : [];
+
+  for (const space of spaces) {
+    const folders = Array.isArray((space as any).folders) ? (space as any).folders : [];
+    for (const folder of folders) {
+      const bookmarks: BookmarkType[] = [];
+      const nestedGroups: { title: string; items: unknown[] }[] = [];
+
+      for (const item of ((folder.items as unknown[]) || [])) {
+        const i = item as Record<string, unknown>;
+        if (i.objectType === 'bookmark' || i.type === 'bookmark') {
+          bookmarks.push({
+            id: String(i.id ?? uuidv4()),
+            name: (i.title as string) || (i.url as string) || '',
+            url: (i.url as string) || '',
+            ...(i.favIconUrl ? { faviconUrl: i.favIconUrl as string } : {}),
+          });
+        } else if (i.objectType === 'group' || i.type === 'group') {
+          nestedGroups.push({ title: (i.title as string) || '', items: (i.groupItems as unknown[]) || [] });
+        }
+      }
+
+      groups.push({
+        id: String(folder.id ?? uuidv4()),
+        groupName: (folder.title as string) || 'Imported Group',
+        bookmarks,
+      });
+
+      // Promote nested Tabme groups to their own top-level groups
+      for (const nested of nestedGroups) {
+        const nestedBookmarks: BookmarkType[] = (nested.items || [])
+          .map(item => item as Record<string, unknown>)
+          .filter(i => i.objectType === 'bookmark' || i.type === 'bookmark')
+          .map(i => ({
+            id: String(i.id ?? uuidv4()),
+            name: (i.title as string) || (i.url as string) || '',
+            url: (i.url as string) || '',
+            ...(i.favIconUrl ? { faviconUrl: i.favIconUrl as string } : {}),
+          }));
+        if (nestedBookmarks.length > 0) {
+          groups.push({ id: uuidv4(), groupName: nested.title || 'Imported Group', bookmarks: nestedBookmarks });
+        }
+      }
+    }
+  }
+
+  return groups;
+}
+/* ---------------------------------------------------------- */
+
 /* -------------------- Local types and interfaces -------------------- */
 type BookmarkGroupsUpdater = (groups: BookmarkGroupType[]) => BookmarkGroupType[];
 type BookmarkMoveLocation = { groupIndex: number; bookmarkIndex: number };
@@ -513,7 +570,15 @@ export const useBookmarkManager = (): BookmarkManager => {
           if (typeof contents !== 'string') {
             throw new Error("Unexpected file contents");
           }
-          const data = JSON.parse(contents) as BookmarkGroupType[];
+          const parsed = JSON.parse(contents);
+          let data: BookmarkGroupType[];
+          if (parsed && parsed.isTabme && Array.isArray(parsed.spaces)) {
+            data = parseTabmeFormat(parsed);
+          } else if (Array.isArray(parsed)) {
+            data = parsed as BookmarkGroupType[];
+          } else {
+            throw new Error("Unrecognized JSON format");
+          }
           updateAndPersistGroups(() => data);
           console.log("Bookmarks successfully imported and saved.");
         } catch (error) {
