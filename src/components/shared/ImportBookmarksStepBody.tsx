@@ -201,7 +201,7 @@ export function ImportBookmarksStepBody({
             )}
 
             {state.jsonData && (
-              <div className="tabs-container">
+              <div className="json-import-mode"><div className="tabs-container">
                 <h3 className="tabs-header">How should this be imported?</h3>
                 <div className="tabs-windows-container">
                   {([
@@ -225,7 +225,7 @@ export function ImportBookmarksStepBody({
                     );
                   })}
                 </div>
-              </div>
+              </div></div>
             )}
           </div>
         )}

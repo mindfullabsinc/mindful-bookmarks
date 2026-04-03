@@ -75,7 +75,7 @@ export function ImportBookmarksStepBody({ step, state, showInternalHeader = true
                         _jsx("button", { type: "button", className: "json-file-remove", onClick: clearJsonSelection, disabled: busy, children: "Remove" })
                     ] }))
                     : (_jsx("input", { id: "json-file-input", type: "file", accept: "application/json,.json", onChange: handleJsonFileChange, className: "json-input", disabled: busy })),
-                state.jsonData && (_jsxs("div", { className: "tabs-container", children: [
+                state.jsonData && (_jsx("div", { className: "json-import-mode", children: _jsxs("div", { className: "tabs-container", children: [
                     _jsx("h3", { className: "tabs-header", children: "How should this be imported?" }),
                     _jsx("div", { className: "tabs-windows-container", children:
                         importModeOptions.map(({ value, label }) => {
@@ -92,7 +92,7 @@ export function ImportBookmarksStepBody({ step, state, showInternalHeader = true
                             }, value);
                         })
                     })
-                ] }))
+                ] }) }))
             ] }))
         ] }));
     }
