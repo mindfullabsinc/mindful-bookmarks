@@ -55,8 +55,8 @@ export function ImportBookmarksStepBody({ step, state, showInternalHeader = true
     }
     if (step === 1) {
         const importModeOptions = [
-            { value: JsonImportMode.Add, label: "Add to existing" },
-            { value: JsonImportMode.Replace, label: "Replace all existing" },
+            { value: JsonImportMode.Add, label: "Add to existing bookmarks" },
+            { value: JsonImportMode.Replace, label: "Replace all existing bookmarks" },
         ];
         return (_jsxs("div", { className: "body-container", children: [
             renderStepHeader(),

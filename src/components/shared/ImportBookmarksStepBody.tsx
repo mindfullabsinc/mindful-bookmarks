@@ -210,8 +210,8 @@ export function ImportBookmarksStepBody({
                 <h3 className="tabs-header">How should this be imported?</h3>
                 <div className="tabs-windows-container">
                   {([
-                    { value: JsonImportMode.Add, label: "Add to existing" },
-                    { value: JsonImportMode.Replace, label: "Replace all existing" },
+                    { value: JsonImportMode.Add, label: "Add to existing bookmarks" },
+                    { value: JsonImportMode.Replace, label: "Replace all existing bookmarks" },
                   ] as const).map(({ value, label }) => {
                     const selected = state.jsonImportMode === value;
                     return (
