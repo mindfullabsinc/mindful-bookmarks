@@ -60,6 +60,10 @@ export type ImportBookmarksStepBodyProps = {
 
   /** Disable inputs while committing (onboarding commit step) */
   busy?: boolean;
+
+  /** Hide the replace/add picker when the user has no existing data to replace.
+   *  Defaults to true (show picker). */
+  hasExistingData?: boolean;
 };
 /* ---------------------------------------------------------- */
 
@@ -119,6 +123,7 @@ export function ImportBookmarksStepBody({
   state,
   showInternalHeader = true,
   busy = false,
+  hasExistingData = true,
 }: ImportBookmarksStepBodyProps) {
   async function handleJsonFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0] ?? null;
@@ -200,7 +205,7 @@ export function ImportBookmarksStepBody({
               />
             )}
 
-            {state.jsonData && (
+            {state.jsonData && hasExistingData && (
               <div className="json-import-mode"><div className="tabs-container">
                 <h3 className="tabs-header">How should this be imported?</h3>
                 <div className="tabs-windows-container">
@@ -225,6 +230,11 @@ export function ImportBookmarksStepBody({
                     );
                   })}
                 </div>
+                {state.jsonImportMode === JsonImportMode.Replace && (
+                  <p className="json-import-replace-warning">
+                    ⚠ This will permanently delete all your existing workspaces and bookmarks.
+                  </p>
+                )}
               </div></div>
             )}
           </div>

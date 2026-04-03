@@ -62,7 +62,12 @@ export const OnboardingOverlay: React.FC = () => {
     skipOnboarding,
     onboardingPurposes,
     setActiveWorkspaceId,
+    bookmarkGroups,
   } = useContext(AppContext);
+
+  const hasExistingData = bookmarkGroups.some(
+    (g) => g.id !== "EMPTY_GROUP_IDENTIFIER" && g.groupName !== "EMPTY_GROUP_IDENTIFIER" && g.bookmarks?.length > 0
+  );
 
   // Local-only step index; AppContext just knows "in_progress vs done".
   const [stepIndex, setStepIndex] = useState(0);
@@ -176,6 +181,7 @@ export const OnboardingOverlay: React.FC = () => {
             showInternalHeader={false}
             state={manualState}
             busy={manualCommitBusy}
+            hasExistingData={hasExistingData}
           />
         </div>
       ),

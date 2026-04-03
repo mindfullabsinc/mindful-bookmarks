@@ -30,7 +30,7 @@ export function getImportBookmarksStepCopy(step) {
 function YesCheckboxRow({ checked, onToggle, label, description }) {
     return (_jsxs("button", { type: "button", onClick: onToggle, className: "checkbox-row " + (checked ? "checkbox-row--checked" : "checkbox-row--unchecked"), children: [_jsx("span", { className: "checkbox-box " + (checked ? "checkbox-box--checked" : "checkbox-box--unchecked"), "aria-hidden": "true", children: "\u2713" }), _jsxs("span", { className: "checkbox-label-container", children: [_jsx("span", { className: "checkbox-label", children: label }), description && _jsx("span", { className: "checkbox-label-description", children: description })] })] }));
 }
-export function ImportBookmarksStepBody({ step, state, showInternalHeader = true, busy = false, }) {
+export function ImportBookmarksStepBody({ step, state, showInternalHeader = true, busy = false, hasExistingData = true, }) {
     async function handleJsonFileChange(e) {
         const file = e.target.files?.[0] ?? null;
         if (!file) {
@@ -75,7 +75,7 @@ export function ImportBookmarksStepBody({ step, state, showInternalHeader = true
                         _jsx("button", { type: "button", className: "json-file-remove", onClick: clearJsonSelection, disabled: busy, children: "Remove" })
                     ] }))
                     : (_jsx("input", { id: "json-file-input", type: "file", accept: "application/json,.json", onChange: handleJsonFileChange, className: "json-input", disabled: busy })),
-                state.jsonData && (_jsx("div", { className: "json-import-mode", children: _jsxs("div", { className: "tabs-container", children: [
+                state.jsonData && hasExistingData && (_jsx("div", { className: "json-import-mode", children: _jsxs("div", { className: "tabs-container", children: [
                     _jsx("h3", { className: "tabs-header", children: "How should this be imported?" }),
                     _jsx("div", { className: "tabs-windows-container", children:
                         importModeOptions.map(({ value, label }) => {
@@ -91,7 +91,8 @@ export function ImportBookmarksStepBody({ step, state, showInternalHeader = true
                                 ]
                             }, value);
                         })
-                    })
+                    }),
+                    state.jsonImportMode === JsonImportMode.Replace && _jsx("p", { className: "json-import-replace-warning", children: "\u26A0 This will permanently delete all your existing workspaces and bookmarks." })
                 ] }) }))
             ] }))
         ] }));
