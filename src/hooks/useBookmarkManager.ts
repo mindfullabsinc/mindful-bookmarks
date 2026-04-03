@@ -10,7 +10,7 @@ import { StorageMode, type StorageModeType } from '@/core/constants/storageMode'
 import { DEFAULT_LOCAL_WORKSPACE_ID } from '@/core/constants/workspaces';
 import { refreshOtherMindfulTabs } from '@/core/utils/chrome';
 import { Storage } from '@/scripts/Storage';
-import { listLocalWorkspaces } from '@/scripts/workspaces/registry';
+import { listLocalWorkspaces, createLocalWorkspace } from '@/scripts/workspaces/registry';
 import type { BookmarkGroupType, BookmarkType } from '@/core/types/bookmarks';
 import amplify_outputs from '../../amplify_outputs.json';
 /* ---------------------------------------------------------- */
@@ -588,23 +588,46 @@ export const useBookmarkManager = (): BookmarkManager => {
       const file = target?.files?.[0];
       if (!file) return;
       const reader = new FileReader();
-      reader.onload = (e: ProgressEvent<FileReader>) => {
+      reader.onload = async (e: ProgressEvent<FileReader>) => {
         try {
           const contents = e.target?.result;
           if (typeof contents !== 'string') {
             throw new Error("Unexpected file contents");
           }
           const parsed = JSON.parse(contents);
-          let data: BookmarkGroupType[];
           if (parsed && parsed.isTabme && (Array.isArray(parsed.workspaces) || Array.isArray(parsed.spaces))) {
-            data = parseTabmeFormat(parsed);
+            // Multi-workspace format: create a workspace per entry and save groups into each.
+            const spaces: any[] = Array.isArray(parsed.workspaces) ? parsed.workspaces : parsed.spaces;
+            const localStorage = new Storage(StorageMode.LOCAL);
+            for (const space of spaces) {
+              const folders: any[] = Array.isArray(space.groups) ? space.groups : (space.folders ?? []);
+              const groups: BookmarkGroupType[] = folders
+                .filter((f: any) => f.objectType !== 'group')
+                .map((folder: any) => ({
+                  id: uuidv4(),
+                  groupName: folder.title ?? 'Imported',
+                  bookmarks: (folder.items ?? [])
+                    .filter((it: any) => it.objectType === 'bookmark' || it.type === 'bookmark')
+                    .map((it: any): BookmarkType => ({
+                      id: String(it.id ?? uuidv4()),
+                      name: (it.title as string) || (it.url as string) || '',
+                      url: (it.url as string) || '',
+                      ...(it.favIconUrl ? { faviconUrl: it.favIconUrl as string } : {}),
+                    })),
+                }));
+              if (groups.length === 0) continue;
+              const ws = await createLocalWorkspace(space.title || 'Imported', { setActive: false });
+              await localStorage.save(groups, userId!, ws.id);
+            }
+            console.log("Bookmarks successfully imported into workspaces.");
+            refreshOtherMindfulTabs();
           } else if (Array.isArray(parsed)) {
-            data = parsed as BookmarkGroupType[];
+            // Legacy flat array: dump into current workspace.
+            updateAndPersistGroups(() => parsed as BookmarkGroupType[]);
+            console.log("Bookmarks successfully imported and saved.");
           } else {
             throw new Error("Unrecognized JSON format");
           }
-          updateAndPersistGroups(() => data);
-          console.log("Bookmarks successfully imported and saved.");
         } catch (error) {
           console.error("Failed to read or parse the bookmarks file:", error);
         }

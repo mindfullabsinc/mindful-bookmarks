@@ -36,17 +36,28 @@ function mapImportedGroupsToCategorized(
   }));
 }
 
-function parseTabmeImport(obj: Record<string, unknown>): any[] {
-  const groups: any[] = [];
-  const spaces = (Array.isArray(obj.workspaces) ? obj.workspaces : obj.spaces) as any[];
-  for (const space of spaces) {
-    for (const folder of (space.groups ?? space.folders ?? [])) {
+type WorkspaceImport = { name: string; groups: any[] };
+
+/**
+ * Parse a Tabme multi-workspace JSON object into per-workspace group arrays.
+ * Returns null when the object is not a valid multi-workspace Tabme format.
+ */
+function parseTabmeMultiWorkspace(obj: Record<string, unknown>): WorkspaceImport[] | null {
+  if (!obj.isTabme) return null;
+  const spaces = Array.isArray(obj.workspaces) ? obj.workspaces
+    : Array.isArray(obj.spaces) ? obj.spaces : null;
+  if (!spaces) return null;
+
+  return (spaces as any[]).map((space: any) => {
+    const folders: any[] = Array.isArray(space.groups) ? space.groups
+      : Array.isArray(space.folders) ? space.folders : [];
+    const groups: any[] = [];
+    for (const folder of folders) {
       if (folder.objectType === "group") {
-        // nested group folder — promote to top-level
-        for (const subFolder of (folder.groups ?? folder.folders ?? [])) {
+        for (const sub of (folder.groups ?? folder.folders ?? [])) {
           groups.push({
-            groupName: subFolder.title ?? "Imported",
-            bookmarks: (subFolder.items ?? [])
+            groupName: sub.title ?? "Imported",
+            bookmarks: (sub.items ?? [])
               .filter((it: any) => it.objectType !== "group")
               .map((it: any) => ({ name: it.title ?? it.url, url: it.url })),
           });
@@ -60,8 +71,8 @@ function parseTabmeImport(obj: Record<string, unknown>): any[] {
         });
       }
     }
-  }
-  return groups;
+    return { name: (space.title as string) || "Imported", groups };
+  }).filter((ws: WorkspaceImport) => ws.groups.length > 0);
 }
 
 function parseJsonImport(jsonText: string): any[] {
@@ -77,9 +88,10 @@ function parseJsonImport(jsonText: string): any[] {
   if (parsed && typeof parsed === "object") {
     const obj = parsed as Record<string, unknown>;
 
-    // Tabme format (accepts both workspaces/groups and legacy spaces/folders keys)
+    // Tabme multi-workspace format — flatten for fallback (single-workspace callers)
     if (obj.isTabme && (Array.isArray(obj.workspaces) || Array.isArray(obj.spaces))) {
-      return parseTabmeImport(obj);
+      const wsImports = parseTabmeMultiWorkspace(obj) ?? [];
+      return wsImports.flatMap(ws => ws.groups);
     }
 
     const candidate = (obj.groups as unknown) ?? (obj.items as unknown) ?? (obj.data as unknown);
@@ -125,6 +137,8 @@ export type CommitManualImportArgs = {
 
   workspaceService: {
     appendGroupsToWorkspace: (workspaceId: string, groups: CategorizedGroup[]) => Promise<void>;
+    saveGroupsToWorkspace: (workspaceId: string, groups: CategorizedGroup[]) => Promise<void>;
+    createWorkspaceWithName: (name: string) => Promise<{ id: string }>;
   };
 
   // optional UI callbacks
@@ -146,12 +160,33 @@ export async function commitManualImportIntoWorkspace({
 
   const allCategorized: CategorizedGroup[] = [];
 
-  // JSON
+  // JSON — multi-workspace Tabme format creates a workspace per entry
   if (selection.jsonData) {
-    const rawGroups = parseJsonImport(selection.jsonData);
-    allCategorized.push(
-      ...mapImportedGroupsToCategorized(rawGroups, purpose, ImportSource.Json)
-    );
+    let parsedJson: unknown;
+    try { parsedJson = JSON.parse(selection.jsonData); } catch {
+      throw new Error("That JSON file doesn't look valid. Please re-export and try again.");
+    }
+
+    const multiWs =
+      parsedJson && typeof parsedJson === "object" && !Array.isArray(parsedJson)
+        ? parseTabmeMultiWorkspace(parsedJson as Record<string, unknown>)
+        : null;
+
+    if (multiWs && multiWs.length > 0) {
+      // Create a separate workspace for each space in the JSON
+      for (const { name, groups } of multiWs) {
+        const mapped = mapImportedGroupsToCategorized(groups, purpose, ImportSource.Json);
+        if (!mapped.length) continue;
+        const { id } = await workspaceService.createWorkspaceWithName(name);
+        await workspaceService.saveGroupsToWorkspace(id, mapped);
+      }
+      // Multi-workspace import is handled; skip the active-workspace path below
+    } else {
+      const rawGroups = parseJsonImport(selection.jsonData);
+      allCategorized.push(
+        ...mapImportedGroupsToCategorized(rawGroups, purpose, ImportSource.Json)
+      );
+    }
   }
 
   // Chrome bookmarks

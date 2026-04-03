@@ -79,6 +79,11 @@ export function createWorkspaceServiceLocal(userId: string): WorkspaceService {
       return { id: ws.id, purpose };
     },
 
+    async createWorkspaceWithName(name: string) {
+      const ws = await createLocalWorkspace(name, { setActive: false });
+      return { id: ws.id };
+    },
+
     /**
      * Replace all groups in the workspace by writing with LocalAdapter + refreshing caches.
      *
