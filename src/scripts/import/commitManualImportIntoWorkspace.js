@@ -1,4 +1,4 @@
-import { ImportPostProcessMode, ImportSource } from "@/core/constants/import";
+import { ImportPostProcessMode, ImportSource, JsonImportMode } from "@/core/constants/import";
 import { remoteGroupingLLM } from "@/scripts/import/groupingLLMRemote";
 import { importChromeBookmarksAsSingleGroup, importChromeBookmarksPreserveStructure, importOpenTabsAsSingleGroup, importOpenTabsPreserveStructure, } from "@/scripts/import/importers";
 import { createUniqueID } from "@/core/utils/ids";
@@ -116,17 +116,29 @@ export async function commitManualImportIntoWorkspace({ selection, purposes, wor
             : null;
 
         if (multiWs && multiWs.length > 0) {
-            // Create a separate workspace for each space in the JSON
+            if (selection.jsonImportMode === JsonImportMode.Replace) {
+                await workspaceService.deleteAllWorkspaces();
+            }
+            // Create a separate workspace for each space; set the first one active on Replace
+            let firstCreated = false;
             for (const { name, groups } of multiWs) {
                 const mapped = mapImportedGroupsToCategorized(groups, purpose, ImportSource.Json);
                 if (!mapped.length) continue;
-                const { id } = await workspaceService.createWorkspaceWithName(name);
+                const setActive = selection.jsonImportMode === JsonImportMode.Replace && !firstCreated;
+                const { id } = await workspaceService.createWorkspaceWithName(name, { setActive });
                 await workspaceService.saveGroupsToWorkspace(id, mapped);
+                firstCreated = true;
             }
             // Multi-workspace import is handled; skip the active-workspace path below
         } else {
             const rawGroups = parseJsonImport(selection.jsonData);
-            allCategorized.push(...mapImportedGroupsToCategorized(rawGroups, purpose, ImportSource.Json));
+            const mapped = mapImportedGroupsToCategorized(rawGroups, purpose, ImportSource.Json);
+            if (selection.jsonImportMode === JsonImportMode.Replace) {
+                await workspaceService.saveGroupsToWorkspace(workspaceId, mapped);
+                // Replace is handled; skip the active-workspace append path below
+            } else {
+                allCategorized.push(...mapped);
+            }
         }
     }
     // Chrome bookmarks

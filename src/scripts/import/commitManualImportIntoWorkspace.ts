@@ -2,7 +2,7 @@ import type { ManualImportSelectionType, ImportSourceType } from "@/core/types/i
 import type { PurposeIdType } from "@shared/types/purposeId";
 import type { CategorizedGroup, RawItem } from "@shared/types/llmGrouping";
 
-import { ImportPostProcessMode, ImportSource } from "@/core/constants/import";
+import { ImportPostProcessMode, ImportSource, JsonImportMode } from "@/core/constants/import";
 import { remoteGroupingLLM } from "@/scripts/import/groupingLLMRemote";
 
 import {
@@ -138,7 +138,8 @@ export type CommitManualImportArgs = {
   workspaceService: {
     appendGroupsToWorkspace: (workspaceId: string, groups: CategorizedGroup[]) => Promise<void>;
     saveGroupsToWorkspace: (workspaceId: string, groups: CategorizedGroup[]) => Promise<void>;
-    createWorkspaceWithName: (name: string) => Promise<{ id: string }>;
+    createWorkspaceWithName: (name: string, opts?: { setActive?: boolean }) => Promise<{ id: string }>;
+    deleteAllWorkspaces: () => Promise<void>;
   };
 
   // optional UI callbacks
@@ -173,19 +174,29 @@ export async function commitManualImportIntoWorkspace({
         : null;
 
     if (multiWs && multiWs.length > 0) {
-      // Create a separate workspace for each space in the JSON
+      if (selection.jsonImportMode === JsonImportMode.Replace) {
+        await workspaceService.deleteAllWorkspaces();
+      }
+      // Create a separate workspace for each space; set the first one active on Replace
+      let firstCreated = false;
       for (const { name, groups } of multiWs) {
         const mapped = mapImportedGroupsToCategorized(groups, purpose, ImportSource.Json);
         if (!mapped.length) continue;
-        const { id } = await workspaceService.createWorkspaceWithName(name);
+        const setActive = selection.jsonImportMode === JsonImportMode.Replace && !firstCreated;
+        const { id } = await workspaceService.createWorkspaceWithName(name, { setActive });
         await workspaceService.saveGroupsToWorkspace(id, mapped);
+        firstCreated = true;
       }
       // Multi-workspace import is handled; skip the active-workspace path below
     } else {
       const rawGroups = parseJsonImport(selection.jsonData);
-      allCategorized.push(
-        ...mapImportedGroupsToCategorized(rawGroups, purpose, ImportSource.Json)
-      );
+      const mapped = mapImportedGroupsToCategorized(rawGroups, purpose, ImportSource.Json);
+      if (selection.jsonImportMode === JsonImportMode.Replace) {
+        await workspaceService.saveGroupsToWorkspace(workspaceId, mapped);
+        // Replace is handled; skip the active-workspace append path below
+      } else {
+        allCategorized.push(...mapped);
+      }
     }
   }
 

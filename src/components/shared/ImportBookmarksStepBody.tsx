@@ -2,10 +2,10 @@
 import React from "react";
 
 /* Constants */
-import { ImportPostProcessMode, OpenTabsScope } from "@/core/constants/import";
+import { ImportPostProcessMode, JsonImportMode, OpenTabsScope } from "@/core/constants/import";
 
 /* Types */
-import type { ImportPostProcessModeType, OpenTabsScopeType } from "@/core/types/import";
+import type { ImportPostProcessModeType, JsonImportModeType, OpenTabsScopeType } from "@/core/types/import";
 
 /* Components */
 import { AiDisclosure } from "@/components/privacy/AiDisclosure";
@@ -32,6 +32,8 @@ export type ImportBookmarksStepBodyState = {
   setJsonFileName: (v: string | null) => void;
   jsonData: string | null;
   setJsonData: (v: string | null) => void;
+  jsonImportMode: JsonImportModeType;
+  setJsonImportMode: (v: JsonImportModeType) => void;
 
   // step 2
   bookmarksYes: boolean;
@@ -196,6 +198,34 @@ export function ImportBookmarksStepBody({
                 className="json-input"
                 disabled={busy}
               />
+            )}
+
+            {state.jsonData && (
+              <div className="tabs-container">
+                <h3 className="tabs-header">How should this be imported?</h3>
+                <div className="tabs-windows-container">
+                  {([
+                    { value: JsonImportMode.Add, label: "Add to existing" },
+                    { value: JsonImportMode.Replace, label: "Replace all existing" },
+                  ] as const).map(({ value, label }) => {
+                    const selected = state.jsonImportMode === value;
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => state.setJsonImportMode(value)}
+                        disabled={busy}
+                        className={`tabs-radio-button-row ${selected ? "tabs-radio-button-row--selected" : "tabs-radio-button-row--unselected"}`}
+                      >
+                        <div className={`tabs-radio-button-outer-circle ${selected ? "tabs-radio-button-outer-circle--selected" : "tabs-radio-button-outer-circle--unselected"}`}>
+                          {selected && <div className="tabs-radio-button-inner-circle" />}
+                        </div>
+                        <span className="tabs-radio-button-text">{label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             )}
           </div>
         )}

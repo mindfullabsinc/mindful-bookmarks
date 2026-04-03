@@ -1,7 +1,7 @@
 /* Constants */
 import { wsKey } from "@/core/constants/workspaces";
 /* Scripts and utils */
-import { createLocalWorkspace } from "@/scripts/workspaces/registry";
+import { createLocalWorkspace, deleteAllLocalWorkspaces } from "@/scripts/workspaces/registry";
 import { getGroupsStorageKey } from "@/core/utils/storageKeys";
 import { LocalAdapter } from "@/scripts/storageAdapters/local";
 import { capitalize } from "@/core/utils/stringUtils";
@@ -58,9 +58,12 @@ export function createWorkspaceServiceLocal(userId) {
             const ws = await createLocalWorkspace(name, { setActive: false });
             return { id: ws.id, purpose };
         },
-        async createWorkspaceWithName(name) {
-            const ws = await createLocalWorkspace(name, { setActive: false });
+        async createWorkspaceWithName(name, opts) {
+            const ws = await createLocalWorkspace(name, { setActive: opts?.setActive ?? false });
             return { id: ws.id };
+        },
+        async deleteAllWorkspaces() {
+            await deleteAllLocalWorkspaces();
         },
         /**
          * Replace all groups in the workspace by writing with LocalAdapter + refreshing caches.

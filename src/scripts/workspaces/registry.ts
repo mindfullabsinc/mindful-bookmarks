@@ -303,6 +303,24 @@ export async function ensureDefaultWorkspace(): Promise<void> {
 }
 
 /**
+ * Delete all local workspace data and reset the registry to empty.
+ * After calling this, at least one workspace must be created before the app is usable.
+ */
+export async function deleteAllLocalWorkspaces(): Promise<void> {
+  const all = await readAllLocal();
+  const wsDataKeys = Object.keys(all).filter(k => k.startsWith("WS_"));
+  if (wsDataKeys.length) await removeLocal(...wsDataKeys);
+
+  const emptyReg: WorkspaceRegistryType = {
+    version: 1,
+    activeId: DEFAULT_LOCAL_WORKSPACE_ID,
+    items: {},
+    migratedLegacyLocal: true,
+  };
+  await saveRegistry(emptyReg);
+}
+
+/**
  * Create a new Local workspace with an empty dataset (adapter will hydrate later).
  * Switches active workspace by default; can be disabled with { setActive: false }.
  *
