@@ -182,7 +182,7 @@ export async function commitManualImportIntoWorkspace({
       for (const { name, groups } of multiWs) {
         const mapped = mapImportedGroupsToCategorized(groups, purpose, ImportSource.Json);
         if (!mapped.length) continue;
-        const setActive = selection.jsonImportMode === JsonImportMode.Replace && !firstCreated;
+        const setActive = !firstCreated;
         const { id } = await workspaceService.createWorkspaceWithName(name, { setActive });
         await workspaceService.saveGroupsToWorkspace(id, mapped);
         firstCreated = true;
