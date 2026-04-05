@@ -1,5 +1,5 @@
 /* -------------------- Imports -------------------- */
-import React, { useMemo, useState, useContext, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useContext, useEffect, useRef, useCallback } from 'react';
 
 /* Scripts and hooks */
 import {
@@ -39,9 +39,12 @@ export const WorkspaceSwitcher: React.FC = () => {
   /* -------------------- Context / state -------------------- */
   const [panelOpen, setPanelOpen] = useState(false);
   const [workspaces, setWorkspaces] = useState<WorkspaceType[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const panelRef = useRef<HTMLDivElement | null>(null);
   const openerRef = useRef<HTMLButtonElement | null>(null);
+  const editSpanRef = useRef<HTMLSpanElement | null>(null);
+  const editValueRef = useRef<string>('');
   /* ---------------------------------------------------------- */
 
   /* -------------------- Effects -------------------- */
@@ -67,17 +70,21 @@ export const WorkspaceSwitcher: React.FC = () => {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') {
+        if (editingId) {
+          setEditingId(null);
+          return;
+        }
         setPanelOpen(false);
         requestAnimationFrame(() => openerRef.current?.focus());
       }
-      // Optional quick toggle (ignores while typing)
-      if ((e.key === 'w' || e.key === 'W') && !/input|textarea/i.test((e.target as HTMLElement)?.tagName)) {
+      // Optional quick toggle (ignores while typing or editing a workspace name)
+      if ((e.key === 'w' || e.key === 'W') && !editingId && !/input|textarea/i.test((e.target as HTMLElement)?.tagName)) {
         setPanelOpen(v => !v);
       }
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, []);
+  }, [editingId]);
   /* ---------------------------------------------------------- */
 
   /* -------------------- Helper functions -------------------- */
@@ -123,16 +130,42 @@ export const WorkspaceSwitcher: React.FC = () => {
   }
 
   /**
-   * Prompt rename dialog and persist the new name.
-   *
-   * @param id Workspace identifier whose name should be updated.
+   * Start inline editing for a workspace name.
    */
-  async function onRename(id: string) {
+  function startEdit(id: string) {
     const current = workspaces.find((w) => w.id === id);
-    const name = prompt('Rename workspace', current?.name ?? 'Local Workspace');
-    if (!name) return;
-    await renameWorkspace(id, name.trim());
-    await refresh();
+    editValueRef.current = current?.name ?? '';
+    setEditingId(id);
+    requestAnimationFrame(() => {
+      const el = editSpanRef.current;
+      if (!el) return;
+      el.textContent = editValueRef.current;
+      el.focus();
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      window.getSelection()?.removeAllRanges();
+      window.getSelection()?.addRange(range);
+    });
+  }
+
+  /**
+   * Commit the inline rename if the name changed.
+   */
+  const commitEdit = useCallback(async () => {
+    if (!editingId) return;
+    const trimmed = editValueRef.current.trim();
+    if (trimmed) {
+      await renameWorkspace(editingId, trimmed);
+      await refresh();
+    }
+    setEditingId(null);
+  }, [editingId]);
+
+  /**
+   * Cancel inline editing without saving.
+   */
+  function cancelEdit() {
+    setEditingId(null);
   }
 
   /**
@@ -234,6 +267,7 @@ export const WorkspaceSwitcher: React.FC = () => {
 
           {workspaces.map((w) => {
             const isActive = w.id === ctxActiveId;
+            const isEditing = editingId === w.id;
             return (
               <div
                 key={w.id}
@@ -243,46 +277,75 @@ export const WorkspaceSwitcher: React.FC = () => {
                     : 'bg-black/5 hover:bg-black/10 dark:bg-white/5 dark:hover:bg-white/10'}
                 `}
               >
-                <button
-                  onClick={() => handleSwitch(w.id)}
-                  className="flex-1 text-left text-sm truncate cursor-pointer"
-                  aria-current={isActive ? 'true' : undefined}
-                  aria-label={w.name}
-                  title={w.name}
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="truncate">{w.name}</span>
-                    {isActive && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/25">Active</span>
-                    )}
-                  </div>
-                </button>
+                {isEditing ? (
+                  <span
+                    ref={editSpanRef}
+                    contentEditable
+                    suppressContentEditableWarning
+                    onInput={(e) => { editValueRef.current = e.currentTarget.textContent ?? ''; }}
+                    onBlur={commitEdit}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') { e.preventDefault(); commitEdit(); }
+                      if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
+                    }}
+                    className="flex-1 text-sm outline-none cursor-text min-w-0"
+                    aria-label="Rename workspace"
+                  />
+                ) : (
+                  <button
+                    onClick={() => handleSwitch(w.id)}
+                    className="flex-1 text-left text-sm truncate cursor-pointer"
+                    aria-current={isActive ? 'true' : undefined}
+                    aria-label={w.name}
+                    title={w.name}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="truncate">{w.name}</span>
+                      {isActive && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/25">Active</span>
+                      )}
+                    </div>
+                  </button>
+                )}
 
                 <div className="flex gap-0.5 shrink-0">
-                  <button
-                    onClick={() => onRename(w.id)}
-                    className="text-[11px] px-1 py-1 rounded-md hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer"
-                    aria-label={`Rename ${w.name}`}
-                    title="Rename"
-                  >
-                    <i className="fa-solid fa-pen" />
-                  </button>
-                  <button
-                    onClick={() => openCopyTo({ kind: "workspace", fromWorkspaceId: w.id })}
-                    className="text-[11px] px-1 py-1 rounded-md hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer"
-                    aria-label={`Copy ${w.name} to…`}
-                    title="Copy to…"
-                  >
-                    <i className="fa-regular fa-copy" />
-                  </button>
-                  <button
-                    onClick={() => onArchive(w.id)}
-                    className="text-[11px] px-1 py-1 rounded-md hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer"
-                    aria-label={`Archive ${w.name}`}
-                    title="Archive"
-                  >
-                    <i className="fa-solid fa-xmark" />
-                  </button>
+                  {isEditing ? (
+                    <button
+                      onMouseDown={(e) => { e.preventDefault(); cancelEdit(); }}
+                      className="text-[11px] px-1 py-1 rounded-md hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer"
+                      aria-label="Cancel rename"
+                      title="Cancel"
+                    >
+                      <i className="fa-solid fa-xmark" />
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => startEdit(w.id)}
+                        className="text-[11px] px-1 py-1 rounded-md hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer"
+                        aria-label={`Rename ${w.name}`}
+                        title="Rename"
+                      >
+                        <i className="fa-solid fa-pen" />
+                      </button>
+                      <button
+                        onClick={() => openCopyTo({ kind: "workspace", fromWorkspaceId: w.id })}
+                        className="text-[11px] px-1 py-1 rounded-md hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer"
+                        aria-label={`Copy ${w.name} to…`}
+                        title="Copy to…"
+                      >
+                        <i className="fa-regular fa-copy" />
+                      </button>
+                      <button
+                        onClick={() => onArchive(w.id)}
+                        className="text-[11px] px-1 py-1 rounded-md hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer"
+                        aria-label={`Archive ${w.name}`}
+                        title="Archive"
+                      >
+                        <i className="fa-solid fa-xmark" />
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             );
