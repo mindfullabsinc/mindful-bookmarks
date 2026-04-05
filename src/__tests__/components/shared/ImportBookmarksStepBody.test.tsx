@@ -10,7 +10,7 @@ import {
   type ImportBookmarksStepBodyState,
 } from "@/components/shared/ImportBookmarksStepBody";
 
-import { ImportPostProcessMode, OpenTabsScope } from "@/core/constants/import";
+import { ImportPostProcessMode, JsonImportMode, OpenTabsScope } from "@/core/constants/import";
 
 /**
  * If the Jest config already mocks CSS imports, we can remove this line.
@@ -43,6 +43,7 @@ function WizardHarness({
   const [jsonYes, setJsonYes] = React.useState<boolean>(initial.jsonYes ?? false);
   const [jsonFileName, setJsonFileName] = React.useState<string | null>(initial.jsonFileName ?? null);
   const [jsonData, setJsonData] = React.useState<string | null>(initial.jsonData ?? null);
+  const [jsonImportMode, setJsonImportMode] = React.useState<any>(JsonImportMode.Add);
 
   const [bookmarksYes, setBookmarksYes] = React.useState<boolean>(initial.bookmarksYes ?? false);
 
@@ -61,6 +62,8 @@ function WizardHarness({
     setJsonFileName,
     jsonData,
     setJsonData,
+    jsonImportMode,
+    setJsonImportMode,
 
     // step 2
     bookmarksYes,

@@ -19,8 +19,3 @@ export const JsonImportMode = {
   Add: "add",
   Replace: "replace",
 } as const;
-
-export const JsonImportMode = {
-  Add: "add",
-  Replace: "replace",
-} as const;

@@ -29,6 +29,8 @@ export type ManualImportSelectionType = {
   jsonData?: string | null;
   jsonImportMode?: JsonImportModeType;
   importBookmarks?: boolean;
+  chromeImportMode?: JsonImportModeType;
   tabScope?: OpenTabsScopeType;
+  tabsImportMode?: JsonImportModeType;
   importPostProcessMode?: ImportPostProcessModeType;
 };

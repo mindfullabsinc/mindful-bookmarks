@@ -240,6 +240,10 @@ export async function commitManualImportIntoWorkspace({
   // Skip: nothing selected
   if (allCategorized.length === 0) return;
 
+  const shouldReplace =
+    (selection.importBookmarks && selection.chromeImportMode === JsonImportMode.Replace) ||
+    (selection.tabScope !== undefined && selection.tabsImportMode === JsonImportMode.Replace);
+
   if (mode === ImportPostProcessMode.SemanticGrouping) {
     if (!Array.isArray(purposes) || purposes.length === 0) {
       throw new Error("Missing purposes[] (client) — cannot run semantic grouping.");
@@ -255,9 +259,17 @@ export async function commitManualImportIntoWorkspace({
 
     onProgress?.("Saving groups ...");
     const regrouped = normalizeLLMGroups(res.groups, purpose);
-    await workspaceService.appendGroupsToWorkspace(workspaceId, regrouped);
+    if (shouldReplace) {
+      await workspaceService.saveGroupsToWorkspace(workspaceId, regrouped);
+    } else {
+      await workspaceService.appendGroupsToWorkspace(workspaceId, regrouped);
+    }
   } else {
     onProgress?.("Saving ...");
-    await workspaceService.appendGroupsToWorkspace(workspaceId, allCategorized);
+    if (shouldReplace) {
+      await workspaceService.saveGroupsToWorkspace(workspaceId, allCategorized);
+    } else {
+      await workspaceService.appendGroupsToWorkspace(workspaceId, allCategorized);
+    }
   }
 }

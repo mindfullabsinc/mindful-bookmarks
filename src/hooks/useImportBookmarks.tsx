@@ -191,43 +191,10 @@ export function useImportBookmarks(opts?: { insertGroupsOverride?: InsertGroupsF
       <ImportBookmarksModal
         isOpen={isOpen}
         onClose={closeImport}
-        busy={busy}
-        busyMessage={busy ? "Importing ..." : undefined}
-        errorMessage={undefined}
-        onSelectionChange={(s) => setSelection(s)}
-        onComplete={() =>
-          runWithBusy(async () => {
-            // 1) JSON
-            if (selection.jsonData) {
-              await importJSON(selection.jsonData, insertGroups);
-            }
-
-            // 2) Chrome bookmarks
-            if (selection.importBookmarks) {
-              await handleImportChrome();
-            }
-
-            // 3) Open tabs (if scope chosen)
-            if (selection.tabScope) {
-              await handleImportOpenTabs({ scope: selection.tabScope });
-            }
-
-            closeImport();
-          })
-        }
       />
     ),
-    [
-      isOpen,
-      closeImport,
-      busy,
-      runWithBusy,
-      selection,
-      insertGroups,
-      handleImportChrome,
-      handleImportOpenTabs,
-    ] 
-  ); 
+    [isOpen, closeImport]
+  );
 
   return {
     openImport,
