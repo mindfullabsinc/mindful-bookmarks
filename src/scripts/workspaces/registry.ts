@@ -267,8 +267,28 @@ export async function listLocalWorkspaces(opts?: {
   includeArchived?: boolean;
 }): Promise<WorkspaceType[]> {
   const reg = await ensureRegistry();
-  const all = Object.values(reg.items).sort((a, b) => a.createdAt - b.createdAt);
-  return opts?.includeArchived ? all : all.filter(w => !w.archived);
+  const all = Object.values(reg.items);
+  const visible = opts?.includeArchived ? all : all.filter(w => !w.archived);
+
+  if (reg.order?.length) {
+    const orderedSet = new Set(reg.order);
+    const ordered = reg.order.map(id => reg.items[id]).filter(w => w && (opts?.includeArchived || !w.archived));
+    const rest = visible.filter(w => !orderedSet.has(w.id)).sort((a, b) => a.createdAt - b.createdAt);
+    return [...ordered, ...rest];
+  }
+
+  return visible.sort((a, b) => a.createdAt - b.createdAt);
+}
+
+/**
+ * Persist a custom workspace sort order.
+ *
+ * @param ids Ordered array of workspace identifiers.
+ */
+export async function reorderWorkspaces(ids: WorkspaceIdType[]): Promise<void> {
+  const reg = await ensureRegistry();
+  reg.order = ids;
+  await saveRegistry(reg);
 }
 
 /**
