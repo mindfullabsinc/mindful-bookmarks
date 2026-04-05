@@ -341,15 +341,16 @@ export async function renameWorkspace(id, name) {
  * @param id Workspace identifier to archive.
  */
 export async function archiveWorkspace(id) {
+    const live = Object.values((await ensureRegistry()).items).filter(w => !w.archived);
+    if (live.length <= 1) {
+        // Last workspace — create a blank replacement and set it active before archiving
+        await createLocalWorkspace("New Workspace", { setActive: true });
+    }
+    // Re-read after the potential createLocalWorkspace write
     const reg = await ensureRegistry();
     const ws = reg.items[id];
     if (!ws)
         return;
-    const live = Object.values(reg.items).filter(w => !w.archived);
-    if (live.length <= 1) {
-        // Don’t archive the only remaining live workspace
-        return;
-    }
     reg.items[id] = { ...ws, archived: true, updatedAt: Date.now() };
     if (reg.activeId === id) {
         const fallback = reg.items[DEFAULT_LOCAL_WORKSPACE_ID] && !reg.items[DEFAULT_LOCAL_WORKSPACE_ID].archived
