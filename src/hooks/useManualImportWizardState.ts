@@ -1,17 +1,20 @@
 import * as React from "react";
 
 /* Constants */
-import { ImportPostProcessMode, OpenTabsScope } from "@/core/constants/import";
+import { ImportPostProcessMode, JsonImportMode, OpenTabsScope } from "@/core/constants/import";
 
 /* Types */
 import type {
   ManualImportSelectionType,
   ImportPostProcessModeType,
+  JsonImportModeType,
   OpenTabsScopeType,
 } from "@/core/types/import";
 import type { ImportBookmarksStepBodyState } from "@/components/shared/ImportBookmarksStepBody";
 
 export type ManualImportWizardState = ImportBookmarksStepBodyState;
+// re-export for convenience
+export type { JsonImportModeType };
 
 export function useManualImportWizardState(initial?: Partial<ManualImportWizardState>) {
   // Step 1
@@ -20,6 +23,10 @@ export function useManualImportWizardState(initial?: Partial<ManualImportWizardS
     initial?.jsonFileName ?? null
   );
   const [jsonData, setJsonData] = React.useState<string | null>(initial?.jsonData ?? null);
+
+  const [jsonImportMode, setJsonImportMode] = React.useState<JsonImportModeType>(
+    initial?.jsonImportMode ?? JsonImportMode.Add
+  );
 
   // Step 2
   const [bookmarksYes, setBookmarksYes] = React.useState<boolean>(
@@ -45,6 +52,8 @@ export function useManualImportWizardState(initial?: Partial<ManualImportWizardS
       setJsonFileName,
       jsonData,
       setJsonData,
+      jsonImportMode,
+      setJsonImportMode,
 
       bookmarksYes,
       setBookmarksYes,
@@ -61,6 +70,7 @@ export function useManualImportWizardState(initial?: Partial<ManualImportWizardS
       jsonYes,
       jsonFileName,
       jsonData,
+      jsonImportMode,
       bookmarksYes,
       tabsYes,
       tabScope,
@@ -72,17 +82,19 @@ export function useManualImportWizardState(initial?: Partial<ManualImportWizardS
     () => ({
       jsonFileName: jsonYes ? jsonFileName : null,
       jsonData: jsonYes ? jsonData : null,
+      jsonImportMode: jsonYes ? jsonImportMode : undefined,
       importBookmarks: bookmarksYes,
       tabScope: tabsYes ? tabScope : undefined,
       importPostProcessMode: postProcessMode,
     }),
-    [jsonYes, jsonFileName, jsonData, bookmarksYes, tabsYes, tabScope, postProcessMode]
+    [jsonYes, jsonFileName, jsonData, jsonImportMode, bookmarksYes, tabsYes, tabScope, postProcessMode]
   );
 
   const reset = React.useCallback(() => {
     setJsonYes(false);
     setJsonFileName(null);
     setJsonData(null);
+    setJsonImportMode(JsonImportMode.Add);
 
     setBookmarksYes(false);
 

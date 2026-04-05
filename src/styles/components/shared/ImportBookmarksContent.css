@@ -195,5 +195,30 @@
     .tabs-radio-button-text {
       @apply text-sm text-neutral-800 dark:text-neutral-200;
     }
+
+    .json-import-replace-warning {
+      @apply mt-2 text-xs text-red-500 dark:text-red-400 bg-red-500/10 rounded-lg px-3 py-2;
+    }
+
+    /* Compact variant used for the JSON import-mode picker */
+    .json-import-mode .tabs-container {
+      @apply mt-2;
+    }
+
+    .json-import-mode .tabs-header {
+      @apply text-xs mb-2;
+    }
+
+    .json-import-mode .tabs-windows-container {
+      @apply space-y-1;
+    }
+
+    .json-import-mode .tabs-radio-button-row {
+      @apply p-1.5 rounded-lg;
+    }
+
+    .json-import-mode .tabs-radio-button-text {
+      @apply text-xs;
+    }
   }
 }

@@ -1,4 +1,4 @@
-import { ImportSource, OpenTabsScope, ImportPostProcessMode } from "../constants/import";
+import { ImportSource, OpenTabsScope, ImportPostProcessMode, JsonImportMode } from "../constants/import";
 
 
 export type ChromeBmNode = chrome.bookmarks.BookmarkTreeNode;
@@ -18,13 +18,21 @@ export type OpenTabsOptionsType = {
   scope?: OpenTabsScopeType;
 };
 
-export type ImportPostProcessModeType = 
+export type ImportPostProcessModeType =
   (typeof ImportPostProcessMode)[keyof typeof ImportPostProcessMode]
+
+export type JsonImportModeType =
+  (typeof JsonImportMode)[keyof typeof JsonImportMode];
 
 export type ManualImportSelectionType = {
   jsonFileName?: string | null;
   jsonData?: string | null;
+  jsonImportMode?: JsonImportModeType;
   importBookmarks?: boolean;
-  tabScope?: OpenTabsScopeType; 
+  chromeImportMode?: JsonImportModeType;
+  tabScope?: OpenTabsScopeType;
+  tabsImportMode?: JsonImportModeType;
   importPostProcessMode?: ImportPostProcessModeType;
+  /** When set, create a new workspace with this name instead of importing into the active one. */
+  workspaceName?: string;
 };

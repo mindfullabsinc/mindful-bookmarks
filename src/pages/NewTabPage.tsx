@@ -464,10 +464,14 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
   /* ---------------------------------------------------------- */
 
   // Ensure every group has a bookmarks array, as required by DraggableGrid's type
-  const normalizedGroups: BookmarkGroupType[] = (bookmarkGroupsRaw ?? []).map((g: any) => ({
-    ...g,
-    bookmarks: g?.bookmarks ?? [],
-  }));
+  // Keep the empty placeholder group (add-new-group box) pinned to the end.
+  const normalizedGroups: BookmarkGroupType[] = (bookmarkGroupsRaw ?? [])
+    .map((g: any) => ({ ...g, bookmarks: g?.bookmarks ?? [] }))
+    .sort((a: any, b: any) => {
+      if (a.groupName === EMPTY_GROUP_IDENTIFIER) return 1;
+      if (b.groupName === EMPTY_GROUP_IDENTIFIER) return -1;
+      return 0;
+    });
 
   // Only mount Analytics when signed in
     // Only mount Analytics when signed in

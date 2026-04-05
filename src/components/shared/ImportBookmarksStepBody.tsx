@@ -2,10 +2,10 @@
 import React from "react";
 
 /* Constants */
-import { ImportPostProcessMode, OpenTabsScope } from "@/core/constants/import";
+import { ImportPostProcessMode, JsonImportMode, OpenTabsScope } from "@/core/constants/import";
 
 /* Types */
-import type { ImportPostProcessModeType, OpenTabsScopeType } from "@/core/types/import";
+import type { ImportPostProcessModeType, JsonImportModeType, OpenTabsScopeType } from "@/core/types/import";
 
 /* Components */
 import { AiDisclosure } from "@/components/privacy/AiDisclosure";
@@ -32,6 +32,8 @@ export type ImportBookmarksStepBodyState = {
   setJsonFileName: (v: string | null) => void;
   jsonData: string | null;
   setJsonData: (v: string | null) => void;
+  jsonImportMode: JsonImportModeType;
+  setJsonImportMode: (v: JsonImportModeType) => void;
 
   // step 2
   bookmarksYes: boolean;
@@ -58,6 +60,10 @@ export type ImportBookmarksStepBodyProps = {
 
   /** Disable inputs while committing (onboarding commit step) */
   busy?: boolean;
+
+  /** Hide the replace/add picker when the user has no existing data to replace.
+   *  Defaults to true (show picker). */
+  hasExistingData?: boolean;
 };
 /* ---------------------------------------------------------- */
 
@@ -117,6 +123,7 @@ export function ImportBookmarksStepBody({
   state,
   showInternalHeader = true,
   busy = false,
+  hasExistingData = true,
 }: ImportBookmarksStepBodyProps) {
   async function handleJsonFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0] ?? null;
@@ -196,6 +203,39 @@ export function ImportBookmarksStepBody({
                 className="json-input"
                 disabled={busy}
               />
+            )}
+
+            {state.jsonData && hasExistingData && (
+              <div className="json-import-mode"><div className="tabs-container">
+                <h3 className="tabs-header">How should this be imported?</h3>
+                <div className="tabs-windows-container">
+                  {([
+                    { value: JsonImportMode.Add, label: "Add to existing bookmarks" },
+                    { value: JsonImportMode.Replace, label: "Replace all existing bookmarks" },
+                  ] as const).map(({ value, label }) => {
+                    const selected = state.jsonImportMode === value;
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => state.setJsonImportMode(value)}
+                        disabled={busy}
+                        className={`tabs-radio-button-row ${selected ? "tabs-radio-button-row--selected" : "tabs-radio-button-row--unselected"}`}
+                      >
+                        <div className={`tabs-radio-button-outer-circle ${selected ? "tabs-radio-button-outer-circle--selected" : "tabs-radio-button-outer-circle--unselected"}`}>
+                          {selected && <div className="tabs-radio-button-inner-circle" />}
+                        </div>
+                        <span className="tabs-radio-button-text">{label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {state.jsonImportMode === JsonImportMode.Replace && (
+                  <p className="json-import-replace-warning">
+                    ⚠ This will permanently delete all your existing workspaces and bookmarks.
+                  </p>
+                )}
+              </div></div>
             )}
           </div>
         )}
