@@ -32,7 +32,6 @@ import { copyItems, moveItems } from "@/scripts/copyBookmarks";
 /* Components */
 import TopBanner from "@/components/TopBanner";
 import DraggableGrid, { GridHandle } from '@/components/DraggableGrid';
-import EmptyBookmarksState from '@/components/EmptyBookmarksState';
 import { WorkspaceSwitcher } from "@/components/WorkspaceSwitcher";
 import CopyToModal from "@/components/modals/CopyToModal";
 import { Toast } from "@/components/primitives/Toast";
@@ -502,16 +501,6 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
               ref={gridRef as any}
               user={isSignedIn ? { sub: userId as string } : null}
               bookmarkGroups={normalizedGroups}
-            />
-
-            <EmptyBookmarksState
-              onCreateGroup={() =>
-                gridRef.current?.startCreateGroup?.({
-                  prefill: ONBOARDING_NEW_GROUP_PREFILL,
-                  select: 'all',
-                })
-              }
-              onImport={handleLoadBookmarks}
             />
 
             <CopyToModal
