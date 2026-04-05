@@ -205,7 +205,7 @@ export default function ImportBookmarksModal({ isOpen, onClose }) {
                     errorMessage && _jsx("div", { className: "error-message", children: errorMessage })
                 ] })
             }),
-            renderFlowFooter(() => runImport({ jsonFileName, jsonData, jsonImportMode, importBookmarks: false }), !jsonData)
+            renderFlowFooter(() => runImport({ jsonFileName, jsonData, jsonImportMode, importBookmarks: false, workspaceName: "JSON Backup" }), !jsonData)
         ] });
     }
     function renderChromeFlow() {
@@ -217,7 +217,7 @@ export default function ImportBookmarksModal({ isOpen, onClose }) {
                     errorMessage && _jsx("div", { className: "error-message", children: errorMessage })
                 ] })
             }),
-            renderFlowFooter(() => runImport({ importBookmarks: true, chromeImportMode }))
+            renderFlowFooter(() => runImport({ importBookmarks: true, chromeImportMode, workspaceName: "Chrome Bookmarks" }))
         ] });
     }
     function renderTabsFlow() {
@@ -249,7 +249,7 @@ export default function ImportBookmarksModal({ isOpen, onClose }) {
                     errorMessage && _jsx("div", { className: "error-message", children: errorMessage })
                 ] })
             }),
-            renderFlowFooter(() => runImport({ tabScope, tabsImportMode }))
+            renderFlowFooter(() => runImport({ tabScope, tabsImportMode, workspaceName: "Open Tabs" }))
         ] });
     }
     /* ---------------------------------------------------------- */

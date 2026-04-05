@@ -191,9 +191,14 @@ export async function commitManualImportIntoWorkspace({
     } else {
       const rawGroups = parseJsonImport(selection.jsonData);
       const mapped = mapImportedGroupsToCategorized(rawGroups, purpose, ImportSource.Json);
-      if (selection.jsonImportMode === JsonImportMode.Replace) {
+      if (selection.workspaceName) {
+        if (selection.jsonImportMode === JsonImportMode.Replace) {
+          await workspaceService.deleteAllWorkspaces();
+        }
+        const { id } = await workspaceService.createWorkspaceWithName(selection.workspaceName, { setActive: true });
+        await workspaceService.saveGroupsToWorkspace(id, mapped);
+      } else if (selection.jsonImportMode === JsonImportMode.Replace) {
         await workspaceService.saveGroupsToWorkspace(workspaceId, mapped);
-        // Replace is handled; skip the active-workspace append path below
       } else {
         allCategorized.push(...mapped);
       }
@@ -214,9 +219,16 @@ export async function commitManualImportIntoWorkspace({
         : importChromeBookmarksAsSingleGroup(collector);
     });
 
-    allCategorized.push(
-      ...mapImportedGroupsToCategorized(chromeGroups, purpose, ImportSource.Bookmarks)
-    );
+    const mapped = mapImportedGroupsToCategorized(chromeGroups, purpose, ImportSource.Bookmarks);
+    if (selection.workspaceName && mapped.length > 0) {
+      if (selection.chromeImportMode === JsonImportMode.Replace) {
+        await workspaceService.deleteAllWorkspaces();
+      }
+      const { id } = await workspaceService.createWorkspaceWithName(selection.workspaceName, { setActive: true });
+      await workspaceService.saveGroupsToWorkspace(id, mapped);
+    } else {
+      allCategorized.push(...mapped);
+    }
   }
 
   // Open tabs
@@ -232,9 +244,16 @@ export async function commitManualImportIntoWorkspace({
         : importOpenTabsAsSingleGroup(collector, { scope: selection.tabScope });
     });
 
-    allCategorized.push(
-      ...mapImportedGroupsToCategorized(tabGroups, purpose, ImportSource.Tabs)
-    );
+    const mapped = mapImportedGroupsToCategorized(tabGroups, purpose, ImportSource.Tabs);
+    if (selection.workspaceName && mapped.length > 0) {
+      if (selection.tabsImportMode === JsonImportMode.Replace) {
+        await workspaceService.deleteAllWorkspaces();
+      }
+      const { id } = await workspaceService.createWorkspaceWithName(selection.workspaceName, { setActive: true });
+      await workspaceService.saveGroupsToWorkspace(id, mapped);
+    } else {
+      allCategorized.push(...mapped);
+    }
   }
 
   // Skip: nothing selected

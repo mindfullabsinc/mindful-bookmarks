@@ -33,4 +33,6 @@ export type ManualImportSelectionType = {
   tabScope?: OpenTabsScopeType;
   tabsImportMode?: JsonImportModeType;
   importPostProcessMode?: ImportPostProcessModeType;
+  /** When set, create a new workspace with this name instead of importing into the active one. */
+  workspaceName?: string;
 };

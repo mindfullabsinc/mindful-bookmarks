@@ -315,7 +315,7 @@ export default function ImportBookmarksModal({ isOpen, onClose }: ImportBookmark
           )}
         </div>
         {renderFlowFooter(
-          () => runImport({ jsonFileName, jsonData, jsonImportMode, importBookmarks: false }),
+          () => runImport({ jsonFileName, jsonData, jsonImportMode, importBookmarks: false, workspaceName: "JSON Backup" }),
           !jsonData,
         )}
       </div>
@@ -335,7 +335,7 @@ export default function ImportBookmarksModal({ isOpen, onClose }: ImportBookmark
             </>
           )}
         </div>
-        {renderFlowFooter(() => runImport({ importBookmarks: true, chromeImportMode }))}
+        {renderFlowFooter(() => runImport({ importBookmarks: true, chromeImportMode, workspaceName: "Chrome Bookmarks" }))}
       </div>
     );
   }
@@ -380,7 +380,7 @@ export default function ImportBookmarksModal({ isOpen, onClose }: ImportBookmark
             </>
           )}
         </div>
-        {renderFlowFooter(() => runImport({ tabScope, tabsImportMode }))}
+        {renderFlowFooter(() => runImport({ tabScope, tabsImportMode, workspaceName: "Open Tabs" }))}
       </div>
     );
   }
