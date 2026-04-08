@@ -184,18 +184,20 @@ export const WorkspaceSwitcher: React.FC = () => {
     activeWorkspaceId: ctxActiveId,
     workspacesVersion,
     postImportTick,
+    postImportPreviousIds,
   } = useContext(AppContext) as {
     setActiveWorkspaceId: (id: string) => Promise<void> | void;
     activeWorkspaceId: string | null;
     workspacesVersion: number;
     postImportTick: number;
+    postImportPreviousIds: string[];
   };
 
   /* -------------------- Context / state -------------------- */
   const [panelOpen, setPanelOpen] = useState(false);
   const [workspaces, setWorkspaces] = useState<WorkspaceType[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [pulseId, setPulseId] = useState<string | null>(null);
+  const [pulseIds, setPulseIds] = useState<Set<string>>(new Set());
 
   const panelRef = useRef<HTMLDivElement | null>(null);
   const openerRef = useRef<HTMLButtonElement | null>(null);
@@ -217,12 +219,15 @@ export const WorkspaceSwitcher: React.FC = () => {
     return () => { cancelled = true; };
   }, [workspacesVersion]);
 
-  // After a successful import: open the panel and pulse the newly active workspace.
+  // After a successful import: open the panel and pulse all newly created workspaces.
   useEffect(() => {
     if (!postImportTick) return;
+    const prevSet = new Set(postImportPreviousIds);
+    const newIds = workspaces.filter(w => !prevSet.has(w.id)).map(w => w.id);
+    const toAnimate = newIds.length > 0 ? newIds : (ctxActiveId ? [ctxActiveId] : []);
     setPanelOpen(true);
-    setPulseId(ctxActiveId);
-    const t = setTimeout(() => setPulseId(null), 2200);
+    setPulseIds(new Set(toAnimate));
+    const t = setTimeout(() => setPulseIds(new Set()), 2200);
     return () => clearTimeout(t);
   }, [postImportTick]);
 
@@ -405,7 +410,7 @@ export const WorkspaceSwitcher: React.FC = () => {
                   workspace={w}
                   isActive={w.id === ctxActiveId}
                   isEditing={editingId === w.id}
-                  isPulsing={pulseId === w.id}
+                  isPulsing={pulseIds.has(w.id)}
                   editSpanRef={editSpanRef}
                   editValueRef={editValueRef}
                   onSwitch={handleSwitch}

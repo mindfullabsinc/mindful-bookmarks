@@ -1,5 +1,5 @@
 /* -------------------- Imports -------------------- */
-import React, { useCallback, useContext, useMemo, useState } from "react";
+import React, { useCallback, useContext, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 /* Constants */
@@ -38,6 +38,7 @@ type ImportBookmarksModalProps = {
 export default function ImportBookmarksModal({ isOpen, onClose }: ImportBookmarksModalProps): React.ReactElement | null {
   /* -------------------- Context -------------------- */
   const { userId, activeWorkspaceId, workspaces, bookmarkGroups, bumpWorkspacesVersion, bumpPostImport } = useContext(AppContext);
+  const workspaceIdsBeforeImport = useRef<string[]>([]);
   const activeWorkspace = activeWorkspaceId && workspaces ? workspaces[activeWorkspaceId] : null;
   const hasExistingData = (bookmarkGroups ?? []).some(
     (g) => g.id !== "EMPTY_GROUP_IDENTIFIER" && g.groupName !== "EMPTY_GROUP_IDENTIFIER" && g.bookmarks?.length > 0
@@ -100,7 +101,7 @@ export default function ImportBookmarksModal({ isOpen, onClose }: ImportBookmark
     resetFlowState();
     setView('select');
     onClose();
-    if (wasSuccess) bumpPostImport();
+    if (wasSuccess) bumpPostImport(workspaceIdsBeforeImport.current);
   };
 
   async function handleJsonFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -119,6 +120,7 @@ export default function ImportBookmarksModal({ isOpen, onClose }: ImportBookmark
 
   async function runImport(selection: ManualImportSelectionType) {
     if (!activeWorkspace) { setErrorMessage("No active workspace."); return; }
+    workspaceIdsBeforeImport.current = Object.keys(workspaces ?? {});
     setErrorMessage(undefined);
     setBusy(true);
     try {

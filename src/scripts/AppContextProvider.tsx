@@ -97,7 +97,8 @@ export interface AppContextValue {
   workspacesVersion: number;
   bumpWorkspacesVersion: () => void;
   postImportTick: number;
-  bumpPostImport: () => void;
+  postImportPreviousIds: string[];
+  bumpPostImport: (previousIds: string[]) => void;
 
   groupsIndex: GroupsIndexEntry[];
   bookmarkGroups: BookmarkGroupType[];
@@ -171,6 +172,7 @@ export function AppContextProvider({
   const [activeWorkspaceId, setActiveWorkspaceIdState] = useState<WorkspaceIdType | null>(null);
   const [workspacesVersion, setWorkspacesVersion] = useState(0);
   const [postImportTick, setPostImportTick] = useState(0);
+  const [postImportPreviousIds, setPostImportPreviousIds] = useState<string[]>([]);
 
   const [bookmarkGroups, setBookmarkGroups] = useState<BookmarkGroupType[]>([]);
   const [groupsIndex, setGroupsIndex] = useState<GroupsIndexEntry[]>([]); // [{ id, groupName }]
@@ -446,7 +448,8 @@ export function AppContextProvider({
     setWorkspacesVersion((v) => v + 1);
   }, []);
 
-  const bumpPostImport = useCallback(() => {
+  const bumpPostImport = useCallback((previousIds: string[]) => {
+    setPostImportPreviousIds(previousIds);
     setPostImportTick((v) => v + 1);
   }, []);
   /* ---------------------------------------------------------- */
@@ -971,6 +974,7 @@ export function AppContextProvider({
     workspacesVersion,
     bumpWorkspacesVersion,
     postImportTick,
+    postImportPreviousIds,
     bumpPostImport,
 
     /* Bookmarks */
