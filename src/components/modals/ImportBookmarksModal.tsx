@@ -64,6 +64,10 @@ export default function ImportBookmarksModal({ isOpen, onClose }: ImportBookmark
   const [tabScope, setTabScope] = useState<OpenTabsScopeType>(OpenTabsScope.All);
   const [tabsImportMode, setTabsImportMode] = useState<JsonImportModeType>(JsonImportMode.Add);
 
+  // JSON drag-and-drop
+  const [isDragOver, setIsDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // Shared
   const [busy, setBusy] = useState(false);
   const [busyMessage, setBusyMessage] = useState<string | undefined>();
@@ -75,6 +79,8 @@ export default function ImportBookmarksModal({ isOpen, onClose }: ImportBookmark
   const resetFlowState = useCallback(() => {
     setJsonFileName(null);
     setJsonData(null);
+    setIsDragOver(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
     setJsonImportMode(JsonImportMode.Add);
     setChromeImportMode(JsonImportMode.Add);
     setTabScope(OpenTabsScope.All);
@@ -104,18 +110,47 @@ export default function ImportBookmarksModal({ isOpen, onClose }: ImportBookmark
     if (wasSuccess) bumpPostImport(workspaceIdsBeforeImport.current);
   };
 
-  async function handleJsonFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0] ?? null;
-    if (!file) { setJsonFileName(null); setJsonData(null); return; }
+  async function processFile(file: File) {
+    const isJson = file.name.endsWith('.json') || file.type === 'application/json';
+    const isHtml = file.name.endsWith('.html') || file.name.endsWith('.htm') || file.type === 'text/html';
+    if (!isJson && !isHtml) {
+      setErrorMessage("Please choose a .json or .html file.");
+      return;
+    }
     try {
       const text = await file.text();
-      JSON.parse(text); // throws if invalid
+      if (isJson) JSON.parse(text); // throws if invalid JSON
       setJsonFileName(file.name);
       setJsonData(text);
       setErrorMessage(undefined);
     } catch {
-      setErrorMessage("Invalid JSON file. Please choose a valid .json file.");
+      setErrorMessage("Invalid file. Please choose a valid .json or .html file.");
     }
+  }
+
+  async function handleJsonFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] ?? null;
+    if (!file) { setJsonFileName(null); setJsonData(null); return; }
+    await processFile(file);
+  }
+
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDragOver(true);
+  }
+
+  function handleDragLeave(e: React.DragEvent) {
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setIsDragOver(false);
+    }
+  }
+
+  async function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files?.[0] ?? null;
+    if (!file) return;
+    await processFile(file);
   }
 
   async function runImport(selection: ManualImportSelectionType) {
@@ -237,10 +272,10 @@ export default function ImportBookmarksModal({ isOpen, onClose }: ImportBookmark
             <div className="import-option-card-icon import-option-card-icon--json">
               <FileJson size={18} strokeWidth={1.5} />
             </div>
-            <div className="import-option-card-title">JSON File</div>
+            <div className="import-option-card-title">Import File</div>
           </div>
           <div className="import-option-card-subtitle">
-            Import from a previously exported bookmarks JSON file.
+            Import bookmarks from JSON or HTML export files.
           </div>
         </button>
       </div>
@@ -274,14 +309,32 @@ export default function ImportBookmarksModal({ isOpen, onClose }: ImportBookmark
                   </button>
                 </div>
               ) : (
-                <input
-                  id="json-file-input"
-                  type="file"
-                  accept="application/json,.json"
-                  onChange={handleJsonFileChange}
-                  className="json-input"
-                  disabled={busy}
-                />
+                <div
+                  className={`json-drop-zone${isDragOver ? ' json-drop-zone--active' : ''}`}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                >
+                  <span className="json-drop-zone-label">Drag &amp; drop a file here, or</span>
+                  <button
+                    type="button"
+                    className="json-drop-zone-button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={busy}
+                  >
+                    Choose File
+                  </button>
+                  <span className="json-drop-zone-hint">.json or .html</span>
+                  <input
+                    ref={fileInputRef}
+                    id="json-file-input"
+                    type="file"
+                    accept="application/json,.json,text/html,.html,.htm"
+                    onChange={handleJsonFileChange}
+                    className="json-input-hidden"
+                    disabled={busy}
+                  />
+                </div>
               )}
 
               {jsonData && hasExistingData && (
@@ -395,7 +448,7 @@ export default function ImportBookmarksModal({ isOpen, onClose }: ImportBookmark
 
   const titleMap: Record<View, string> = {
     select: 'Import bookmarks',
-    json: 'JSON File',
+    json: 'Import File',
     chrome: 'Chrome Bookmarks',
     tabs: 'Open Tabs',
   };
