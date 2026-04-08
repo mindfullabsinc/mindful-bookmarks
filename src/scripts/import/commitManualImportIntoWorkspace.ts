@@ -13,6 +13,7 @@ import {
 } from "@/scripts/import/importers";
 
 import { createUniqueID } from "@/core/utils/ids";
+import { pruneNewWorkspacePlaceholders } from "@/scripts/workspaces/registry";
 
 // If you want, you can move these helpers too; I’m keeping them here for clarity.
 
@@ -254,6 +255,12 @@ export async function commitManualImportIntoWorkspace({
     } else {
       allCategorized.push(...mapped);
     }
+  }
+
+  // Clean up any "New Workspace" placeholder left over from archiving the last workspace.
+  if (selection.workspaceName) {
+    await pruneNewWorkspacePlaceholders();
+    return;
   }
 
   // Skip: nothing selected

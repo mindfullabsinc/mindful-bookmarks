@@ -292,6 +292,52 @@ export async function reorderWorkspaces(ids: WorkspaceIdType[]): Promise<void> {
 }
 
 /**
+ * Hard-delete a workspace and all its stored data.
+ * If the workspace is active, switches to the first remaining workspace.
+ *
+ * @param id Workspace identifier to delete.
+ */
+export async function deleteWorkspace(id: WorkspaceIdType): Promise<void> {
+  const reg = await ensureRegistry();
+  if (!reg.items[id]) return;
+
+  // Remove all storage keys belonging to this workspace
+  const all = await readAllLocal();
+  const prefix = `WS_${id}__`;
+  const keysToRemove = Object.keys(all).filter(k => k.startsWith(prefix));
+  if (keysToRemove.length) await removeLocal(...keysToRemove);
+
+  // Remove from registry
+  delete reg.items[id];
+  if (reg.order) reg.order = reg.order.filter(i => i !== id);
+
+  // If it was active, switch to the first remaining workspace
+  if (reg.activeId === id) {
+    const remaining = Object.keys(reg.items);
+    reg.activeId = remaining[0] ?? DEFAULT_LOCAL_WORKSPACE_ID;
+  }
+
+  await saveRegistry(reg);
+}
+
+/**
+ * Remove auto-created "New Workspace" placeholders when real workspaces exist.
+ * Called after import to clean up the placeholder created by archiveWorkspace.
+ */
+export async function pruneNewWorkspacePlaceholders(): Promise<void> {
+  const reg = await ensureRegistry();
+  const all = Object.values(reg.items).filter(w => !w.archived);
+  const placeholders = all.filter(w => w.name === "New Workspace");
+  const realWorkspaces = all.filter(w => w.name !== "New Workspace");
+
+  if (placeholders.length === 0 || realWorkspaces.length === 0) return;
+
+  for (const p of placeholders) {
+    await deleteWorkspace(p.id);
+  }
+}
+
+/**
  * Convenience: get just the active workspace id.
  *
  * @returns Promise resolving to the active workspace identifier.
