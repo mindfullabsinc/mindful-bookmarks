@@ -37,7 +37,7 @@ type ImportBookmarksModalProps = {
 
 export default function ImportBookmarksModal({ isOpen, onClose }: ImportBookmarksModalProps): React.ReactElement | null {
   /* -------------------- Context -------------------- */
-  const { userId, activeWorkspaceId, workspaces, bookmarkGroups, bumpWorkspacesVersion } = useContext(AppContext);
+  const { userId, activeWorkspaceId, workspaces, bookmarkGroups, bumpWorkspacesVersion, bumpPostImport } = useContext(AppContext);
   const activeWorkspace = activeWorkspaceId && workspaces ? workspaces[activeWorkspaceId] : null;
   const hasExistingData = (bookmarkGroups ?? []).some(
     (g) => g.id !== "EMPTY_GROUP_IDENTIFIER" && g.groupName !== "EMPTY_GROUP_IDENTIFIER" && g.bookmarks?.length > 0
@@ -96,9 +96,11 @@ export default function ImportBookmarksModal({ isOpen, onClose }: ImportBookmark
 
   const handleClose = () => {
     if (busy) return;
+    const wasSuccess = success;
     resetFlowState();
     setView('select');
     onClose();
+    if (wasSuccess) bumpPostImport();
   };
 
   async function handleJsonFileChange(e: React.ChangeEvent<HTMLInputElement>) {

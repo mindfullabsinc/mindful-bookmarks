@@ -43,6 +43,7 @@ interface SortableRowProps {
   workspace: WorkspaceType;
   isActive: boolean;
   isEditing: boolean;
+  isPulsing: boolean;
   editSpanRef: React.RefObject<HTMLSpanElement | null>;
   editValueRef: React.MutableRefObject<string>;
   onSwitch: (id: string) => void;
@@ -56,6 +57,7 @@ function SortableWorkspaceRow({
   workspace: w,
   isActive,
   isEditing,
+  isPulsing,
   editSpanRef,
   editValueRef,
   onSwitch,
@@ -80,6 +82,7 @@ function SortableWorkspaceRow({
         ${isActive
           ? 'bg-blue-600 text-white'
           : 'bg-black/5 hover:bg-black/10 dark:bg-white/5 dark:hover:bg-white/10'}
+        ${isPulsing ? 'ws-import-pulse' : ''}
       `}
     >
       {/* Drag handle */}
@@ -179,17 +182,20 @@ export const WorkspaceSwitcher: React.FC = () => {
   const {
     setActiveWorkspaceId,
     activeWorkspaceId: ctxActiveId,
-    workspacesVersion
+    workspacesVersion,
+    postImportTick,
   } = useContext(AppContext) as {
     setActiveWorkspaceId: (id: string) => Promise<void> | void;
     activeWorkspaceId: string | null;
     workspacesVersion: number;
+    postImportTick: number;
   };
 
   /* -------------------- Context / state -------------------- */
   const [panelOpen, setPanelOpen] = useState(false);
   const [workspaces, setWorkspaces] = useState<WorkspaceType[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [pulseId, setPulseId] = useState<string | null>(null);
 
   const panelRef = useRef<HTMLDivElement | null>(null);
   const openerRef = useRef<HTMLButtonElement | null>(null);
@@ -210,6 +216,15 @@ export const WorkspaceSwitcher: React.FC = () => {
     })();
     return () => { cancelled = true; };
   }, [workspacesVersion]);
+
+  // After a successful import: open the panel and pulse the newly active workspace.
+  useEffect(() => {
+    if (!postImportTick) return;
+    setPanelOpen(true);
+    setPulseId(ctxActiveId);
+    const t = setTimeout(() => setPulseId(null), 2200);
+    return () => clearTimeout(t);
+  }, [postImportTick]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -390,6 +405,7 @@ export const WorkspaceSwitcher: React.FC = () => {
                   workspace={w}
                   isActive={w.id === ctxActiveId}
                   isEditing={editingId === w.id}
+                  isPulsing={pulseId === w.id}
                   editSpanRef={editSpanRef}
                   editValueRef={editValueRef}
                   onSwitch={handleSwitch}
