@@ -8,11 +8,12 @@ dist.pem
 dist.crx
 
 # amplify
+amplify/**/*.js
+shared/**/*.js
 .amplify
 amplifyconfiguration*
 amplify_outputs.json
 amplify_outputs.*.json
-
 
 .env
 .env.local
@@ -23,3 +24,5 @@ amplify_outputs.*.json
 .vscode
 
 .tsc-show.json
+
+.claude/
