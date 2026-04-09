@@ -77,77 +77,6 @@
       @apply text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed;
     }
 
-    /* -------------------- File preview card -------------------- */
-    .file-preview-card {
-      @apply rounded-xl border border-neutral-200 dark:border-neutral-700
-             bg-neutral-50 dark:bg-neutral-800/50
-             px-4 py-4 mb-3;
-    }
-
-    .file-preview-label {
-      @apply text-sm font-semibold text-neutral-900 dark:text-neutral-100 mb-1;
-    }
-
-    .file-preview-summary {
-      @apply text-sm text-neutral-500 dark:text-neutral-400;
-    }
-
-    .file-preview-divider {
-      @apply my-3 border-t border-neutral-200 dark:border-neutral-700;
-    }
-
-    .import-method {
-      @apply text-sm text-neutral-900 dark:text-neutral-100;
-    }
-
-    .file-preview-mode-options {
-      @apply mt-2 space-y-1;
-
-      .tabs-radio-button-text {
-        @apply !text-sm text-neutral-500 dark:text-neutral-400;
-      }
-    }
-
-    /* -------------------- JSON format hint -------------------- */
-    .json-format-hint {
-      @apply text-xs text-neutral-400 dark:text-neutral-500 mb-3;
-    }
-
-    /* -------------------- JSON drop zone -------------------- */
-    .json-drop-zone {
-      @apply flex flex-col items-center justify-center gap-2
-             rounded-xl border-2 border-dashed
-             border-neutral-300 dark:border-neutral-600
-             bg-neutral-50 dark:bg-neutral-800/50
-             px-6 py-8 text-center
-             transition-colors duration-150;
-    }
-
-    .json-drop-zone--active {
-      @apply border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20;
-    }
-
-    .json-drop-zone-label {
-      @apply text-sm text-neutral-500 dark:text-neutral-400;
-    }
-
-    .json-drop-zone-button {
-      @apply px-3 py-1.5 rounded-lg text-sm font-medium
-             bg-neutral-900 dark:bg-neutral-100
-             text-white dark:text-neutral-900
-             hover:bg-neutral-700 dark:hover:bg-neutral-300
-             transition-colors cursor-pointer
-             disabled:opacity-50 disabled:cursor-not-allowed;
-    }
-
-    .json-drop-zone-hint {
-      @apply text-xs text-neutral-400 dark:text-neutral-500;
-    }
-
-    .json-input-hidden {
-      @apply hidden;
-    }
-
     /* -------------------- Compact radio pickers inside flow views -------------------- */
     .import-styles .tabs-container {
       @apply mt-1 max-w-md;
@@ -168,5 +97,83 @@
     .import-styles .tabs-radio-button-text {
       @apply text-xs;
     }
+  }
+
+  /* -------------------- Shared: file preview card -------------------- */
+  .file-preview-card {
+    @apply rounded-xl border border-neutral-200 dark:border-neutral-700
+           bg-neutral-50 dark:bg-neutral-800/50
+           px-4 py-4 mb-3;
+  }
+
+  .file-preview-label {
+    @apply text-sm font-semibold text-neutral-900 dark:text-neutral-100 mb-1;
+  }
+
+  .file-preview-summary {
+    @apply text-sm text-neutral-500 dark:text-neutral-400;
+  }
+
+  .file-preview-divider {
+    @apply my-3 border-t border-neutral-200 dark:border-neutral-700;
+  }
+
+  .import-method {
+    @apply text-sm text-neutral-900 dark:text-neutral-100;
+  }
+
+  .file-preview-mode-options {
+    @apply mt-2 space-y-1;
+
+    .tabs-radio-button-text {
+      @apply !text-sm text-neutral-500 dark:text-neutral-400;
+    }
+  }
+
+  /* -------------------- Shared: JSON format hint -------------------- */
+  .json-format-hint {
+    @apply text-xs text-neutral-400 dark:text-neutral-500 mb-3;
+  }
+
+  /* -------------------- Shared: JSON drop zone -------------------- */
+  .json-drop-zone {
+    @apply flex flex-col items-center justify-center gap-2
+           rounded-xl border-2 border-dashed
+           border-neutral-300 dark:border-neutral-600
+           bg-neutral-50 dark:bg-neutral-800/50
+           px-6 py-8 text-center
+           transition-colors duration-150;
+  }
+
+  .json-drop-zone--active {
+    @apply border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20;
+  }
+
+  .json-drop-zone-label {
+    @apply text-sm text-neutral-500 dark:text-neutral-400;
+  }
+
+  .json-drop-zone-button {
+    @apply px-3 py-1.5 rounded-lg text-sm font-medium
+           bg-neutral-900 dark:bg-neutral-100
+           text-white dark:text-neutral-900
+           hover:bg-neutral-700 dark:hover:bg-neutral-300
+           transition-colors cursor-pointer
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .json-drop-zone-hint {
+    @apply text-xs text-neutral-400 dark:text-neutral-500;
+  }
+
+  .json-input-hidden {
+    @apply hidden;
+  }
+
+  /* -------------------- Shared: "Choose a different file" link -------------------- */
+  .json-file-remove {
+    @apply text-xs text-neutral-500 dark:text-neutral-400
+           hover:text-neutral-800 dark:hover:text-neutral-200
+           underline cursor-pointer mt-1;
   }
 }

@@ -181,7 +181,7 @@ export const OnboardingOverlay: React.FC = () => {
             showInternalHeader={false}
             state={manualState}
             busy={manualCommitBusy}
-            hasExistingData={hasExistingData}
+            hasExistingData={false}
           />
         </div>
       ),
