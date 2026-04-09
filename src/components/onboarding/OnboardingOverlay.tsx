@@ -297,13 +297,6 @@ export const OnboardingOverlay: React.FC = () => {
     }
   }, [shouldShowOnboarding, resetManualWizard]);
 
-  useEffect(() => {
-    if (shouldShowOnboarding) {
-      document.body.classList.add(‘import-modal-open’);
-    }
-    return () => { document.body.classList.remove(‘import-modal-open’); };
-  }, [shouldShowOnboarding]);
-
   // Don’t render if onboarding is done or not supposed to show.
   if (!shouldShowOnboarding) return null;
   if (
@@ -386,7 +379,7 @@ export const OnboardingOverlay: React.FC = () => {
   /* -------------------- Main component rendering -------------------- */
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 dark:bg-white/40 backdrop-blur-sm">
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 dark:bg-white/40 backdrop-blur-sm">
         <motion.div
           key={step.id}
           initial={{ opacity: 0, y: 24 }}
