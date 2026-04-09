@@ -116,17 +116,11 @@ function SortableWorkspaceRow({
       ) : (
         <button
           onClick={() => onSwitch(w.id)}
-          className="flex-1 text-left text-sm truncate cursor-pointer"
+          className="flex-1 text-left text-sm cursor-pointer"
           aria-current={isActive ? 'true' : undefined}
           aria-label={w.name}
-          title={w.name}
         >
-          <div className="flex items-center justify-between gap-3">
-            <span className="truncate">{w.name}</span>
-            {isActive && (
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/25">Active</span>
-            )}
-          </div>
+          {w.name}
         </button>
       )}
 
