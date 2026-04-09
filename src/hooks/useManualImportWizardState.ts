@@ -91,17 +91,18 @@ export function useManualImportWizardState(initial?: Partial<ManualImportWizardS
   );
 
   const reset = React.useCallback(() => {
-    setJsonYes(false);
-    setJsonFileName(null);
-    setJsonData(null);
-    setJsonImportMode(JsonImportMode.Add);
+    setJsonYes(initial?.jsonYes ?? false);
+    setJsonFileName(initial?.jsonFileName ?? null);
+    setJsonData(initial?.jsonData ?? null);
+    setJsonImportMode(initial?.jsonImportMode ?? JsonImportMode.Add);
 
-    setBookmarksYes(false);
+    setBookmarksYes(initial?.bookmarksYes ?? false);
 
-    setTabsYes(false);
-    setTabScope(OpenTabsScope.All);
+    setTabsYes(initial?.tabsYes ?? false);
+    setTabScope(initial?.tabScope ?? OpenTabsScope.All);
 
-    setPostProcessMode(ImportPostProcessMode.PreserveStructure);
+    setPostProcessMode(initial?.postProcessMode ?? ImportPostProcessMode.PreserveStructure);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return {
