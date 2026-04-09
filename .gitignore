@@ -8,8 +8,6 @@ dist.pem
 dist.crx
 
 # amplify
-amplify/**/*.js
-shared/**/*.js
 .amplify
 amplifyconfiguration*
 amplify_outputs.json
@@ -26,3 +24,4 @@ amplify_outputs.*.json
 .tsc-show.json
 
 .claude/
+.claudeignore
