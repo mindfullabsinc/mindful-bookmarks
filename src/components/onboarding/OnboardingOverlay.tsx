@@ -297,6 +297,13 @@ export const OnboardingOverlay: React.FC = () => {
     }
   }, [shouldShowOnboarding, resetManualWizard]);
 
+  useEffect(() => {
+    if (shouldShowOnboarding) {
+      document.body.classList.add(‘import-modal-open’);
+    }
+    return () => { document.body.classList.remove(‘import-modal-open’); };
+  }, [shouldShowOnboarding]);
+
   // Don’t render if onboarding is done or not supposed to show.
   if (!shouldShowOnboarding) return null;
   if (
