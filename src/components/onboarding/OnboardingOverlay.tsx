@@ -91,7 +91,11 @@ export const OnboardingOverlay: React.FC = () => {
     state: manualState, 
     selection: manualSelection, 
     reset: resetManualWizard 
-  } = useManualImportWizardState();
+  } = useManualImportWizardState({
+    bookmarksYes: true,
+    tabsYes: true,
+    postProcessMode: ImportPostProcessMode.SemanticGrouping,
+  });
 
   const [manualCommitBusy, setManualCommitBusy] = useState(false);
   const [manualCommitMessage, setManualCommitMessage] = useState<string>("");
