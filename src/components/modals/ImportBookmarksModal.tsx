@@ -1,5 +1,5 @@
 /* -------------------- Imports -------------------- */
-import React, { useCallback, useContext, useMemo, useRef, useState } from "react";
+import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 /* Constants */
@@ -99,6 +99,13 @@ export default function ImportBookmarksModal({ isOpen, onClose }: ImportBookmark
     setErrorMessage(undefined);
     setSuccess(false);
   }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      document.body.classList.add('import-modal-open');
+    }
+    return () => { document.body.classList.remove('import-modal-open'); };
+  }, [isOpen]);
 
   const handleSelectView = (v: View) => {
     resetFlowState();

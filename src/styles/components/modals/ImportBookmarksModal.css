@@ -170,6 +170,13 @@
     @apply hidden;
   }
 
+  /* -------------------- Workspace panel blur when modal is open -------------------- */
+  body.import-modal-open #ws-panel,
+  body.import-modal-open [aria-controls="ws-panel"] {
+    @apply blur-sm pointer-events-none;
+    transition: filter 0.15s ease;
+  }
+
   /* -------------------- Shared: "Choose a different file" link -------------------- */
   .json-file-remove {
     @apply text-xs text-neutral-500 dark:text-neutral-400
