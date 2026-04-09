@@ -554,6 +554,7 @@ export const useBookmarkManager = (): BookmarkManager => {
     const tabmeData = {
       workspaces: workspaceExports,
       isTabme: true,
+      source: 'mindful',
       version: 3,
     };
 

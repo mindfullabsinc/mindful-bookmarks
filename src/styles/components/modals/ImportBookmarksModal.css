@@ -77,6 +77,42 @@
       @apply text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed;
     }
 
+    /* -------------------- File preview card -------------------- */
+    .file-preview-card {
+      @apply rounded-xl border border-neutral-200 dark:border-neutral-700
+             bg-neutral-50 dark:bg-neutral-800/50
+             px-4 py-4 mb-3;
+    }
+
+    .file-preview-label {
+      @apply text-sm font-semibold text-neutral-900 dark:text-neutral-100 mb-1;
+    }
+
+    .file-preview-summary {
+      @apply text-sm text-neutral-500 dark:text-neutral-400;
+    }
+
+    .file-preview-divider {
+      @apply my-3 border-t border-neutral-200 dark:border-neutral-700;
+    }
+
+    .import-method {
+      @apply text-sm text-neutral-900 dark:text-neutral-100;
+    }
+
+    .file-preview-mode-options {
+      @apply mt-2 space-y-1;
+
+      .tabs-radio-button-text {
+        @apply !text-sm text-neutral-500 dark:text-neutral-400;
+      }
+    }
+
+    /* -------------------- JSON format hint -------------------- */
+    .json-format-hint {
+      @apply text-xs text-neutral-400 dark:text-neutral-500 mb-3;
+    }
+
     /* -------------------- JSON drop zone -------------------- */
     .json-drop-zone {
       @apply flex flex-col items-center justify-center gap-2

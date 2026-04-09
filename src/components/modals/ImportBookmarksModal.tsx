@@ -27,6 +27,102 @@ import '@/styles/components/shared/ImportBookmarksContent.css';
 import { PurposeId } from "@shared/constants/purposeId";
 /* ---------------------------------------------------------- */
 
+/* -------------------- File format detection -------------------- */
+type FilePreview =
+  | { format: 'mindful'; workspaces: number; groups: number; tabs: number }
+  | { format: 'tabme';   workspaces: number; groups: number; tabs: number }
+  | { format: 'chrome';  folders: number; bookmarks: number }
+  | { format: 'toby';    workspaces: number; lists: number; cards: number }
+  | { format: 'unknown' };
+
+function detectFileFormat(fileName: string, text: string): FilePreview {
+  if (fileName.endsWith('.html') || fileName.endsWith('.htm')) {
+    const folders   = (text.match(/<DT><H3/gi) ?? []).length;
+    const bookmarks = (text.match(/<DT><A /gi) ?? []).length;
+    return { format: 'chrome', folders, bookmarks };
+  }
+
+  let obj: any;
+  try { obj = JSON.parse(text); } catch { return { format: 'unknown' }; }
+
+  if (obj?.isTabme) {
+    const isMindful = obj.source === 'mindful' || Array.isArray(obj.workspaces);
+    const spaces: any[] = Array.isArray(obj.workspaces) ? obj.workspaces : (obj.spaces ?? []);
+    let groups = 0, tabs = 0;
+    for (const space of spaces) {
+      const folders: any[] = space.groups ?? space.folders ?? [];
+      for (const folder of folders) {
+        if (folder.objectType === 'group') {
+          const subs: any[] = folder.groups ?? folder.folders ?? [];
+          groups += subs.length;
+          for (const sub of subs) {
+            tabs += (sub.items ?? []).filter((it: any) => it.objectType !== 'group').length;
+          }
+        } else {
+          groups++;
+          tabs += (folder.items ?? []).filter((it: any) => it.objectType !== 'group').length;
+        }
+      }
+    }
+    return { format: isMindful ? 'mindful' : 'tabme', workspaces: spaces.length, groups, tabs };
+  }
+
+  // Toby v4: { version, groups: [{ name, lists: [{title, cards}] }], labels }
+  if (Array.isArray(obj?.groups) && (obj.groups as any[]).every((g: any) => Array.isArray(g.lists))) {
+    const groups = (obj.groups as any[]);
+    const lists = groups.reduce((n: number, g: any) => n + (g.lists?.length ?? 0), 0);
+    const cards = groups.reduce((n: number, g: any) =>
+      n + (g.lists ?? []).reduce((m: number, l: any) => m + (l.cards?.length ?? 0), 0), 0);
+    return { format: 'toby', workspaces: groups.length, lists, cards };
+  }
+
+  // Toby legacy: { lists: [{title, cards}] }
+  if (Array.isArray(obj?.lists) && (obj.lists as any[]).every((l: any) => 'cards' in l)) {
+    const cards = (obj.lists as any[]).reduce((n: number, l: any) => n + (l.cards?.length ?? 0), 0);
+    return { format: 'toby', workspaces: 1, lists: obj.lists.length, cards };
+  }
+
+  // Toby legacy: top-level array [{title, cards}]
+  if (Array.isArray(obj) && obj.length > 0 && 'cards' in obj[0]) {
+    const cards = (obj as any[]).reduce((n: number, l: any) => n + (l.cards?.length ?? 0), 0);
+    return { format: 'toby', workspaces: 1, lists: obj.length, cards };
+  }
+
+  return { format: 'unknown' };
+}
+
+function formatFilePreviewText(preview: FilePreview): { label: string; summary: string } {
+  const p = (n: number, word: string) => `${n} ${word}${n !== 1 ? 's' : ''}`;
+  switch (preview.format) {
+    case 'mindful':
+      return {
+        label: 'Mindful export detected',
+        summary: `We found ${p(preview.tabs, 'bookmark')} across ${p(preview.groups, 'group')} and ${p(preview.workspaces, 'workspace')}.`,
+      };
+    case 'tabme':
+      return {
+        label: 'TabMe export detected',
+        summary: `We found ${p(preview.tabs, 'tab')} across ${p(preview.groups, 'group')} and ${p(preview.workspaces, 'workspace')}.`,
+      };
+    case 'chrome':
+      return {
+        label: 'Chrome bookmarks detected',
+        summary: `We found ${p(preview.bookmarks, 'bookmark')} across ${p(preview.folders, 'folder')}.`,
+      };
+    case 'toby':
+      return {
+        label: 'Toby export detected',
+        summary: `We found ${p(preview.cards, 'bookmark')} across ${p(preview.lists, 'list')} and ${p(preview.workspaces, 'workspace')}.`,
+      };
+    default:
+      return {
+        label: 'File ready to import',
+        summary: 'Format not recognized — will attempt import anyway.',
+      };
+  }
+}
+/* ---------------------------------------------------------- */
+
 type View = 'select' | 'json' | 'chrome' | 'tabs';
 
 type ImportBookmarksModalProps = {
@@ -68,6 +164,9 @@ export default function ImportBookmarksModal({ isOpen, onClose }: ImportBookmark
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // JSON file preview
+  const [filePreview, setFilePreview] = useState<FilePreview | null>(null);
+
   // Shared
   const [busy, setBusy] = useState(false);
   const [busyMessage, setBusyMessage] = useState<string | undefined>();
@@ -81,6 +180,7 @@ export default function ImportBookmarksModal({ isOpen, onClose }: ImportBookmark
     setJsonData(null);
     setIsDragOver(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
+    setFilePreview(null);
     setJsonImportMode(JsonImportMode.Add);
     setChromeImportMode(JsonImportMode.Add);
     setTabScope(OpenTabsScope.All);
@@ -122,6 +222,7 @@ export default function ImportBookmarksModal({ isOpen, onClose }: ImportBookmark
       if (isJson) JSON.parse(text); // throws if invalid JSON
       setJsonFileName(file.name);
       setJsonData(text);
+      setFilePreview(detectFileFormat(file.name, text));
       setErrorMessage(undefined);
     } catch {
       setErrorMessage("Invalid file. Please choose a valid .json or .html file.");
@@ -186,8 +287,8 @@ export default function ImportBookmarksModal({ isOpen, onClose }: ImportBookmark
     ] as const;
     return (
       <div className="json-import-mode"><div className="tabs-container">
-        <h3 className="tabs-header">How should this be imported?</h3>
-        <div className="tabs-windows-container">
+        <h3 className="import-method">How should this be imported?</h3>
+        <div className="tabs-windows-container file-preview-mode-options">
           {options.map(({ value, label }) => {
             const selected = mode === value;
             return (
@@ -275,7 +376,7 @@ export default function ImportBookmarksModal({ isOpen, onClose }: ImportBookmark
             <div className="import-option-card-title">Import File</div>
           </div>
           <div className="import-option-card-subtitle">
-            Import bookmarks from JSON or HTML export files.
+            Import bookmarks from .json or .html export files.
           </div>
         </button>
       </div>
@@ -288,60 +389,40 @@ export default function ImportBookmarksModal({ isOpen, onClose }: ImportBookmark
       { value: JsonImportMode.Replace, label: "Replace all existing bookmarks" },
     ] as const;
 
-    return (
-      <div className="import-styles">
-        <div className="body-container">
-          {success ? (
+    // ── Success ──────────────────────────────────────────────
+    if (success) {
+      return (
+        <div className="import-styles">
+          <div className="body-container">
             <p className="step-title">Import complete!</p>
-          ) : (
-            <>
-              {jsonData ? (
-                <div className="json-selected-file-container">
-                  Selected:{" "}
-                  <span className="json-file-name">{jsonFileName ?? "file"}</span>
-                  <button
-                    type="button"
-                    className="json-file-remove"
-                    onClick={() => { setJsonFileName(null); setJsonData(null); }}
-                    disabled={busy}
-                  >
-                    Remove
-                  </button>
-                </div>
-              ) : (
-                <div
-                  className={`json-drop-zone${isDragOver ? ' json-drop-zone--active' : ''}`}
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                >
-                  <span className="json-drop-zone-label">Drag &amp; drop a file here, or</span>
-                  <button
-                    type="button"
-                    className="json-drop-zone-button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={busy}
-                  >
-                    Choose File
-                  </button>
-                  <span className="json-drop-zone-hint">.json or .html</span>
-                  <input
-                    ref={fileInputRef}
-                    id="json-file-input"
-                    type="file"
-                    accept="application/json,.json,text/html,.html,.htm"
-                    onChange={handleJsonFileChange}
-                    className="json-input-hidden"
-                    disabled={busy}
-                  />
-                </div>
-              )}
+          </div>
+          {renderFlowFooter(() => {}, true)}
+        </div>
+      );
+    }
 
-              {jsonData && hasExistingData && (
-                <div className="json-import-mode"><div className="tabs-container">
-                  <h3 className="tabs-header">How should this be imported?</h3>
-                  <div className="tabs-windows-container">
-                    {modeOptions.map(({ value, label }) => {
+    // ── File selected: preview + mode picker ─────────────────
+    if (jsonData && filePreview) {
+      const { label, summary } = formatFilePreviewText(filePreview);
+      const clearFile = () => {
+        setJsonFileName(null);
+        setJsonData(null);
+        setFilePreview(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      };
+      return (
+        <div className="import-styles">
+          <div className="body-container">
+            <div className="file-preview-card">
+              <p className="file-preview-label">{label}</p>
+              <p className="file-preview-summary">{summary}</p>
+
+              {hasExistingData && (
+                <>
+                  <div className="file-preview-divider" />
+                  <p className="import-method">How should this be imported?</p>
+                  <div className="tabs-windows-container file-preview-mode-options">
+                    {modeOptions.map(({ value, label: optLabel }) => {
                       const selected = jsonImportMode === value;
                       return (
                         <button
@@ -354,7 +435,7 @@ export default function ImportBookmarksModal({ isOpen, onClose }: ImportBookmark
                           <div className={`tabs-radio-button-outer-circle ${selected ? "tabs-radio-button-outer-circle--selected" : "tabs-radio-button-outer-circle--unselected"}`}>
                             {selected && <div className="tabs-radio-button-inner-circle" />}
                           </div>
-                          <span className="tabs-radio-button-text">{label}</span>
+                          <span className="tabs-radio-button-text">{optLabel}</span>
                         </button>
                       );
                     })}
@@ -364,16 +445,77 @@ export default function ImportBookmarksModal({ isOpen, onClose }: ImportBookmark
                       ⚠ This will permanently delete all your existing workspaces and bookmarks.
                     </p>
                   )}
-                </div></div>
+                </>
               )}
+            </div>
 
-              {errorMessage && <div className="error-message">{errorMessage}</div>}
-            </>
-          )}
+            {errorMessage && <div className="error-message">{errorMessage}</div>}
+          </div>
+          <div className="footer-container">
+            <span className="busy-message">{busyMessage}</span>
+            <div className="flex items-center gap-2">
+              <button type="button" className="import-button back-button" onClick={handleBack} disabled={busy}>
+                Back
+              </button>
+              <button type="button" className="import-button back-button" onClick={clearFile} disabled={busy}>
+                Choose a different file
+              </button>
+              {success ? (
+                <button type="button" className="import-button next-button" onClick={handleClose}>
+                  Done
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="import-button next-button"
+                  onClick={() => runImport({ jsonFileName, jsonData, jsonImportMode, importBookmarks: false, workspaceName: jsonFileName?.match(/\.html?$/i) ? "HTML Backup" : "JSON Backup" })}
+                  disabled={busy}
+                >
+                  {busy ? "Importing…" : "Import"}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ── No file yet: drop zone ────────────────────────────────
+    return (
+      <div className="import-styles">
+        <div className="body-container">
+          <p className="json-format-hint">Supported formats: Chrome (.html), Toby (.json), TabMe (.json), Mindful (.json)</p>
+          <div
+            className={`json-drop-zone${isDragOver ? ' json-drop-zone--active' : ''}`}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
+            <span className="json-drop-zone-label">Drag &amp; drop a file here, or</span>
+            <button
+              type="button"
+              className="json-drop-zone-button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={busy}
+            >
+              Choose File
+            </button>
+            <span className="json-drop-zone-hint">.json or .html</span>
+            <input
+              ref={fileInputRef}
+              id="json-file-input"
+              type="file"
+              accept="application/json,.json,text/html,.html,.htm"
+              onChange={handleJsonFileChange}
+              className="json-input-hidden"
+              disabled={busy}
+            />
+          </div>
+          {errorMessage && <div className="error-message">{errorMessage}</div>}
         </div>
         {renderFlowFooter(
-          () => runImport({ jsonFileName, jsonData, jsonImportMode, importBookmarks: false, workspaceName: "JSON Backup" }),
-          !jsonData,
+          () => runImport({ jsonFileName, jsonData, jsonImportMode, importBookmarks: false, workspaceName: jsonFileName?.match(/\.html?$/i) ? "HTML Backup" : "JSON Backup" }),
+          true,
         )}
       </div>
     );
@@ -412,8 +554,8 @@ export default function ImportBookmarksModal({ isOpen, onClose }: ImportBookmark
             <>
               {hasExistingData && renderModePicker(tabsImportMode, setTabsImportMode)}
               <div className="json-import-mode"><div className="tabs-container">
-                <h3 className="tabs-header">Which tabs?</h3>
-                <div className="tabs-windows-container">
+                <h3 className="import-method">Which tabs?</h3>
+                <div className="tabs-windows-container file-preview-mode-options">
                   {scopeOptions.map(({ value, label }) => {
                     const selected = tabScope === value;
                     return (

@@ -73,7 +73,79 @@ function parseTabmeMultiWorkspace(obj: Record<string, unknown>): WorkspaceImport
       }
     }
     return { name: (space.title as string) || "Imported", groups };
-  }).filter((ws: WorkspaceImport) => ws.groups.length > 0);
+  });
+}
+
+/**
+ * Parse a Netscape HTML bookmarks file (Chrome export) into flat bookmark groups.
+ * Each folder becomes a group; bookmarks sitting directly in the root are skipped.
+ */
+/**
+ * Parse a Netscape HTML bookmarks file via regex token scanning.
+ * Avoids DOMParser quirks with Chrome's malformed <DL><p> structure.
+ *
+ * Token order in Chrome exports:
+ *   <H3>Folder Name</H3>   ← names the NEXT <DL> that opens
+ *   <DL>                   ← opens that folder; consumes pending name
+ *     <A HREF="...">Title</A>
+ *   </DL>
+ */
+function parseChromeHtmlBookmarks(html: string): any[] {
+  const result: any[] = [];
+  const stack: Array<{ name: string; bookmarks: any[] }> = [];
+  let pendingName: string | null = null;
+
+  const re = /<\/dl>|<dl[^>]*>|<h3[^>]*>([\s\S]*?)<\/h3>|<a\s[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
+  let m: RegExpExecArray | null;
+
+  while ((m = re.exec(html)) !== null) {
+    const token = m[0];
+    if (/^<\/dl/i.test(token)) {
+      const folder = stack.pop();
+      if (folder?.bookmarks.length) {
+        result.push({ groupName: folder.name, bookmarks: folder.bookmarks });
+      }
+    } else if (/^<dl/i.test(token)) {
+      stack.push({ name: pendingName ?? 'Imported', bookmarks: [] });
+      pendingName = null;
+    } else if (m[1] !== undefined) {
+      // <H3> — name for the next DL
+      pendingName = m[1].trim();
+    } else if (m[2]) {
+      // <A HREF> — bookmark link
+      const url = m[2].trim();
+      if (url && !url.startsWith('javascript:') && !url.startsWith('place:') && stack.length > 0) {
+        stack[stack.length - 1].bookmarks.push({ name: m[3]?.trim() || url, url });
+      }
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Toby v4: { version, groups: [{ name, lists: [{title, cards: [{title,url}]}] }] }
+ * Each Toby group becomes a workspace; each list becomes a bookmark group.
+ * Returns null if the object doesn't match Toby v4 structure.
+ */
+function parseTobyMultiWorkspace(obj: Record<string, unknown>): WorkspaceImport[] | null {
+  if (!Array.isArray(obj.groups)) return null;
+  const groups = obj.groups as any[];
+  if (!groups.every((g: any) => Array.isArray(g.lists))) return null;
+
+  return groups
+    .map((group: any) => {
+      const bookmarkGroups = (group.lists as any[])
+        .map((list: any) => ({
+          groupName: list.title ?? "Imported",
+          bookmarks: ((list.cards ?? []) as any[]).map((c: any) => ({
+            name: c.customTitle || c.title || c.url,
+            url: c.url,
+            faviconUrl: c.favIconUrl,
+          })).filter((b: any) => b.url),
+        }))
+      return { name: group.name ?? "Imported", groups: bookmarkGroups };
+    });
 }
 
 function parseJsonImport(jsonText: string): any[] {
@@ -162,6 +234,22 @@ export async function commitManualImportIntoWorkspace({
 
   const allCategorized: CategorizedGroup[] = [];
 
+  // HTML — Chrome Netscape bookmark export
+  const isHtmlFile = selection.jsonFileName?.match(/\.html?$/i);
+  if (selection.jsonData && isHtmlFile) {
+    const htmlGroups = parseChromeHtmlBookmarks(selection.jsonData);
+    const mapped = mapImportedGroupsToCategorized(htmlGroups, purpose, ImportSource.Json);
+    if (selection.jsonImportMode === JsonImportMode.Replace) {
+      await workspaceService.deleteAllWorkspaces();
+    }
+    const { id } = await workspaceService.createWorkspaceWithName(
+      selection.workspaceName ?? "Chrome Bookmarks", { setActive: true }
+    );
+    await workspaceService.saveGroupsToWorkspace(id, mapped);
+    await pruneNewWorkspacePlaceholders();
+    return;
+  }
+
   // JSON — multi-workspace Tabme format creates a workspace per entry
   if (selection.jsonData) {
     let parsedJson: unknown;
@@ -169,10 +257,13 @@ export async function commitManualImportIntoWorkspace({
       throw new Error("That JSON file doesn't look valid. Please re-export and try again.");
     }
 
-    const multiWs =
-      parsedJson && typeof parsedJson === "object" && !Array.isArray(parsedJson)
-        ? parseTabmeMultiWorkspace(parsedJson as Record<string, unknown>)
-        : null;
+    const parsedObj = parsedJson && typeof parsedJson === "object" && !Array.isArray(parsedJson)
+      ? parsedJson as Record<string, unknown>
+      : null;
+
+    const multiWs = parsedObj
+      ? (parseTabmeMultiWorkspace(parsedObj) ?? parseTobyMultiWorkspace(parsedObj))
+      : null;
 
     if (multiWs && multiWs.length > 0) {
       if (selection.jsonImportMode === JsonImportMode.Replace) {
@@ -182,7 +273,6 @@ export async function commitManualImportIntoWorkspace({
       let firstCreated = false;
       for (const { name, groups } of multiWs) {
         const mapped = mapImportedGroupsToCategorized(groups, purpose, ImportSource.Json);
-        if (!mapped.length) continue;
         const setActive = !firstCreated;
         const { id } = await workspaceService.createWorkspaceWithName(name, { setActive });
         await workspaceService.saveGroupsToWorkspace(id, mapped);

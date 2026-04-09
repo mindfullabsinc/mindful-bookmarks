@@ -15,7 +15,7 @@
     }
 
     .body-container {
-      @apply px-5 pt-3 pb-1 overflow-y-auto space-y-4;
+      @apply px-5 pt-1 pb-1 overflow-y-auto space-y-3;
     }
 
     .error-message {
