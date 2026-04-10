@@ -15,10 +15,40 @@ import * as useBookmarkManager from '@/hooks/useBookmarkManager';
 import useImportBookmarksDefault from '@/hooks/useImportBookmarks';
 import * as ChromeUtils from '@/core/utils/chrome';
 import * as StorageKeysUtils from '@/core/utils/storageKeys';
-import { StorageMode, type StorageModeType } from '@/core/constants/storageMode'; 
+import { StorageMode, type StorageModeType } from '@/core/constants/storageMode';
+import { commitManualImportIntoWorkspace } from '@/scripts/import/commitManualImportIntoWorkspace';
+import { createWorkspaceServiceLocal } from '@/scripts/import/workspaceServiceLocal';
+/* ---------------------------------------------------------- */
+
+/* -------------------- Drag-and-drop test helpers -------------------- */
+/**
+ * Returns stable jest.fn() instances stored on globalThis so they survive
+ * jest.mock() hoisting and remain accessible inside mock factories.
+ */
+function getDragTestMocks() {
+  const g = globalThis as any;
+  if (!g.__newTabDragMocks__) {
+    g.__newTabDragMocks__ = {
+      bumpPostImport: jest.fn(),
+      bumpWorkspacesVersion: jest.fn(),
+    };
+  }
+  return g.__newTabDragMocks__ as {
+    bumpPostImport: jest.Mock;
+    bumpWorkspacesVersion: jest.Mock;
+  };
+}
 /* ---------------------------------------------------------- */
 
 /* -------------------- Mocks -------------------- */
+
+jest.mock('@/scripts/import/workspaceServiceLocal', () => ({
+  createWorkspaceServiceLocal: jest.fn(() => ({})),
+}));
+
+jest.mock('@/scripts/import/commitManualImportIntoWorkspace', () => ({
+  commitManualImportIntoWorkspace: jest.fn(),
+}));
 const useImportBookmarksMock =
   useImportBookmarksDefault as unknown as jest.MockedFunction<typeof useImportBookmarksDefault>;
 
@@ -90,6 +120,7 @@ jest.mock('@/scripts/AppContextProvider', () => {
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    const dragMocks = getDragTestMocks();
     const value: Ctx = {
       bookmarkGroups,
       setBookmarkGroups,
@@ -102,6 +133,9 @@ jest.mock('@/scripts/AppContextProvider', () => {
       isSignedIn,
       hasHydrated,
       isHydratingRemote: false,
+      workspaces: {},
+      bumpPostImport: dragMocks.bumpPostImport,
+      bumpWorkspacesVersion: dragMocks.bumpWorkspacesVersion,
     };
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
@@ -479,5 +513,212 @@ describe.each([
 
     fireEvent.click(screen.getByText('Sign Out'));
     expect(mockSignOut).toHaveBeenCalledTimes(1);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* NewTabPage – file drag-and-drop                                      */
+/* ------------------------------------------------------------------ */
+
+describe('NewTabPage file drag-and-drop', () => {
+  const { bumpPostImport, bumpWorkspacesVersion } = getDragTestMocks();
+  const mockCommit = commitManualImportIntoWorkspace as jest.Mock;
+  const mockCreateService = createWorkspaceServiceLocal as jest.Mock;
+  const fakeService = { __service: 'fake' };
+
+  /* Helpers */
+
+  /** Dispatch a dragenter event on window, optionally carrying files. */
+  function fireDragEnter(withFiles = true) {
+    act(() => {
+      window.dispatchEvent(
+        Object.assign(new Event('dragenter', { cancelable: true }), {
+          dataTransfer: { types: withFiles ? ['Files'] : [] },
+        })
+      );
+    });
+  }
+
+  /** Dispatch a dragleave event on window. */
+  function fireDragLeave() {
+    act(() => window.dispatchEvent(new Event('dragleave')));
+  }
+
+  /** Dispatch a drop event carrying the given file. */
+  function fireDrop(file: File) {
+    act(() => {
+      window.dispatchEvent(
+        Object.assign(new Event('drop', { cancelable: true }), {
+          dataTransfer: { types: ['Files'], files: [file] },
+        })
+      );
+    });
+  }
+
+  /** Create a File and patch .text() since jsdom doesn't implement Blob.text(). */
+  function makeFile(name: string, content: string, type: string) {
+    const file = new File([content], name, { type });
+    (file as any).text = () => Promise.resolve(content);
+    return file;
+  }
+
+  function makeJsonFile(name = 'bookmarks.json', content = '{"tabs":[]}') {
+    return makeFile(name, content, 'application/json');
+  }
+
+  /** Render the page and wait until fully hydrated (Toast is in the ready subtree). */
+  async function renderPage() {
+    (globalThis as any).__TEST_STORAGE_MODE__ = StorageMode.LOCAL;
+    render(
+      <AppContextProvider user={null}>
+        <NewTabPage />
+      </AppContextProvider>
+    );
+    await screen.findByTestId('top-banner');
+    await screen.findByTestId('draggable-grid');
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    bumpPostImport.mockClear();
+    bumpWorkspacesVersion.mockClear();
+    mockCreateService.mockReturnValue(fakeService);
+    mockCommit.mockResolvedValue(undefined);
+    (globalThis as any).__TEST_STORAGE_MODE__ = StorageMode.LOCAL;
+    bookmarksDataMock.loadInitialBookmarks.mockResolvedValue(mockBookmarkGroups);
+    (useBookmarkManagerMock.useBookmarkManager as jest.Mock).mockReturnValue({
+      addEmptyBookmarkGroup: jest.fn(),
+      exportBookmarksToJSON: jest.fn(),
+      importBookmarksFromJSON: jest.fn(),
+      changeStorageMode: jest.fn(),
+    });
+    useImportBookmarksMock.mockReturnValue({
+      openImport: jest.fn(),
+      closeImport: jest.fn(),
+      renderModal: jest.fn(() => <div />),
+      busy: false,
+      handleUploadJson: jest.fn(),
+      handleImportChrome: jest.fn(),
+      handleImportOpenTabs: jest.fn(),
+    } as any);
+  });
+
+  afterEach(() => cleanup());
+
+  /* -- Overlay visibility -- */
+
+  test('shows drop overlay when a file is dragged over the page', async () => {
+    await renderPage();
+    fireDragEnter(true);
+    expect(screen.getByText('Drop to import bookmarks')).toBeInTheDocument();
+    expect(screen.getByText('.json or .html files supported')).toBeInTheDocument();
+  });
+
+  test('does not show drop overlay for non-file drags (e.g. dragging text)', async () => {
+    await renderPage();
+    fireDragEnter(false);
+    expect(screen.queryByText('Drop to import bookmarks')).not.toBeInTheDocument();
+  });
+
+  test('hides overlay when drag leaves the page', async () => {
+    await renderPage();
+    fireDragEnter(true);
+    expect(screen.getByText('Drop to import bookmarks')).toBeInTheDocument();
+    fireDragLeave();
+    expect(screen.queryByText('Drop to import bookmarks')).not.toBeInTheDocument();
+  });
+
+  test('keeps overlay visible across nested dragenter events, hides only when counter reaches zero', async () => {
+    await renderPage();
+    fireDragEnter(true);
+    fireDragEnter(true); // enter a nested element
+    fireDragLeave();     // leave the nested element – still dragging over page
+    expect(screen.getByText('Drop to import bookmarks')).toBeInTheDocument();
+    fireDragLeave();     // leave the page entirely
+    expect(screen.queryByText('Drop to import bookmarks')).not.toBeInTheDocument();
+  });
+
+  test('hides overlay on drop', async () => {
+    await renderPage();
+    fireDragEnter(true);
+    expect(screen.getByText('Drop to import bookmarks')).toBeInTheDocument();
+    fireDrop(makeJsonFile());
+    expect(screen.queryByText('Drop to import bookmarks')).not.toBeInTheDocument();
+  });
+
+  /* -- Import logic -- */
+
+  test('calls commitManualImportIntoWorkspace with correct args when a JSON file is dropped', async () => {
+    await renderPage();
+    fireDrop(makeJsonFile('my-bookmarks.json', '{"groups":[]}'));
+
+    await waitFor(() => expect(mockCommit).toHaveBeenCalledTimes(1));
+    expect(mockCommit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        selection: {
+          jsonData: '{"groups":[]}',
+          jsonFileName: 'my-bookmarks.json',
+          workspaceName: 'my-bookmarks',
+        },
+        purposes: [],
+        purpose: 'personal',
+        workspaceService: fakeService,
+      })
+    );
+  });
+
+  test('accepts .html files and strips extension for workspace name', async () => {
+    await renderPage();
+    fireDrop(makeFile('chrome-export.html', '<html></html>', 'text/html'));
+
+    await waitFor(() => expect(mockCommit).toHaveBeenCalledTimes(1));
+    expect(mockCommit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        selection: expect.objectContaining({
+          jsonFileName: 'chrome-export.html',
+          workspaceName: 'chrome-export',
+        }),
+      })
+    );
+  });
+
+  test('shows success toast and bumps workspace version after successful drop', async () => {
+    await renderPage();
+    fireDrop(makeJsonFile());
+
+    expect(await screen.findByText('Bookmarks imported successfully!')).toBeInTheDocument();
+    expect(bumpWorkspacesVersion).toHaveBeenCalledTimes(1);
+  });
+
+  test('calls bumpPostImport with the previous workspace IDs after a 150 ms delay', async () => {
+    jest.useFakeTimers();
+    try {
+      await renderPage();
+      fireDrop(makeJsonFile());
+
+      await waitFor(() => expect(bumpWorkspacesVersion).toHaveBeenCalledTimes(1));
+      expect(bumpPostImport).not.toHaveBeenCalled();
+
+      act(() => jest.advanceTimersByTime(150));
+      expect(bumpPostImport).toHaveBeenCalledWith([]); // workspaces:{} → previousIds=[]
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test('shows error toast for unsupported file type', async () => {
+    await renderPage();
+    fireDrop(makeFile('notes.txt', 'data', 'text/plain'));
+
+    expect(await screen.findByText('Please drop a .json or .html bookmarks file.')).toBeInTheDocument();
+    expect(mockCommit).not.toHaveBeenCalled();
+  });
+
+  test('shows error toast when the import throws', async () => {
+    mockCommit.mockRejectedValueOnce(new Error('Parse failed'));
+    await renderPage();
+    fireDrop(makeJsonFile());
+
+    expect(await screen.findByText('Import failed: Parse failed')).toBeInTheDocument();
   });
 });

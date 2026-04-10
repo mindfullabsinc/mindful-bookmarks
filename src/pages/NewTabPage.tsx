@@ -28,6 +28,8 @@ import { getUserStorageKey } from '@/core/utils/storageKeys';
 import { loadInitialBookmarks } from '@/scripts/bookmarksData';
 import { AppContext } from "@/scripts/AppContextProvider";
 import { copyItems, moveItems } from "@/scripts/copyBookmarks";
+import { commitManualImportIntoWorkspace } from '@/scripts/import/commitManualImportIntoWorkspace';
+import { createWorkspaceServiceLocal } from '@/scripts/import/workspaceServiceLocal';
 
 /* Components */
 import TopBanner from "@/components/TopBanner";
@@ -54,6 +56,9 @@ type AppCtxShape = {
   isSignedIn: boolean;
   hasHydrated: boolean;
   isHydratingRemote: boolean;
+  workspaces: Record<string, any>;
+  bumpPostImport: (previousIds: string[]) => void;
+  bumpWorkspacesVersion: () => void;
 };
 
 type NewTabPageProps = {
@@ -103,6 +108,9 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
     isSignedIn,
     hasHydrated,
     isHydratingRemote,
+    workspaces,
+    bumpPostImport,
+    bumpWorkspacesVersion,
   } = useContext(AppContext) as AppCtxShape;
 
   const gridRef = useRef<GridHandle | null>(null);
@@ -126,6 +134,10 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
   const pendingCopyRef = useRef<CopyPayload | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const toast = (msg: string) => setToastMsg(msg);
+
+  // File drag-and-drop state
+  const [isDragActive, setIsDragActive] = useState(false);
+  const dragCounterRef = useRef(0);
   /* ---------------------------------------------------------- */
 
   /* -------------------- Helper functions -------------------- */
@@ -255,6 +267,51 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
     clearAuthHash();
     try { window.location.reload(); } catch {}
   };
+
+  /**
+   * Process a file dropped onto the main page and import its bookmarks directly.
+   * Supports .json (Mindful/Tabme/Toby/generic) and .html (Chrome Netscape) exports.
+   * Creates a new workspace per imported workspace entry, then opens and animates the
+   * workspaces pane to highlight the newly created workspaces.
+   *
+   * @param file The dropped file to import.
+   */
+  const handleFileDrop = useCallback(async (file: File) => {
+    const isJson = file.name.endsWith('.json') || file.type === 'application/json';
+    const isHtml = file.name.endsWith('.html') || file.name.endsWith('.htm') || file.type === 'text/html';
+    if (!isJson && !isHtml) {
+      toast('Please drop a .json or .html bookmarks file.');
+      return;
+    }
+    if (!userId || !activeWorkspaceId) return;
+
+    const previousIds = Object.keys(workspaces ?? {});
+
+    try {
+      const text = await file.text();
+      const workspaceService = createWorkspaceServiceLocal(userId);
+      // Derive a clean workspace name from the file name (strip extension)
+      const workspaceName = file.name.replace(/\.(json|html?)$/i, '').trim() || 'Imported';
+      await commitManualImportIntoWorkspace({
+        selection: {
+          jsonData: text,
+          jsonFileName: file.name,
+          workspaceName,
+        },
+        purposes: [],
+        workspaceId: activeWorkspaceId,
+        purpose: 'personal',
+        workspaceService,
+      });
+      bumpWorkspacesVersion();
+      // Small delay lets WorkspaceSwitcher finish its async workspace-list reload before the
+      // post-import effect runs, so the newly created workspaces are visible to animate.
+      setTimeout(() => bumpPostImport(previousIds), 150);
+      toast('Bookmarks imported successfully!');
+    } catch (err: any) {
+      toast(`Import failed: ${err?.message ?? String(err)}`);
+    }
+  }, [userId, activeWorkspaceId, workspaces, bumpPostImport, bumpWorkspacesVersion]);
 
   /**
    * Execute a confirmed copy or move request emitted by the modal, then surface the result via toast.
@@ -449,6 +506,54 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
   }, []);
 
   /**
+   * Attach window-level drag event listeners so files dragged from the OS file system trigger a
+   * full-page drop overlay. Only activates for native file drags (checks `dataTransfer.types`).
+   */
+  useEffect(() => {
+    function isFileDrag(e: DragEvent): boolean {
+      return Array.from(e.dataTransfer?.types ?? []).includes('Files');
+    }
+
+    function onDragEnter(e: DragEvent) {
+      if (!isFileDrag(e)) return;
+      e.preventDefault();
+      dragCounterRef.current++;
+      setIsDragActive(true);
+    }
+
+    function onDragLeave() {
+      dragCounterRef.current--;
+      if (dragCounterRef.current <= 0) {
+        dragCounterRef.current = 0;
+        setIsDragActive(false);
+      }
+    }
+
+    function onDragOver(e: DragEvent) {
+      if (isFileDrag(e)) e.preventDefault();
+    }
+
+    async function onDrop(e: DragEvent) {
+      e.preventDefault();
+      dragCounterRef.current = 0;
+      setIsDragActive(false);
+      const file = e.dataTransfer?.files?.[0];
+      if (file) await handleFileDrop(file);
+    }
+
+    window.addEventListener('dragenter', onDragEnter);
+    window.addEventListener('dragleave', onDragLeave);
+    window.addEventListener('dragover', onDragOver);
+    window.addEventListener('drop', onDrop);
+    return () => {
+      window.removeEventListener('dragenter', onDragEnter);
+      window.removeEventListener('dragleave', onDragLeave);
+      window.removeEventListener('dragover', onDragOver);
+      window.removeEventListener('drop', onDrop);
+    };
+  }, [handleFileDrop]);
+
+  /**
    * Register a window-level listener for copy-to modal open events so other surfaces can trigger the modal.
    */
   useEffect(() => {
@@ -473,7 +578,6 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
     });
 
   // Only mount Analytics when signed in
-    // Only mount Analytics when signed in
   const content = (
     <div className="min-h-screen bg-gray-100 dark:bg-neutral-950 overflow-x-hidden">
       <TopBanner
@@ -484,6 +588,18 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
         isSignedIn={isSignedIn /* prefer context-derived status over props */}
         onStorageModeChange={changeStorageMode}
       />
+
+      {/* Page-level file drop overlay */}
+      {isDragActive && (
+        <div className="page-drop-overlay">
+          <div className="page-drop-overlay-border" />
+          <div className="page-drop-overlay-card">
+            <i className="fa-solid fa-file-arrow-down page-drop-overlay-icon" aria-hidden="true" />
+            <p className="page-drop-overlay-title">Drop to import bookmarks</p>
+            <p className="page-drop-overlay-hint">.json or .html files supported</p>
+          </div>
+        </div>
+      )}
 
       {/* Workspace Switcher: fixed on left; reserve gutter for grid */}
       <div className="relative">

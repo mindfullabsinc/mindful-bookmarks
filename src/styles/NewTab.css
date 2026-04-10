@@ -110,6 +110,69 @@ a { margin-right: 5px; }
   opacity: 0.7;
 }
 
+/* Page-level file drop overlay */
+@keyframes page-drop-in {
+  from { opacity: 0; transform: scale(1.02); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.page-drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(37, 99, 235, 0.12);
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+  animation: page-drop-in 0.12s ease-out forwards;
+}
+
+.page-drop-overlay-border {
+  position: absolute;
+  inset: 12px;
+  border: 3px dashed rgba(59, 130, 246, 0.7);
+  border-radius: 20px;
+  pointer-events: none;
+}
+
+.page-drop-overlay-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 36px 52px;
+  border-radius: 20px;
+  background: white;
+  color: #1d4ed8;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.2);
+}
+
+.dark .page-drop-overlay-card {
+  background: #171717;
+  color: #93c5fd;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+}
+
+.page-drop-overlay-icon {
+  font-size: 2.5rem;
+  line-height: 1;
+}
+
+.page-drop-overlay-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.page-drop-overlay-hint {
+  font-size: 0.78rem;
+  opacity: 0.65;
+  margin: 0;
+}
+
 /* Forms */
 form { @apply flex flex-col gap-1 max-w-full min-w-[200px] p-0 box-border; }
 label { @apply block text-lg; }
