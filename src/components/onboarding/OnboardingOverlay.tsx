@@ -381,6 +381,7 @@ export const OnboardingOverlay: React.FC = () => {
         <SmartImportStep
           purposes={onboardingPurposes}
           onBusyChange={setSmartImportBusy}
+          singleWorkspace
           // When Smart Import finishes, capture the primary workspace id
           onDone={(primaryWorkspaceId) => {
             setSmartImportPrimaryWorkspaceId(primaryWorkspaceId);
@@ -403,6 +404,7 @@ export const OnboardingOverlay: React.FC = () => {
           onBusyChange={setManualCommitBusy}
           onProgress={setManualCommitMessage}
           onError={setManualCommitError}
+          singleWorkspace
           onDone={(primaryWorkspaceId) => setManualImportPrimaryWorkspaceId(primaryWorkspaceId)}
         />
       ),

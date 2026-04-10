@@ -33,6 +33,7 @@ type SmartImportStepProps = {
   purposes: PurposeIdType[];
   onDone: (primaryWorkspaceId: string) => void;
   onBusyChange?: (busy: boolean) => void;
+  singleWorkspace?: boolean;
 };
 /* ---------------------------------------------------------- */
 
@@ -55,6 +56,7 @@ export const SmartImportStep: React.FC<SmartImportStepProps> = ({
   purposes,
   onDone,
   onBusyChange,
+  singleWorkspace,
 }) => {
   const { userId, bumpWorkspacesVersion } = useContext(AppContext);
 
@@ -76,8 +78,9 @@ export const SmartImportStep: React.FC<SmartImportStepProps> = ({
       browserSourceService: chromeBrowserSourceService,
       nsfwFilter: basicNsfwFilter,
       llm: remoteGroupingLLM,
+      singleWorkspace,
     }),
-    [workspaceService]
+    [workspaceService, singleWorkspace]
   );
 
   const { phase: backendPhase, message, start } = useSmartImport(baseOptions);

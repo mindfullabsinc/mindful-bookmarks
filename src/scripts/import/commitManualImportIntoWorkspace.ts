@@ -207,6 +207,8 @@ export type CommitManualImportArgs = {
   purposes: PurposeIdType[];          // used only for LLM grouping
   workspaceId: string;               // the target workspace (active OR new)
   purpose: PurposeIdType;            // the workspace purpose (active OR new)
+  /** When true, collapse all file content into workspaceId instead of creating per-workspace entries */
+  singleWorkspace?: boolean;
 
   workspaceService: {
     appendGroupsToWorkspace: (workspaceId: string, groups: CategorizedGroup[]) => Promise<void>;
@@ -224,6 +226,7 @@ export async function commitManualImportIntoWorkspace({
   purposes,
   workspaceId,
   purpose,
+  singleWorkspace,
   workspaceService,
   onProgress,
 }: CommitManualImportArgs): Promise<void> {
@@ -239,15 +242,20 @@ export async function commitManualImportIntoWorkspace({
   if (selection.jsonData && isHtmlFile) {
     const htmlGroups = parseChromeHtmlBookmarks(selection.jsonData);
     const mapped = mapImportedGroupsToCategorized(htmlGroups, purpose, ImportSource.Json);
-    if (selection.jsonImportMode === JsonImportMode.Replace) {
-      await workspaceService.deleteAllWorkspaces();
+    if (singleWorkspace) {
+      // Collapse into the single target workspace; fall through to save at the end
+      allCategorized.push(...mapped);
+    } else {
+      if (selection.jsonImportMode === JsonImportMode.Replace) {
+        await workspaceService.deleteAllWorkspaces();
+      }
+      const { id } = await workspaceService.createWorkspaceWithName(
+        selection.workspaceName ?? "Chrome Bookmarks", { setActive: true }
+      );
+      await workspaceService.saveGroupsToWorkspace(id, mapped);
+      await pruneNewWorkspacePlaceholders();
+      return;
     }
-    const { id } = await workspaceService.createWorkspaceWithName(
-      selection.workspaceName ?? "Chrome Bookmarks", { setActive: true }
-    );
-    await workspaceService.saveGroupsToWorkspace(id, mapped);
-    await pruneNewWorkspacePlaceholders();
-    return;
   }
 
   // JSON — multi-workspace Tabme format creates a workspace per entry
@@ -266,19 +274,26 @@ export async function commitManualImportIntoWorkspace({
       : null;
 
     if (multiWs && multiWs.length > 0) {
-      if (selection.jsonImportMode === JsonImportMode.Replace) {
-        await workspaceService.deleteAllWorkspaces();
+      if (singleWorkspace) {
+        // Collapse all workspaces from the file into the single target workspace
+        for (const { groups } of multiWs) {
+          allCategorized.push(...mapImportedGroupsToCategorized(groups, purpose, ImportSource.Json));
+        }
+      } else {
+        if (selection.jsonImportMode === JsonImportMode.Replace) {
+          await workspaceService.deleteAllWorkspaces();
+        }
+        // Create a separate workspace for each space; set the first one active on Replace
+        let firstCreated = false;
+        for (const { name, groups } of multiWs) {
+          const mapped = mapImportedGroupsToCategorized(groups, purpose, ImportSource.Json);
+          const setActive = !firstCreated;
+          const { id } = await workspaceService.createWorkspaceWithName(name, { setActive });
+          await workspaceService.saveGroupsToWorkspace(id, mapped);
+          firstCreated = true;
+        }
+        // Multi-workspace import is handled; skip the active-workspace path below
       }
-      // Create a separate workspace for each space; set the first one active on Replace
-      let firstCreated = false;
-      for (const { name, groups } of multiWs) {
-        const mapped = mapImportedGroupsToCategorized(groups, purpose, ImportSource.Json);
-        const setActive = !firstCreated;
-        const { id } = await workspaceService.createWorkspaceWithName(name, { setActive });
-        await workspaceService.saveGroupsToWorkspace(id, mapped);
-        firstCreated = true;
-      }
-      // Multi-workspace import is handled; skip the active-workspace path below
     } else {
       const rawGroups = parseJsonImport(selection.jsonData);
       const mapped = mapImportedGroupsToCategorized(rawGroups, purpose, ImportSource.Json);
