@@ -17,6 +17,7 @@ import { createWorkspaceServiceLocal } from "@/scripts/import/workspaceServiceLo
 
 /* Commit imports */
 import { commitManualImportIntoWorkspace } from "@/scripts/import/commitManualImportIntoWorkspace";
+import { pruneNewWorkspacePlaceholders } from "@/scripts/workspaces/registry";
 
 /* Components */
 import { ImportProgress } from "@/components/shared/ImportProgress";
@@ -49,6 +50,7 @@ type ManualImportStepProps = {
   onBusyChange?: (busy: boolean) => void;
   onProgress?: (msg: string) => void;
   onError?: (err: string | null) => void;
+  singleWorkspace?: boolean;
 };
 /* ---------------------------------------------------------- */
 
@@ -60,6 +62,7 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
   onBusyChange,
   onProgress,
   onError,
+  singleWorkspace,
 }) => {
   /* -------------------- Context / state -------------------- */
   const { userId, bumpWorkspacesVersion } = useContext(AppContext);
@@ -120,7 +123,8 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
 
       try {
         const refs: { id: string; purpose: PurposeIdType }[] = [];
-        for (const p of purposes) {
+        const purposesToCreate = singleWorkspace ? purposes.slice(0, 1) : purposes;
+        for (const p of purposesToCreate) {
           refs.push(await workspaceService.createWorkspaceForPurpose(p));
         }
 
@@ -139,6 +143,7 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
           purposes,
           workspaceId: primary.id,
           purpose: primary.purpose,
+          singleWorkspace,
           workspaceService,
           onProgress: (msg) => {
             if (cancelled || token !== runTokenRef.current) return;
@@ -161,6 +166,7 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
 
         if (cancelled || token !== runTokenRef.current) return;
 
+        await pruneNewWorkspacePlaceholders();
         bumpWorkspacesVersion();
         setBackendPhase("finalizing");
         setCommitMessage("Import complete.");
@@ -230,7 +236,7 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
         <div className="text-sm text-red-600">{commitError}</div>
       ) : (
         <div className="text-sm text-neutral-600 dark:text-neutral-400">
-          {isCommitting ? (commitMessage || "Importing ...") : "All set! You can open Mindful."}
+          {isCommitting ? (commitMessage || "Importing ...") : "Your space is ready."}
         </div>
       )}
     </div>

@@ -61,6 +61,10 @@ jest.mock("@/scripts/import/commitManualImportIntoWorkspace", () => {
   };
 });
 
+jest.mock("@/scripts/workspaces/registry", () => ({
+  pruneNewWorkspacePlaceholders: jest.fn().mockResolvedValue(undefined),
+}));
+
 jest.mock("@/components/privacy/AiDisclosure", () => ({
   AiDisclosure: () => null,
 }));
@@ -190,7 +194,7 @@ describe("ManualImportStep", () => {
     await waitFor(() => expect(onDone).toHaveBeenCalledWith("w1"));
 
     await waitFor(() =>
-      expect(screen.getByText(/all set! you can open mindful/i)).toBeInTheDocument()
+      expect(screen.getByText(/your space is ready\./i)).toBeInTheDocument()
     );
   });
 

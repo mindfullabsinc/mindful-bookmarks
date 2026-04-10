@@ -9,8 +9,8 @@ describe("ImportBookmarksStep", () => {
     render(<ImportBookmarksStep setPrimaryDisabled={setPrimaryDisabled} />);
 
     // Buttons are rendered
-    const smartButton = screen.getByRole("button", { name: /smart import/i });
-    const manualButton = screen.getByRole("button", { name: /manual import/i });
+    const smartButton = screen.getByRole("button", { name: /organize everything automatically/i });
+    const manualButton = screen.getByRole("button", { name: /keep my existing structure/i });
 
     expect(smartButton).toBeInTheDocument();
     expect(manualButton).toBeInTheDocument();
@@ -28,8 +28,8 @@ describe("ImportBookmarksStep", () => {
 
     render(<ImportBookmarksStep setPrimaryDisabled={setPrimaryDisabled} />);
 
-    const smartButton = screen.getByRole("button", { name: /smart import/i });
-    const manualButton = screen.getByRole("button", { name: /manual import/i });
+    const smartButton = screen.getByRole("button", { name: /organize everything automatically/i });
+    const manualButton = screen.getByRole("button", { name: /keep my existing structure/i });
 
     fireEvent.click(smartButton);
 
@@ -46,8 +46,8 @@ describe("ImportBookmarksStep", () => {
 
     render(<ImportBookmarksStep setPrimaryDisabled={setPrimaryDisabled} />);
 
-    const smartButton = screen.getByRole("button", { name: /smart import/i });
-    const manualButton = screen.getByRole("button", { name: /manual import/i });
+    const smartButton = screen.getByRole("button", { name: /organize everything automatically/i });
+    const manualButton = screen.getByRole("button", { name: /keep my existing structure/i });
 
     fireEvent.click(manualButton);
 

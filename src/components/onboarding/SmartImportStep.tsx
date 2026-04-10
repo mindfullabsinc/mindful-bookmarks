@@ -10,6 +10,7 @@ import React, {
 /* Types */
 import type { PurposeIdType } from "@shared/types/purposeId";
 import type { ImportPhase } from "@/core/types/importPhase";
+import type { RawItem } from "@shared/types/llmGrouping";
 
 /* Hooks */
 import { useSmartImport } from "@/hooks/useSmartImport";
@@ -19,6 +20,7 @@ import { AppContext } from "@/scripts/AppContextProvider";
 
 /* Service implementations */
 import { createWorkspaceServiceLocal } from "@/scripts/import/workspaceServiceLocal";
+import { pruneNewWorkspacePlaceholders } from "@/scripts/workspaces/registry";
 import { chromeBrowserSourceService } from "@/scripts/import/browserSourceServiceChrome";
 import { basicNsfwFilter } from "@/scripts/import/nsfwFilter";
 import { remoteGroupingLLM } from "@/scripts/import/groupingLLMRemote";
@@ -33,6 +35,8 @@ type SmartImportStepProps = {
   purposes: PurposeIdType[];
   onDone: (primaryWorkspaceId: string) => void;
   onBusyChange?: (busy: boolean) => void;
+  singleWorkspace?: boolean;
+  fileItems?: RawItem[];
 };
 /* ---------------------------------------------------------- */
 
@@ -55,6 +59,8 @@ export const SmartImportStep: React.FC<SmartImportStepProps> = ({
   purposes,
   onDone,
   onBusyChange,
+  singleWorkspace,
+  fileItems,
 }) => {
   const { userId, bumpWorkspacesVersion } = useContext(AppContext);
 
@@ -76,8 +82,10 @@ export const SmartImportStep: React.FC<SmartImportStepProps> = ({
       browserSourceService: chromeBrowserSourceService,
       nsfwFilter: basicNsfwFilter,
       llm: remoteGroupingLLM,
+      singleWorkspace,
+      fileItems,
     }),
-    [workspaceService]
+    [workspaceService, singleWorkspace, fileItems]
   );
 
   const { phase: backendPhase, message, start } = useSmartImport(baseOptions);
@@ -110,11 +118,13 @@ export const SmartImportStep: React.FC<SmartImportStepProps> = ({
         const id = await start(purposes);
         if (!cancelled) {
           if (id) setPrimaryWorkspaceId(id);
+          await pruneNewWorkspacePlaceholders();
           bumpWorkspacesVersion();
         }
       } catch (err) {
         console.error("[SmartImportStep] error during smart import", err);
         if (!cancelled) {
+          await pruneNewWorkspacePlaceholders();
           bumpWorkspacesVersion();
         }
       } finally {

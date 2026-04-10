@@ -32,7 +32,6 @@ import { copyItems, moveItems } from "@/scripts/copyBookmarks";
 /* Components */
 import TopBanner from "@/components/TopBanner";
 import DraggableGrid, { GridHandle } from '@/components/DraggableGrid';
-import EmptyBookmarksState from '@/components/EmptyBookmarksState';
 import { WorkspaceSwitcher } from "@/components/WorkspaceSwitcher";
 import CopyToModal from "@/components/modals/CopyToModal";
 import { Toast } from "@/components/primitives/Toast";
@@ -464,10 +463,14 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
   /* ---------------------------------------------------------- */
 
   // Ensure every group has a bookmarks array, as required by DraggableGrid's type
-  const normalizedGroups: BookmarkGroupType[] = (bookmarkGroupsRaw ?? []).map((g: any) => ({
-    ...g,
-    bookmarks: g?.bookmarks ?? [],
-  }));
+  // Keep the empty placeholder group (add-new-group box) pinned to the end.
+  const normalizedGroups: BookmarkGroupType[] = (bookmarkGroupsRaw ?? [])
+    .map((g: any) => ({ ...g, bookmarks: g?.bookmarks ?? [] }))
+    .sort((a: any, b: any) => {
+      if (a.groupName === EMPTY_GROUP_IDENTIFIER) return 1;
+      if (b.groupName === EMPTY_GROUP_IDENTIFIER) return -1;
+      return 0;
+    });
 
   // Only mount Analytics when signed in
     // Only mount Analytics when signed in
@@ -498,16 +501,6 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
               ref={gridRef as any}
               user={isSignedIn ? { sub: userId as string } : null}
               bookmarkGroups={normalizedGroups}
-            />
-
-            <EmptyBookmarksState
-              onCreateGroup={() =>
-                gridRef.current?.startCreateGroup?.({
-                  prefill: ONBOARDING_NEW_GROUP_PREFILL,
-                  select: 'all',
-                })
-              }
-              onImport={handleLoadBookmarks}
             />
 
             <CopyToModal

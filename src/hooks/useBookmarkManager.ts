@@ -10,12 +10,70 @@ import { StorageMode, type StorageModeType } from '@/core/constants/storageMode'
 import { DEFAULT_LOCAL_WORKSPACE_ID } from '@/core/constants/workspaces';
 import { refreshOtherMindfulTabs } from '@/core/utils/chrome';
 import { Storage } from '@/scripts/Storage';
+import { listLocalWorkspaces, createLocalWorkspace } from '@/scripts/workspaces/registry';
 import type { BookmarkGroupType, BookmarkType } from '@/core/types/bookmarks';
 import amplify_outputs from '../../amplify_outputs.json';
 /* ---------------------------------------------------------- */
 
 /* -------------------- Constants -------------------- */
 const API_HOST_PATTERN = `https://${new URL(amplify_outputs.custom.API.bookmarks.endpoint).host}/*`;
+/* ---------------------------------------------------------- */
+
+/* -------------------- Import helpers -------------------- */
+/**
+ * Convert a Tabme-format export object into Mindful's BookmarkGroupType[].
+ * Nested Tabme groups (groupItems) are promoted to top-level bookmark groups.
+ */
+function parseTabmeFormat(data: Record<string, unknown>): BookmarkGroupType[] {
+  const groups: BookmarkGroupType[] = [];
+  const spaces = Array.isArray(data.workspaces) ? data.workspaces : Array.isArray(data.spaces) ? data.spaces : [];
+
+  for (const space of spaces) {
+    const folders = Array.isArray((space as any).groups) ? (space as any).groups : Array.isArray((space as any).folders) ? (space as any).folders : [];
+    for (const folder of folders) {
+      const bookmarks: BookmarkType[] = [];
+      const nestedGroups: { title: string; items: unknown[] }[] = [];
+
+      for (const item of ((folder.items as unknown[]) || [])) {
+        const i = item as Record<string, unknown>;
+        if (i.objectType === 'bookmark' || i.type === 'bookmark') {
+          bookmarks.push({
+            id: String(i.id ?? uuidv4()),
+            name: (i.title as string) || (i.url as string) || '',
+            url: (i.url as string) || '',
+            ...(i.favIconUrl ? { faviconUrl: i.favIconUrl as string } : {}),
+          });
+        } else if (i.objectType === 'group' || i.type === 'group') {
+          nestedGroups.push({ title: (i.title as string) || '', items: (i.groupItems as unknown[]) || [] });
+        }
+      }
+
+      groups.push({
+        id: String(folder.id ?? uuidv4()),
+        groupName: (folder.title as string) || 'Imported Group',
+        bookmarks,
+      });
+
+      // Promote nested Tabme groups to their own top-level groups
+      for (const nested of nestedGroups) {
+        const nestedBookmarks: BookmarkType[] = (nested.items || [])
+          .map(item => item as Record<string, unknown>)
+          .filter(i => i.objectType === 'bookmark' || i.type === 'bookmark')
+          .map(i => ({
+            id: String(i.id ?? uuidv4()),
+            name: (i.title as string) || (i.url as string) || '',
+            url: (i.url as string) || '',
+            ...(i.favIconUrl ? { faviconUrl: i.favIconUrl as string } : {}),
+          }));
+        if (nestedBookmarks.length > 0) {
+          groups.push({ id: uuidv4(), groupName: nested.title || 'Imported Group', bookmarks: nestedBookmarks });
+        }
+      }
+    }
+  }
+
+  return groups;
+}
 /* ---------------------------------------------------------- */
 
 /* -------------------- Local types and interfaces -------------------- */
@@ -428,19 +486,91 @@ export const useBookmarkManager = (): BookmarkManager => {
   };
 
   /**
-   * Download the current bookmark groups as a formatted JSON file.
+   * Download all workspaces' bookmark groups as a Tabme-compatible JSON file.
    */
-  const exportBookmarksToJSON = (): void => {
-    if (!bookmarkGroups || bookmarkGroups.length === 0) {
-        console.warn("No bookmarks to export.");
-        return;
+  const exportBookmarksToJSON = async (): Promise<void> => {
+    if (!userId) {
+      console.warn("Cannot export: userId is not available.");
+      return;
     }
-    const jsonData = JSON.stringify(bookmarkGroups, null, 2);
+
+    // Generate incrementing numeric ids and short position strings
+    let idSeed = Date.now();
+    const nextId = () => idSeed++;
+    let posSeed = 0;
+    const nextPos = () => (posSeed++).toString(36).padStart(3, '0');
+
+    // Derive favicon URL from bookmark URL (mirrors SmartFavicon's primary provider)
+    const faviconFor = (url: string): string => {
+      try {
+        const { hostname } = new URL(url);
+        return `https://www.google.com/s2/favicons?sz=32&domain=${hostname}`;
+      } catch { return ''; }
+    };
+
+    const groupsToFolders = (groups: BookmarkGroupType[]) =>
+      groups
+        .filter(g => g.groupName !== EMPTY_GROUP_IDENTIFIER)
+        .map(group => ({
+          collapsed: false,
+          color: "#dcedc8",
+          id: nextId(),
+          items: (group.bookmarks || []).map((bm: BookmarkType) => ({
+            favIconUrl: bm.faviconUrl || faviconFor(bm.url),
+            id: nextId(),
+            objectType: "bookmark",
+            position: nextPos(),
+            title: bm.name || bm.url,
+            type: "bookmark",
+            url: bm.url,
+          })),
+          objectType: "folder",
+          position: nextPos(),
+          title: group.groupName,
+        }));
+
+    // Load all workspaces and their bookmarks
+    const allWorkspaces = await listLocalWorkspaces();
+    const workspaceExports = await Promise.all(
+      allWorkspaces.map(async (ws) => {
+        const wsStorage = new Storage(ws.storageMode);
+        const groups = await wsStorage.load(userId, ws.id);
+        return {
+          groups: groupsToFolders(groups),
+          id: nextId(),
+          objectType: "space",
+          position: nextPos(),
+          title: ws.name,
+          widgets: [],
+        };
+      })
+    );
+
+    if (workspaceExports.every(ws => ws.groups.length === 0)) {
+      console.warn("No bookmarks to export.");
+      return;
+    }
+
+    const tabmeData = {
+      workspaces: workspaceExports,
+      isTabme: true,
+      source: 'mindful',
+      version: 3,
+    };
+
+    const jsonData = JSON.stringify(tabmeData, null, 2);
     const blob = new Blob([jsonData], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "mindful_bookmarks.json";
+    const now = new Date();
+    const stamp = now.getFullYear().toString() +
+      String(now.getMonth() + 1).padStart(2, '0') +
+      String(now.getDate()).padStart(2, '0') + '_' +
+      String(now.getHours()).padStart(2, '0') +
+      String(now.getMinutes()).padStart(2, '0') +
+      String(now.getSeconds()).padStart(2, '0');
+    a.download = `mindful_bookmarks_${stamp}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -459,15 +589,46 @@ export const useBookmarkManager = (): BookmarkManager => {
       const file = target?.files?.[0];
       if (!file) return;
       const reader = new FileReader();
-      reader.onload = (e: ProgressEvent<FileReader>) => {
+      reader.onload = async (e: ProgressEvent<FileReader>) => {
         try {
           const contents = e.target?.result;
           if (typeof contents !== 'string') {
             throw new Error("Unexpected file contents");
           }
-          const data = JSON.parse(contents) as BookmarkGroupType[];
-          updateAndPersistGroups(() => data);
-          console.log("Bookmarks successfully imported and saved.");
+          const parsed = JSON.parse(contents);
+          if (parsed && parsed.isTabme && (Array.isArray(parsed.workspaces) || Array.isArray(parsed.spaces))) {
+            // Multi-workspace format: create a workspace per entry and save groups into each.
+            const spaces: any[] = Array.isArray(parsed.workspaces) ? parsed.workspaces : parsed.spaces;
+            const localStorage = new Storage(StorageMode.LOCAL);
+            for (const space of spaces) {
+              const folders: any[] = Array.isArray(space.groups) ? space.groups : (space.folders ?? []);
+              const groups: BookmarkGroupType[] = folders
+                .filter((f: any) => f.objectType !== 'group')
+                .map((folder: any) => ({
+                  id: uuidv4(),
+                  groupName: folder.title ?? 'Imported',
+                  bookmarks: (folder.items ?? [])
+                    .filter((it: any) => it.objectType === 'bookmark' || it.type === 'bookmark')
+                    .map((it: any): BookmarkType => ({
+                      id: String(it.id ?? uuidv4()),
+                      name: (it.title as string) || (it.url as string) || '',
+                      url: (it.url as string) || '',
+                      ...(it.favIconUrl ? { faviconUrl: it.favIconUrl as string } : {}),
+                    })),
+                }));
+              if (groups.length === 0) continue;
+              const ws = await createLocalWorkspace(space.title || 'Imported', { setActive: false });
+              await localStorage.save(groups, userId!, ws.id);
+            }
+            console.log("Bookmarks successfully imported into workspaces.");
+            refreshOtherMindfulTabs();
+          } else if (Array.isArray(parsed)) {
+            // Legacy flat array: dump into current workspace.
+            updateAndPersistGroups(() => parsed as BookmarkGroupType[]);
+            console.log("Bookmarks successfully imported and saved.");
+          } else {
+            throw new Error("Unrecognized JSON format");
+          }
         } catch (error) {
           console.error("Failed to read or parse the bookmarks file:", error);
         }

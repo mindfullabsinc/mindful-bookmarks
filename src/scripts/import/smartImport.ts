@@ -31,6 +31,10 @@ export type SmartImportOptions = {
   browserSourceService: BrowserSourceService;
   nsfwFilter: NsfwFilter;
   llm: GroupingLLM;
+  /** When true, all content goes into a single workspace instead of one per purpose */
+  singleWorkspace?: boolean;
+  /** Pre-parsed items from a user-uploaded file to include alongside browser sources */
+  fileItems?: RawItem[];
   /** Called on every phase transition / progress update */
   onProgress?: (progress: SmartImportProgress) => void;
 };
@@ -95,6 +99,8 @@ export async function runSmartImport(
     browserSourceService,
     nsfwFilter,
     llm,
+    singleWorkspace,
+    fileItems,
   } = options;
 
   if (!purposes.length) {
@@ -112,14 +118,24 @@ export async function runSmartImport(
     message: "Starting Smart Import ...",
   });
 
-  /* 2) Create workspaces per purpose */
+  /* 2) Create workspaces */
   const workspaceMap = new Map<PurposeIdType, WorkspaceRef>();
   let primaryWorkspaceId: string | null = null;
-  for (const purpose of purposes) {
-    const workspace = await workspaceService.createWorkspaceForPurpose(purpose);
-    workspaceMap.set(purpose, workspace);
-    if (!primaryWorkspaceId) {
-      primaryWorkspaceId = workspace.id;
+
+  if (singleWorkspace) {
+    // All purposes share one workspace
+    const workspace = await workspaceService.createWorkspaceForPurpose(purposes[0]);
+    primaryWorkspaceId = workspace.id;
+    for (const purpose of purposes) {
+      workspaceMap.set(purpose, { id: workspace.id, purpose });
+    }
+  } else {
+    for (const purpose of purposes) {
+      const workspace = await workspaceService.createWorkspaceForPurpose(purpose);
+      workspaceMap.set(purpose, workspace);
+      if (!primaryWorkspaceId) {
+        primaryWorkspaceId = workspace.id;
+      }
     }
   }
 
@@ -140,6 +156,7 @@ export async function runSmartImport(
     ...bookmarkItems,
     ...tabItems,
     //...historyItems,
+    ...(fileItems ?? []),
   ]);
 
   /* 4) Filter NSFW */

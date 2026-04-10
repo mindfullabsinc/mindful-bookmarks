@@ -5,6 +5,18 @@ body, html {
   padding: 0;
 }
 
+/* Post-import workspace highlight pulse */
+@keyframes ws-import-pulse {
+  0%   { box-shadow: 0 0 0 0px rgba(255, 255, 255, 0.6); }
+  30%  { box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.25); }
+  60%  { box-shadow: 0 0 0 10px rgba(255, 255, 255, 0.08); }
+  100% { box-shadow: 0 0 0 14px rgba(255, 255, 255, 0); }
+}
+
+.ws-import-pulse {
+  animation: ws-import-pulse 2s ease-out forwards;
+}
+
 /* Bookmark grid wrapper */
 .bookmark-groups-container {
   @apply grid gap-2.5 p-5 grid-cols-[25%_1fr_1fr_1fr] bg-gray-100 dark:bg-neutral-950

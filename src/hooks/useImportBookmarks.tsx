@@ -1,5 +1,6 @@
 /* -------------------- Imports -------------------- */
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useContext, useMemo, useState } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 
 /* Hooks */
 import { useBookmarkManager } from '@/hooks/useBookmarkManager';
@@ -8,11 +9,20 @@ import { useBookmarkManager } from '@/hooks/useBookmarkManager';
 import ImportBookmarksModal from '@/components/modals/ImportBookmarksModal';
 
 /* Types */
-import type { BookmarkGroupType } from '@/core/types/bookmarks';
+import type { BookmarkGroupType, BookmarkType } from '@/core/types/bookmarks';
 import type { ManualImportSelectionType } from "@/core/types/import";
 
 /* Constants */
 import { EMPTY_GROUP_IDENTIFIER } from "@/core/constants/constants";
+import { StorageMode } from "@/core/constants/storageMode";
+
+/* Context */
+import { AppContext } from '@/scripts/AppContextProvider';
+import type { AppContextValue } from '@/scripts/AppContextProvider';
+
+/* Storage */
+import { Storage } from '@/scripts/Storage';
+import { createLocalWorkspace } from '@/scripts/workspaces/registry';
 
 /* Importers */
 import {
@@ -71,12 +81,49 @@ function ensureSingleEmpty(groups: BookmarkGroupType[], moveToEnd = true): Bookm
  * @returns Actions/state for opening/closing the modal and rendering it.
  */
 export function useImportBookmarks(opts?: { insertGroupsOverride?: InsertGroupsFn }) {
-  /* -------------------- Local state -------------------- */ 
+  /* -------------------- Local state -------------------- */
   const [isOpen, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [selection, setSelection] = useState<ManualImportSelectionType>({});
 
   const { updateAndPersistGroups } = useBookmarkManager();
+  const { userId } = useContext(AppContext) as AppContextValue;
+
+  /**
+   * Parse a JSON string and either create per-workspace entries (Tabme/Mindful
+   * multi-workspace format) or fall back to inserting a flat group array.
+   */
+  const importJSON = useCallback(async (jsonText: string, fallbackInsert: InsertGroupsFn) => {
+    const parsed = JSON.parse(jsonText);
+    if (parsed && parsed.isTabme && (Array.isArray(parsed.workspaces) || Array.isArray(parsed.spaces))) {
+      const spaces: any[] = Array.isArray(parsed.workspaces) ? parsed.workspaces : parsed.spaces;
+      const localStorage = new Storage(StorageMode.LOCAL);
+      for (const space of spaces) {
+        const folders: any[] = Array.isArray(space.groups) ? space.groups : (space.folders ?? []);
+        const groups: BookmarkGroupType[] = folders
+          .filter((f: any) => f.objectType !== 'group')
+          .map((folder: any) => ({
+            id: uuidv4(),
+            groupName: folder.title ?? 'Imported',
+            bookmarks: ((folder.items ?? []) as any[])
+              .filter((it) => it.objectType === 'bookmark' || it.type === 'bookmark')
+              .map((it): BookmarkType => ({
+                id: String(it.id ?? uuidv4()),
+                name: (it.title as string) || (it.url as string) || '',
+                url: (it.url as string) || '',
+                ...(it.favIconUrl ? { faviconUrl: it.favIconUrl as string } : {}),
+              })),
+          }));
+        if (groups.length === 0) continue;
+        const ws = await createLocalWorkspace(space.title || 'Imported', { setActive: false });
+        await localStorage.save(groups, userId!, ws.id);
+      }
+    } else if (Array.isArray(parsed)) {
+      await fallbackInsert(parsed as BookmarkGroupType[]);
+    } else {
+      throw new Error("Unrecognized JSON format");
+    }
+  }, [userId]);
   /* ---------------------------------------------------------- */
 
   const defaultInsertGroups = useCallback<InsertGroupsFn>(async (groups) => {
@@ -114,9 +161,8 @@ export function useImportBookmarks(opts?: { insertGroupsOverride?: InsertGroupsF
    */
   const handleUploadJson = useCallback(async (file: File) => {
     const text = await file.text();
-    const data = JSON.parse(text) as BookmarkGroupType[];
-    await insertGroups(data);
-  }, [insertGroups]);
+    await importJSON(text, insertGroups);
+  }, [importJSON, insertGroups]);
 
   /**
    * Chrome import handler that dispatches to the selected pipeline.
@@ -145,44 +191,10 @@ export function useImportBookmarks(opts?: { insertGroupsOverride?: InsertGroupsF
       <ImportBookmarksModal
         isOpen={isOpen}
         onClose={closeImport}
-        busy={busy}
-        busyMessage={busy ? "Importing ..." : undefined}
-        errorMessage={undefined}
-        onSelectionChange={(s) => setSelection(s)}
-        onComplete={() =>
-          runWithBusy(async () => {
-            // 1) JSON
-            if (selection.jsonData) {
-              const data = JSON.parse(selection.jsonData) as BookmarkGroupType[];
-              await insertGroups(data);
-            }
-
-            // 2) Chrome bookmarks
-            if (selection.importBookmarks) {
-              await handleImportChrome();
-            }
-
-            // 3) Open tabs (if scope chosen)
-            if (selection.tabScope) {
-              await handleImportOpenTabs({ scope: selection.tabScope });
-            }
-
-            closeImport();
-          })
-        }
       />
     ),
-    [
-      isOpen,
-      closeImport,
-      busy,
-      runWithBusy,
-      selection,
-      insertGroups,
-      handleImportChrome,
-      handleImportOpenTabs,
-    ] 
-  ); 
+    [isOpen, closeImport]
+  );
 
   return {
     openImport,

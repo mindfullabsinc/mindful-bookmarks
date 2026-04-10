@@ -72,8 +72,9 @@ describe('TopBanner Component', () => {
       const user = userEvent.setup();
       await user.click(screen.getByRole('button', { name: /load bookmarks/i }));
     
-      // Modal should appear (rendered via portal with aria-labelledby="import-title")
-      expect(screen.getByRole('dialog', { name: /import bookmarks/i })).toBeInTheDocument();
+      // Modal should appear
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: /import bookmarks/i })).toBeInTheDocument();
     
       // Old callback should not fire anymore
       expect(mockOnLoadBookmarks).not.toHaveBeenCalled();

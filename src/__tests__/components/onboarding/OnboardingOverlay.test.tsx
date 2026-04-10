@@ -71,11 +71,16 @@ function createAppContextValue(overrides: CtxOverrides = {}) {
     onboardingStatus: OnboardingStatus.IN_PROGRESS,
     setOnboardingStatus: jest.fn(),
     shouldShowOnboarding: true,
+    onboardingReopen: false,
+    closeOnboarding: jest.fn().mockResolvedValue(undefined),
     completeOnboarding: jest.fn().mockResolvedValue(undefined),
     skipOnboarding: jest.fn().mockResolvedValue(undefined),
     restartOnboarding: jest.fn().mockResolvedValue(undefined),
     onboardingPurposes: [PurposeId.Work],
     setActiveWorkspaceId: jest.fn().mockResolvedValue(undefined),
+    bookmarkGroups: [],
+    workspaces: {},
+    bumpPostImport: jest.fn(),
     ...overrides,
   } as any;
 }
@@ -164,7 +169,12 @@ it("steps through the flow and finishes Smart Import, setting active workspace a
   expect(nextButton).toBeEnabled();
   await user.click(nextButton);
 
-  // Step 3: import bookmarks
+  // Step 3: select import sources
+  expect(screen.getByText(/what should we import\?/i)).toBeInTheDocument();
+  nextButton = screen.getByRole("button", { name: /next/i });
+  await user.click(nextButton);
+
+  // Step 4: import bookmarks
   expect(screen.getByTestId("import-step")).toBeInTheDocument();
 
   // Verify that ImportBookmarksStep can control the primary disabled state too
@@ -214,5 +224,6 @@ it("steps through the flow and finishes Smart Import, setting active workspace a
   await waitFor(() => {
     expect(value.setActiveWorkspaceId).toHaveBeenCalledWith("ws-123");
     expect(value.completeOnboarding).toHaveBeenCalledTimes(1);
+    expect(value.bumpPostImport).toHaveBeenCalledTimes(1);
   });
 });

@@ -17,68 +17,16 @@ jest.mock('@/scripts/import/importers', () => ({
 }));
 
 /**
- * Modal mock — now uses onSelectionChange + onComplete
+ * Modal mock — just render when open.
  */
 jest.mock('@/components/modals/ImportBookmarksModal', () => {
-  const React = require('react');
-
   return {
     __esModule: true,
     default: function ImportBookmarksModalStub(props: any) {
       if (!props.isOpen) return null;
-
-      // Always point at the latest props (so we call the latest onComplete closure)
-      const propsRef = React.useRef(props);
-      propsRef.current = props;
-
-      const flush = () =>
-        new Promise<void>((resolve) => {
-          // macrotask so React has a chance to commit + rerender
-          setTimeout(() => resolve(), 0);
-        });
-
       return (
         <div data-testid="import-modal">
-          <button onClick={() => propsRef.current.onClose()}>Close</button>
-
-          <button
-            onClick={async () => {
-              const payload = JSON.stringify([
-                { groupName: 'Imported A', bookmarks: [{ name: 'One', url: 'https://one.com' }] },
-                { groupName: 'Imported B', bookmarks: [] },
-                { groupName: '__EMPTY__', bookmarks: [] },
-              ]);
-
-              propsRef.current.onSelectionChange({ jsonData: payload });
-
-              // Wait for rerender so onComplete captures updated selection
-              await flush();
-
-              await propsRef.current.onComplete();
-            }}
-          >
-            Upload JSON
-          </button>
-
-          <button
-            onClick={async () => {
-              propsRef.current.onSelectionChange({ importBookmarks: true });
-              await flush();
-              await propsRef.current.onComplete();
-            }}
-          >
-            Import Chrome (flat)
-          </button>
-
-          <button
-            onClick={async () => {
-              propsRef.current.onSelectionChange({ tabScope: 'current' });
-              await flush();
-              await propsRef.current.onComplete();
-            }}
-          >
-            Import Open Tabs
-          </button>
+          <button onClick={() => props.onClose()}>Close</button>
         </div>
       );
     },
@@ -115,8 +63,12 @@ import useImportBookmarks from '@/hooks/useImportBookmarks';
 /**
  * A tiny harness so we can use the hook and render its modal output.
  */
-function Harness() {
-  const { openImport, renderModal } = useImportBookmarks();
+function Harness({ onReady }: { onReady?: (api: ReturnType<typeof useImportBookmarks>) => void }) {
+  const api = useImportBookmarks();
+  React.useEffect(() => {
+    onReady?.(api);
+  }, [api, onReady]);
+  const { openImport, renderModal } = api;
   return (
     <div>
       <button onClick={openImport}>Open Import</button>
@@ -179,13 +131,24 @@ describe('useImportBookmarks', () => {
       { id: 'gB', groupName: 'B', bookmarks: [] },
     ]);
 
-    render(<Harness />);
+    let api: ReturnType<typeof useImportBookmarks> | null = null;
+    render(<Harness onReady={(value) => { api = value; }} />);
 
     await user.click(screen.getByRole('button', { name: /open import/i }));
     await waitFor(() => expect(screen.getByTestId('import-modal')).toBeInTheDocument());
 
-    // This now sets selection.jsonData + calls onComplete()
-    await user.click(screen.getByRole('button', { name: /upload json/i }));
+    const payload = JSON.stringify([
+      { groupName: 'Imported A', bookmarks: [{ name: 'One', url: 'https://one.com' }] },
+      { groupName: 'Imported B', bookmarks: [] },
+      { groupName: '__EMPTY__', bookmarks: [] },
+    ]);
+    const file = new File([payload], "import.json", { type: "application/json" });
+    Object.defineProperty(file, "text", {
+      configurable: true,
+      value: async () => payload,
+    });
+
+    await api!.handleUploadJson(file);
 
     await waitFor(() => {
       const latest = start.getState().map((g) => g.groupName);
@@ -209,12 +172,13 @@ describe('useImportBookmarks', () => {
       }
     );
 
-    render(<Harness />);
+    let api: ReturnType<typeof useImportBookmarks> | null = null;
+    render(<Harness onReady={(value) => { api = value; }} />);
 
     await user.click(screen.getByRole('button', { name: /open import/i }));
     await waitFor(() => expect(screen.getByTestId('import-modal')).toBeInTheDocument());
 
-    await user.click(screen.getByRole('button', { name: /import chrome \(flat\)/i }));
+    await api!.handleImportChrome();
 
     await waitFor(() => {
       const latest = start.getState().map((g) => g.groupName);
@@ -236,21 +200,20 @@ describe('useImportBookmarks', () => {
       }
     );
 
-    render(<Harness />);
+    let api: ReturnType<typeof useImportBookmarks> | null = null;
+    render(<Harness onReady={(value) => { api = value; }} />);
 
     await user.click(screen.getByRole('button', { name: /open import/i }));
     await waitFor(() => expect(screen.getByTestId('import-modal')).toBeInTheDocument());
 
-    await user.click(screen.getByRole('button', { name: /import open tabs/i }));
+    await api!.handleImportOpenTabs({ scope: 'current' });
 
     await waitFor(() => {
       const latest = start.getState().map((g) => g.groupName);
       expect(latest).toEqual(['From Tabs', '__EMPTY__']);
     });
 
-    // Modal should auto-close after onComplete finishes
-    await waitFor(() => {
-      expect(screen.queryByTestId('import-modal')).not.toBeInTheDocument();
-    });
+    // Modal stays open unless explicitly closed by the user
+    expect(screen.getByTestId('import-modal')).toBeInTheDocument();
   });
 });

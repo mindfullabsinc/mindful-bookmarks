@@ -267,8 +267,74 @@ export async function listLocalWorkspaces(opts?: {
   includeArchived?: boolean;
 }): Promise<WorkspaceType[]> {
   const reg = await ensureRegistry();
-  const all = Object.values(reg.items).sort((a, b) => a.createdAt - b.createdAt);
-  return opts?.includeArchived ? all : all.filter(w => !w.archived);
+  const all = Object.values(reg.items);
+  const visible = opts?.includeArchived ? all : all.filter(w => !w.archived);
+
+  if (reg.order?.length) {
+    const orderedSet = new Set(reg.order);
+    const ordered = reg.order.map(id => reg.items[id]).filter(w => w && (opts?.includeArchived || !w.archived));
+    const rest = visible.filter(w => !orderedSet.has(w.id)).sort((a, b) => a.createdAt - b.createdAt);
+    return [...ordered, ...rest];
+  }
+
+  return visible.sort((a, b) => a.createdAt - b.createdAt);
+}
+
+/**
+ * Persist a custom workspace sort order.
+ *
+ * @param ids Ordered array of workspace identifiers.
+ */
+export async function reorderWorkspaces(ids: WorkspaceIdType[]): Promise<void> {
+  const reg = await ensureRegistry();
+  reg.order = ids;
+  await saveRegistry(reg);
+}
+
+/**
+ * Hard-delete a workspace and all its stored data.
+ * If the workspace is active, switches to the first remaining workspace.
+ *
+ * @param id Workspace identifier to delete.
+ */
+export async function deleteWorkspace(id: WorkspaceIdType): Promise<void> {
+  const reg = await ensureRegistry();
+  if (!reg.items[id]) return;
+
+  // Remove all storage keys belonging to this workspace
+  const all = await readAllLocal();
+  const prefix = `WS_${id}__`;
+  const keysToRemove = Object.keys(all).filter(k => k.startsWith(prefix));
+  if (keysToRemove.length) await removeLocal(...keysToRemove);
+
+  // Remove from registry
+  delete reg.items[id];
+  if (reg.order) reg.order = reg.order.filter(i => i !== id);
+
+  // If it was active, switch to the first remaining workspace
+  if (reg.activeId === id) {
+    const remaining = Object.keys(reg.items);
+    reg.activeId = remaining[0] ?? DEFAULT_LOCAL_WORKSPACE_ID;
+  }
+
+  await saveRegistry(reg);
+}
+
+/**
+ * Remove auto-created "New Workspace" placeholders when real workspaces exist.
+ * Called after import to clean up the placeholder created by archiveWorkspace.
+ */
+export async function pruneNewWorkspacePlaceholders(): Promise<void> {
+  const reg = await ensureRegistry();
+  const all = Object.values(reg.items).filter(w => !w.archived);
+  const placeholders = all.filter(w => w.name === "New Workspace");
+  const realWorkspaces = all.filter(w => w.name !== "New Workspace");
+
+  if (placeholders.length === 0 || realWorkspaces.length === 0) return;
+
+  for (const p of placeholders) {
+    await deleteWorkspace(p.id);
+  }
 }
 
 /**
@@ -300,6 +366,24 @@ export async function ensureDefaultWorkspace(): Promise<void> {
     reg.activeId = ws.id;
     await saveRegistry(reg);
   }
+}
+
+/**
+ * Delete all local workspace data and reset the registry to empty.
+ * After calling this, at least one workspace must be created before the app is usable.
+ */
+export async function deleteAllLocalWorkspaces(): Promise<void> {
+  const all = await readAllLocal();
+  const wsDataKeys = Object.keys(all).filter(k => k.startsWith("WS_"));
+  if (wsDataKeys.length) await removeLocal(...wsDataKeys);
+
+  const emptyReg: WorkspaceRegistryType = {
+    version: 1,
+    activeId: DEFAULT_LOCAL_WORKSPACE_ID,
+    items: {},
+    migratedLegacyLocal: true,
+  };
+  await saveRegistry(emptyReg);
 }
 
 /**
@@ -359,15 +443,16 @@ export async function renameWorkspace(id: WorkspaceIdType, name: string): Promis
  * @param id Workspace identifier to archive.
  */
 export async function archiveWorkspace(id: WorkspaceIdType): Promise<void> {
+  const live = Object.values((await ensureRegistry()).items).filter(w => !w.archived);
+  if (live.length <= 1) {
+    // Last workspace — create a blank replacement and set it active before archiving
+    await createLocalWorkspace("New Workspace", { setActive: true });
+  }
+
+  // Re-read after the potential createLocalWorkspace write
   const reg = await ensureRegistry();
   const ws = reg.items[id];
   if (!ws) return;
-
-  const live = Object.values(reg.items).filter(w => !w.archived);
-  if (live.length <= 1) {
-    // Don’t archive the only remaining live workspace
-    return;
-  }
 
   reg.items[id] = { ...ws, archived: true, updatedAt: Date.now() };
 

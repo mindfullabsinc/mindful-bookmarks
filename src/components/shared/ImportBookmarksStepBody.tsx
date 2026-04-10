@@ -1,17 +1,25 @@
 /* -------------------- Imports -------------------- */
-import React from "react";
+import React, { useRef, useState } from "react";
 
 /* Constants */
-import { ImportPostProcessMode, OpenTabsScope } from "@/core/constants/import";
+import { ImportPostProcessMode, JsonImportMode, OpenTabsScope } from "@/core/constants/import";
 
 /* Types */
-import type { ImportPostProcessModeType, OpenTabsScopeType } from "@/core/types/import";
+import type { ImportPostProcessModeType, JsonImportModeType, OpenTabsScopeType } from "@/core/types/import";
 
 /* Components */
 import { AiDisclosure } from "@/components/privacy/AiDisclosure";
 
+/* File format detection */
+import {
+  type FilePreview,
+  detectFileFormat,
+  formatFilePreviewText,
+} from "@/scripts/import/fileFormatDetection";
+
 /* CSS */
 import "@/styles/components/shared/ImportBookmarksContent.css";
+import "@/styles/components/modals/ImportBookmarksModal.css";
 /* ---------------------------------------------------------- */
 
 /* -------------------- Local types -------------------- */
@@ -32,6 +40,8 @@ export type ImportBookmarksStepBodyState = {
   setJsonFileName: (v: string | null) => void;
   jsonData: string | null;
   setJsonData: (v: string | null) => void;
+  jsonImportMode: JsonImportModeType;
+  setJsonImportMode: (v: JsonImportModeType) => void;
 
   // step 2
   bookmarksYes: boolean;
@@ -58,6 +68,10 @@ export type ImportBookmarksStepBodyProps = {
 
   /** Disable inputs while committing (onboarding commit step) */
   busy?: boolean;
+
+  /** Hide the replace/add picker when the user has no existing data to replace.
+   *  Defaults to true (show picker). */
+  hasExistingData?: boolean;
 };
 /* ---------------------------------------------------------- */
 
@@ -69,7 +83,7 @@ export const IMPORT_BOOKMARKS_STEP_COPY: Record<
   { title: string; subtitle?: string }
 > = {
   1: {
-    title: "Do you have a JSON file to import?",
+    title: "Do you have a .json or .html file to import?",
     subtitle:
       "If you exported from another bookmark manager (or from Mindful), you can bring that file in now. If you're not sure what this is, just skip.",
   },
@@ -81,7 +95,7 @@ export const IMPORT_BOOKMARKS_STEP_COPY: Record<
   },
   4: {
     title:
-      "Do you want Mindful to automatically organize everything you imported?",
+      "Organize your links automatically?",
   },
 };
 /* ---------------------------------------------------------- */
@@ -117,7 +131,32 @@ export function ImportBookmarksStepBody({
   state,
   showInternalHeader = true,
   busy = false,
+  hasExistingData = true,
 }: ImportBookmarksStepBodyProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [filePreview, setFilePreview] = useState<FilePreview | null>(null);
+  const [fileError, setFileError] = useState<string | undefined>();
+
+  async function processFile(file: File) {
+    const isJson = file.name.endsWith('.json') || file.type === 'application/json';
+    const isHtml = file.name.endsWith('.html') || file.name.endsWith('.htm') || file.type === 'text/html';
+    if (!isJson && !isHtml) {
+      setFileError("Please choose a .json or .html file.");
+      return;
+    }
+    try {
+      const text = await file.text();
+      if (isJson) JSON.parse(text); // throws if invalid JSON
+      state.setJsonFileName(file.name);
+      state.setJsonData(text);
+      setFilePreview(detectFileFormat(file.name, text));
+      setFileError(undefined);
+    } catch {
+      setFileError("Invalid file. Please choose a valid .json or .html file.");
+    }
+  }
+
   async function handleJsonFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0] ?? null;
     if (!file) {
@@ -125,16 +164,34 @@ export function ImportBookmarksStepBody({
       state.setJsonData(null);
       return;
     }
+    await processFile(file);
+  }
 
-    const text = await file.text();
-    JSON.parse(text); // throws if invalid
-    state.setJsonFileName(file.name);
-    state.setJsonData(text);
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDragOver(true);
+  }
+
+  function handleDragLeave(e: React.DragEvent) {
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setIsDragOver(false);
+    }
+  }
+
+  async function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files?.[0] ?? null;
+    if (!file) return;
+    await processFile(file);
   }
 
   function clearJsonSelection() {
     state.setJsonFileName(null);
     state.setJsonData(null);
+    setFilePreview(null);
+    setFileError(undefined);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
   function renderStepHeader() {
@@ -174,28 +231,88 @@ export function ImportBookmarksStepBody({
 
         {state.jsonYes && (
           <div className="json-input-container">
-            {state.jsonData ? (
-              <div className="json-selected-file-container">
-                Selected:{" "}
-                <span className="json-file-name">{state.jsonFileName ?? "file"}</span>
+            {state.jsonData && filePreview ? (
+              /* ── File selected: preview card + mode picker ── */
+              <>
+                <div className="file-preview-card">
+                  <p className="file-preview-label">{formatFilePreviewText(filePreview).label}</p>
+                  <p className="file-preview-summary">{formatFilePreviewText(filePreview).summary}</p>
+
+                  {hasExistingData && (
+                    <>
+                      <div className="file-preview-divider" />
+                      <p className="import-method">How should this be imported?</p>
+                      <div className="tabs-windows-container file-preview-mode-options">
+                        {([
+                          { value: JsonImportMode.Add, label: "Add to existing bookmarks" },
+                          { value: JsonImportMode.Replace, label: "Replace all existing bookmarks" },
+                        ] as const).map(({ value, label }) => {
+                          const selected = state.jsonImportMode === value;
+                          return (
+                            <button
+                              key={value}
+                              type="button"
+                              onClick={() => state.setJsonImportMode(value)}
+                              disabled={busy}
+                              className={`tabs-radio-button-row ${selected ? "tabs-radio-button-row--selected" : "tabs-radio-button-row--unselected"}`}
+                            >
+                              <div className={`tabs-radio-button-outer-circle ${selected ? "tabs-radio-button-outer-circle--selected" : "tabs-radio-button-outer-circle--unselected"}`}>
+                                {selected && <div className="tabs-radio-button-inner-circle" />}
+                              </div>
+                              <span className="tabs-radio-button-text">{label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {state.jsonImportMode === JsonImportMode.Replace && (
+                        <p className="json-import-replace-warning">
+                          ⚠ This will permanently delete all your existing workspaces and bookmarks.
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
                 <button
                   type="button"
                   className="json-file-remove"
                   onClick={clearJsonSelection}
                   disabled={busy}
                 >
-                  Remove
+                  Choose a different file
                 </button>
-              </div>
+              </>
             ) : (
-              <input
-                id="json-file-input"
-                type="file"
-                accept="application/json,.json"
-                onChange={handleJsonFileChange}
-                className="json-input"
-                disabled={busy}
-              />
+              /* ── No file yet: drop zone ── */
+              <>
+                <p className="json-format-hint">Supported formats: Chrome (.html), Toby (.json), TabMe (.json), Mindful (.json)</p>
+                <div
+                  className={`json-drop-zone${isDragOver ? ' json-drop-zone--active' : ''}`}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                >
+                  <span className="json-drop-zone-label">Drag &amp; drop a file here, or</span>
+                  <button
+                    type="button"
+                    className="json-drop-zone-button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={busy}
+                  >
+                    Choose File
+                  </button>
+                  <span className="json-drop-zone-hint">.json or .html</span>
+                  <input
+                    ref={fileInputRef}
+                    id="json-file-input"
+                    type="file"
+                    accept="application/json,.json,text/html,.html,.htm"
+                    onChange={handleJsonFileChange}
+                    className="json-input-hidden"
+                    disabled={busy}
+                  />
+                </div>
+                {fileError && <div className="error-message">{fileError}</div>}
+              </>
             )}
           </div>
         )}

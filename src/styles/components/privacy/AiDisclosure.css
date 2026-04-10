@@ -25,15 +25,15 @@
     }
 
     .body-container-inline {
-      @apply mt-3 text-sm text-neutral-700 dark:text-neutral-300;
+      @apply mt-3 text-xs text-neutral-400 dark:text-neutral-500;
     }
 
     .inline-title {
-      @apply text-sm font-semibold text-neutral-900 dark:text-neutral-100;
+      @apply text-xs font-semibold text-neutral-400 dark:text-neutral-500;
     }
 
     .inline-subtitle {
-      @apply mt-1 text-sm text-neutral-700 dark:text-neutral-300;
+      @apply mt-1 text-xs text-neutral-400 dark:text-neutral-500;
     }
 
     /* Compact only styles */

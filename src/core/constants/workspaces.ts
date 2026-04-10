@@ -24,6 +24,7 @@ export interface WorkspaceRegistryV1 {
   activeId: WorkspaceIdType;
   items: Record<WorkspaceIdType, WorkspaceType>;
   migratedLegacyLocal?: boolean; // marks whether legacy Local data has been moved under WS_<id>
+  order?: WorkspaceIdType[];     // explicit sort order; absent means sort by createdAt
 }
 
 export type WorkspaceRegistryType = WorkspaceRegistryV1;

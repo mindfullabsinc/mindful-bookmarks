@@ -25,6 +25,7 @@ export default defineConfig({
     }),
   ],
   resolve: {
+    extensions: ['.mjs', '.mts', '.ts', '.tsx', '.js', '.jsx', '.json'],
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
       "@shared": fileURLToPath(new URL("./shared", import.meta.url)),

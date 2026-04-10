@@ -26,41 +26,6 @@ jest.mock("react-dom", () => {
   };
 });
 
-/**
- * Mock the wizard content so we can deterministically:
- * - set selection via onSelectionChange
- * - trigger onComplete
- * - close only on success (mirrors “prevents auto-close on error” behavior)
- */
-jest.mock("@/components/shared/ImportBookmarksContent", () => ({
-  ImportBookmarksContent: (props: any) => {
-    return (
-      <div>
-        <button type="button" onClick={() => props.onSelectionChange({ source: "mock" })}>
-          Set Selection
-        </button>
-
-        <button
-          type="button"
-          onClick={async () => {
-            try {
-              await props.onComplete();
-              // mimic content auto-close on success
-              props.onClose();
-            } catch {
-              // swallow: modal’s onComplete rethrows to prevent auto-close
-            }
-          }}
-        >
-          Finish Import
-        </button>
-
-        {props.errorMessage ? <div>{props.errorMessage}</div> : null}
-      </div>
-    );
-  },
-}));
-
 jest.mock("@/scripts/import/workspaceServiceLocal", () => ({
   createWorkspaceServiceLocal: jest.fn(),
 }));
@@ -121,13 +86,13 @@ describe("ImportBookmarksModal", () => {
     const user = userEvent.setup();
     const { props, ctxValue } = renderModal();
 
-    await user.click(screen.getByRole("button", { name: /Set Selection/i }));
-    await user.click(screen.getByRole("button", { name: /Finish Import/i }));
+    await user.click(screen.getByRole("button", { name: /chrome bookmarks/i }));
+    await user.click(screen.getByRole("button", { name: /^import$/i }));
 
     expect(commitManualImportIntoWorkspace).toHaveBeenCalledTimes(1);
     expect(commitManualImportIntoWorkspace).toHaveBeenCalledWith(
       expect.objectContaining({
-        selection: { source: "mock" },
+        selection: { importBookmarks: true, chromeImportMode: "add", workspaceName: "Chrome Bookmarks" },
         purposes: [PurposeId.Personal],
         workspaceId: "ws-1",
         purpose: PurposeId.Personal,
@@ -137,8 +102,7 @@ describe("ImportBookmarksModal", () => {
     );
 
     expect(ctxValue.bumpWorkspacesVersion).toHaveBeenCalledTimes(1);
-    // our mocked content calls onClose after onComplete resolves
-    expect(props.onClose).toHaveBeenCalledTimes(1);
+    expect(props.onClose).not.toHaveBeenCalled();
   });
 
   test("failure during completion shows error and does not close", async () => {
@@ -147,8 +111,8 @@ describe("ImportBookmarksModal", () => {
 
     (commitManualImportIntoWorkspace as jest.Mock).mockRejectedValueOnce(new Error("Boom"));
 
-    await user.click(screen.getByRole("button", { name: /Set Selection/i }));
-    await user.click(screen.getByRole("button", { name: /Finish Import/i }));
+    await user.click(screen.getByRole("button", { name: /chrome bookmarks/i }));
+    await user.click(screen.getByRole("button", { name: /^import$/i }));
 
     expect(props.onClose).not.toHaveBeenCalled();
 
@@ -166,9 +130,11 @@ describe("ImportBookmarksModal", () => {
       }
     );
 
-    await user.click(screen.getByRole("button", { name: /Finish Import/i }));
+    await user.click(screen.getByRole("button", { name: /chrome bookmarks/i }));
+    await user.click(screen.getByRole("button", { name: /^import$/i }));
 
     expect(props.onClose).not.toHaveBeenCalled();
     expect(commitManualImportIntoWorkspace).not.toHaveBeenCalled();
+    expect(await screen.findByText(/no active workspace/i)).toBeInTheDocument();
   });
 });
