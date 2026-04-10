@@ -202,6 +202,50 @@ function normalizeLLMGroups(groups: CategorizedGroup[], purpose: PurposeIdType):
   }));
 }
 
+/**
+ * Parse a JSON or HTML file export into a flat list of RawItems suitable for
+ * smart import. Handles Chrome HTML exports, Tabme, Toby, and generic JSON
+ * group arrays. Returns an empty array if the file cannot be parsed.
+ */
+export function parseFileToRawItems(text: string, fileName: string): RawItem[] {
+  const isHtml = /\.html?$/i.test(fileName);
+
+  let groups: Array<{ groupName?: string; bookmarks?: Array<{ name?: string; url?: string }> }>;
+
+  if (isHtml) {
+    groups = parseChromeHtmlBookmarks(text);
+  } else {
+    let parsed: unknown;
+    try { parsed = JSON.parse(text); } catch { return []; }
+
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      const obj = parsed as Record<string, unknown>;
+      const multiWs = parseTabmeMultiWorkspace(obj) ?? parseTobyMultiWorkspace(obj);
+      if (multiWs) {
+        groups = multiWs.flatMap((ws) => ws.groups);
+      } else {
+        try { groups = parseJsonImport(text); } catch { return []; }
+      }
+    } else {
+      try { groups = parseJsonImport(text); } catch { return []; }
+    }
+  }
+
+  const items: RawItem[] = [];
+  for (const group of groups) {
+    for (const b of group.bookmarks ?? []) {
+      if (!b.url) continue;
+      items.push({
+        id: crypto.randomUUID(),
+        name: b.name ?? b.url,
+        url: b.url,
+        source: ImportSource.Json,
+      });
+    }
+  }
+  return items;
+}
+
 export type CommitManualImportArgs = {
   selection: ManualImportSelectionType;
   purposes: PurposeIdType[];          // used only for LLM grouping

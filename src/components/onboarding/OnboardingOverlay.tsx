@@ -1,5 +1,5 @@
 /* -------------------- Imports -------------------- */
-import React, { useContext, useEffect, useRef, useState } from "react";
+import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AppContext, OnboardingStatus } from "@/scripts/AppContextProvider";
 
@@ -16,6 +16,7 @@ import {
   detectFileFormat,
   formatFilePreviewText,
 } from "@/scripts/import/fileFormatDetection";
+import { parseFileToRawItems } from "@/scripts/import/commitManualImportIntoWorkspace";
 
 /* Hooks */
 import { useManualImportWizardState } from "@/hooks/useManualImportWizardState";
@@ -123,6 +124,12 @@ export const OnboardingOverlay: React.FC = () => {
 
   // Smart import state
   const [smartImportBusy, setSmartImportBusy] = useState(false);
+
+  // Parse the uploaded file into RawItems once so SmartImportStep can include them
+  const fileRawItems = useMemo(() => {
+    if (!manualState.jsonData || !manualState.jsonFileName) return undefined;
+    return parseFileToRawItems(manualState.jsonData, manualState.jsonFileName);
+  }, [manualState.jsonData, manualState.jsonFileName]);
   /* ---------------------------------------------------------- */
 
   /* -------------------- File upload helpers -------------------- */
@@ -384,6 +391,7 @@ export const OnboardingOverlay: React.FC = () => {
           purposes={onboardingPurposes}
           onBusyChange={setSmartImportBusy}
           singleWorkspace
+          fileItems={fileRawItems}
           // When Smart Import finishes, capture the primary workspace id
           onDone={(primaryWorkspaceId) => {
             setSmartImportPrimaryWorkspaceId(primaryWorkspaceId);

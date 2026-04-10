@@ -33,6 +33,8 @@ export type SmartImportOptions = {
   llm: GroupingLLM;
   /** When true, all content goes into a single workspace instead of one per purpose */
   singleWorkspace?: boolean;
+  /** Pre-parsed items from a user-uploaded file to include alongside browser sources */
+  fileItems?: RawItem[];
   /** Called on every phase transition / progress update */
   onProgress?: (progress: SmartImportProgress) => void;
 };
@@ -98,6 +100,7 @@ export async function runSmartImport(
     nsfwFilter,
     llm,
     singleWorkspace,
+    fileItems,
   } = options;
 
   if (!purposes.length) {
@@ -153,6 +156,7 @@ export async function runSmartImport(
     ...bookmarkItems,
     ...tabItems,
     //...historyItems,
+    ...(fileItems ?? []),
   ]);
 
   /* 4) Filter NSFW */

@@ -10,6 +10,7 @@ import React, {
 /* Types */
 import type { PurposeIdType } from "@shared/types/purposeId";
 import type { ImportPhase } from "@/core/types/importPhase";
+import type { RawItem } from "@shared/types/llmGrouping";
 
 /* Hooks */
 import { useSmartImport } from "@/hooks/useSmartImport";
@@ -35,6 +36,7 @@ type SmartImportStepProps = {
   onDone: (primaryWorkspaceId: string) => void;
   onBusyChange?: (busy: boolean) => void;
   singleWorkspace?: boolean;
+  fileItems?: RawItem[];
 };
 /* ---------------------------------------------------------- */
 
@@ -58,6 +60,7 @@ export const SmartImportStep: React.FC<SmartImportStepProps> = ({
   onDone,
   onBusyChange,
   singleWorkspace,
+  fileItems,
 }) => {
   const { userId, bumpWorkspacesVersion } = useContext(AppContext);
 
@@ -80,8 +83,9 @@ export const SmartImportStep: React.FC<SmartImportStepProps> = ({
       nsfwFilter: basicNsfwFilter,
       llm: remoteGroupingLLM,
       singleWorkspace,
+      fileItems,
     }),
-    [workspaceService, singleWorkspace]
+    [workspaceService, singleWorkspace, fileItems]
   );
 
   const { phase: backendPhase, message, start } = useSmartImport(baseOptions);
