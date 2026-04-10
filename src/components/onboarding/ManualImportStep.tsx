@@ -230,7 +230,7 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
         <div className="text-sm text-red-600">{commitError}</div>
       ) : (
         <div className="text-sm text-neutral-600 dark:text-neutral-400">
-          {isCommitting ? (commitMessage || "Importing ...") : "All set! You can open Mindful."}
+          {isCommitting ? (commitMessage || "Importing ...") : "Your space is ready."}
         </div>
       )}
     </div>

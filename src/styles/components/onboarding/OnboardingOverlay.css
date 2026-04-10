@@ -115,12 +115,17 @@
     @apply mt-1 text-xs text-neutral-700 dark:text-neutral-300;
   }
 
+  .import-chip__tip {
+    @apply mt-0.5 text-xs text-neutral-400 dark:text-neutral-500;
+  }
+
   .import-chip__pill {
     @apply rounded-full px-2 py-0.5
            text-[10px] font-medium uppercase tracking-wide
            bg-blue-500/20
            text-blue-700 dark:text-blue-300;
   } 
+
   /* ---------------------------------------------------------- */
 
   /* -------------------- smartImport styles -------------------- */

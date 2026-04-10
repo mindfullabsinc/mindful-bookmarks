@@ -95,7 +95,7 @@ export const IMPORT_BOOKMARKS_STEP_COPY: Record<
   },
   4: {
     title:
-      "Do you want Mindful to automatically organize everything you imported?",
+      "Organize your links automatically?",
   },
 };
 /* ---------------------------------------------------------- */

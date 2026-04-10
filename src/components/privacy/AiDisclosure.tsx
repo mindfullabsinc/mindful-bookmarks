@@ -38,7 +38,7 @@ export function AiDisclosure({
               How automatic organization works
             </div>
             <div className="inline-subtitle">
-              Mindful can organize bookmarks using an AI service ({serviceName}).
+              Mindful uses AI to automatically group your links.
             </div>
           </div>
 

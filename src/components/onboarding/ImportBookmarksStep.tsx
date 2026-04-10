@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import {
   Wand2,
-  PlusSquare,
+  Folder,
 } from "lucide-react";
 
 /* Components */
@@ -60,7 +60,6 @@ export const ImportBookmarksStep: React.FC<ImportBookmarksStepProps> = ({
   return (
     <div className="import-container">
       <div className="import-top-margin">
-        <div className="divider" />
         <div className="import-bottom-margin">
 
           {/* Smart Import */}
@@ -76,13 +75,13 @@ export const ImportBookmarksStep: React.FC<ImportBookmarksStepProps> = ({
             </div>
             <div className="import-chip__body">
               <div className="flex items-center gap-2">
-                <p className="import-chip__title">Smart import</p>
+                <p className="import-chip__title">Organize everything automatically</p>
                 <span className="import-chip__pill">Recommended</span>
               </div>
               <p className="import-chip__subtitle">
-                Let Mindful do the hard work to auto-import from your bookmarks,
-                tabs, and history.
+                We'll group your links into a clean workspace
               </p>
+              <p className="import-chip__tip">You can undo this later</p>
             </div>
           </button>
 
@@ -102,13 +101,12 @@ export const ImportBookmarksStep: React.FC<ImportBookmarksStepProps> = ({
             }`}
           >
             <div className="import-chip__icon_container">
-              <PlusSquare className="import-chip__icon"/>
+              <Folder className="import-chip__icon"/>
             </div>
             <div className="import-chip__body">
-              <p className="import-chip__title">Manual import</p>
+              <p className="import-chip__title">Keep my existing structure</p>
               <p className="import-chip__subtitle">
-                Manually decide exactly what you want to bring into Mindful,
-                one step at a time.
+                Preserve folders and tab groups as-is
               </p>
             </div>
           </button>

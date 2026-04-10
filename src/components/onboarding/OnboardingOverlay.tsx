@@ -1,13 +1,21 @@
 /* -------------------- Imports -------------------- */
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AppContext, OnboardingStatus } from "@/scripts/AppContextProvider";
 
-/* Types */
-import type { WizardStep } from "@/components/shared/ImportBookmarksStepBody";
 
 /* Constants */
-import { ImportPostProcessMode } from "@/core/constants/import";
+import { ImportPostProcessMode, OpenTabsScope } from "@/core/constants/import";
+
+/* Types */
+import type { OpenTabsScopeType } from "@/core/types/import";
+
+/* File format detection */
+import {
+  type FilePreview,
+  detectFileFormat,
+  formatFilePreviewText,
+} from "@/scripts/import/fileFormatDetection";
 
 /* Hooks */
 import { useManualImportWizardState } from "@/hooks/useManualImportWizardState";
@@ -19,20 +27,16 @@ import { ImportBookmarksStep } from "@/components/onboarding/ImportBookmarksStep
 import { SmartImportStep } from "@/components/onboarding/SmartImportStep";
 import { ManualImportStep } from "@/components/onboarding/ManualImportStep";
 import { PinExtensionStep } from "@/components/onboarding/PinExtensionStep";
-import { ImportBookmarksStepBody } from "@/components/shared/ImportBookmarksStepBody";
-import { getImportBookmarksStepCopy } from "@/components/shared/ImportBookmarksStepBody";
 /* ---------------------------------------------------------- */
 
 /* -------------------- Local types / interfaces -------------------- */
 type OnboardingStepId =
   | "selectTheme"
   | "setPurpose"
+  | "selectImportSources"
+  | "onboardingFileUpload"
   | "importBookmarks"
   | "smartImport"
-  | "manualImportJson"
-  | "manualImportBookmarks"
-  | "manualImportTabs"
-  | "manualImportOrganize"
   | "manualImportCommit"
   | "pinExtension"
   | "tips";
@@ -86,15 +90,29 @@ export const OnboardingOverlay: React.FC = () => {
   // Track which import flow the user picked on the ImportBookmarksStep
   const [importFlow, setImportFlow] = useState<"smart" | "manual" | null>(null);
 
+  // Track what sources the user wants to import (step before importBookmarks)
+  const [importSources, setImportSources] = useState({
+    chromeBookmarks: true,
+    openTabs: true,
+    importFromFile: false,
+  });
+  const [tabScope, setTabScope] = useState<OpenTabsScopeType>(OpenTabsScope.All);
+
+  // File upload state (for the onboardingFileUpload step)
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [fileUploadIsDragOver, setFileUploadIsDragOver] = useState(false);
+  const [fileUploadPreview, setFileUploadPreview] = useState<FilePreview | null>(null);
+  const [fileUploadError, setFileUploadError] = useState<string | undefined>();
+
   // Manual import state
-  const { 
-    state: manualState, 
-    selection: manualSelection, 
-    reset: resetManualWizard 
+  const {
+    state: manualState,
+    selection: manualSelection,
+    reset: resetManualWizard
   } = useManualImportWizardState({
-    bookmarksYes: true,
-    tabsYes: true,
-    postProcessMode: ImportPostProcessMode.SemanticGrouping,
+    bookmarksYes: false,
+    tabsYes: false,
+    postProcessMode: ImportPostProcessMode.PreserveStructure,
   });
 
   const [manualCommitBusy, setManualCommitBusy] = useState(false);
@@ -103,6 +121,54 @@ export const OnboardingOverlay: React.FC = () => {
 
   // Smart import state
   const [smartImportBusy, setSmartImportBusy] = useState(false);
+  /* ---------------------------------------------------------- */
+
+  /* -------------------- File upload helpers -------------------- */
+  async function processUploadedFile(file: File) {
+    const isJson = file.name.endsWith(".json") || file.type === "application/json";
+    const isHtml =
+      file.name.endsWith(".html") ||
+      file.name.endsWith(".htm") ||
+      file.type === "text/html";
+    if (!isJson && !isHtml) {
+      setFileUploadError("Please choose a .json or .html file.");
+      return;
+    }
+    try {
+      const text = await file.text();
+      if (isJson) JSON.parse(text);
+      manualState.setJsonFileName(file.name);
+      manualState.setJsonData(text);
+      manualState.setJsonYes(true);
+      setFileUploadPreview(detectFileFormat(file.name, text));
+      setFileUploadError(undefined);
+    } catch {
+      setFileUploadError("Invalid file. Please choose a valid .json or .html file.");
+    }
+  }
+
+  function clearFileUpload() {
+    manualState.setJsonFileName(null);
+    manualState.setJsonData(null);
+    manualState.setJsonYes(false);
+    setFileUploadPreview(null);
+    setFileUploadError(undefined);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+  /* ---------------------------------------------------------- */
+
+  /* -------------------- Sync importSources → manualState -------------------- */
+  // When the user picks "Keep my existing structure", pre-populate manualState
+  // from the answers they already gave in the selectImportSources / onboardingFileUpload steps.
+  useEffect(() => {
+    if (importFlow !== "manual") return;
+    manualState.setBookmarksYes(importSources.chromeBookmarks);
+    manualState.setTabsYes(importSources.openTabs);
+    manualState.setTabScope(tabScope);
+    manualState.setPostProcessMode(ImportPostProcessMode.PreserveStructure);
+    // jsonYes / jsonData / jsonFileName are already set by processUploadedFile during onboardingFileUpload
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [importFlow]);
   /* ---------------------------------------------------------- */
 
   /* -------------------- Step config (dynamic) -------------------- */
@@ -129,12 +195,166 @@ export const OnboardingOverlay: React.FC = () => {
     primaryDisabled: importPrimaryDisabled,
   });
 
-  // 3. Choice between Smart vs Manual import
+  // 3. What to import
+  STEPS.push({
+    id: "selectImportSources",
+    title: "What should we import?",
+    body: (
+      <div className="import-styles">
+        {/* Chrome bookmarks */}
+        <button
+          type="button"
+          onClick={() => setImportSources((prev) => ({ ...prev, chromeBookmarks: !prev.chromeBookmarks }))}
+          className={"checkbox-row " + (importSources.chromeBookmarks ? "checkbox-row--checked" : "checkbox-row--unchecked")}
+          role="checkbox"
+          aria-checked={importSources.chromeBookmarks}
+        >
+          <span className={"checkbox-box " + (importSources.chromeBookmarks ? "checkbox-box--checked" : "checkbox-box--unchecked")} aria-hidden="true">✓</span>
+          <span className="checkbox-label-container">
+            <span className="checkbox-label">Chrome bookmarks</span>
+          </span>
+        </button>
+
+        {/* Open tabs + animated scope picker */}
+        <button
+          type="button"
+          onClick={() => setImportSources((prev) => ({ ...prev, openTabs: !prev.openTabs }))}
+          className={"checkbox-row " + (importSources.openTabs ? "checkbox-row--checked" : "checkbox-row--unchecked")}
+          role="checkbox"
+          aria-checked={importSources.openTabs}
+        >
+          <span className={"checkbox-box " + (importSources.openTabs ? "checkbox-box--checked" : "checkbox-box--unchecked")} aria-hidden="true">✓</span>
+          <span className="checkbox-label-container">
+            <span className="checkbox-label">Open tabs</span>
+          </span>
+        </button>
+        <AnimatePresence initial={false}>
+          {importSources.openTabs && (
+            <motion.div
+              key="tab-scope"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2, ease: "easeInOut" }}
+              style={{ overflow: "hidden" }}
+            >
+              <div className="pl-12 pt-1 pb-1">
+                <p className="text-xs font-normal text-neutral-600 dark:text-neutral-400 mb-1">Which tabs?</p>
+                <div className="space-y-0.5">
+                  {([
+                    { value: OpenTabsScope.All, label: "All open tabs" },
+                    { value: OpenTabsScope.Current, label: "Just this window" },
+                  ] as const).map(({ value, label }) => {
+                    const selected = tabScope === value;
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setTabScope(value)}
+                        className={`tabs-radio-button-row !p-1.5 !rounded-lg ${selected ? "tabs-radio-button-row--selected" : "tabs-radio-button-row--unselected"}`}
+                      >
+                        <div className={`tabs-radio-button-outer-circle ${selected ? "tabs-radio-button-outer-circle--selected" : "tabs-radio-button-outer-circle--unselected"}`}>
+                          {selected && <div className="tabs-radio-button-inner-circle" />}
+                        </div>
+                        <span className="tabs-radio-button-text !text-xs">{label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Import from a file */}
+        <button
+          type="button"
+          onClick={() => setImportSources((prev) => ({ ...prev, importFromFile: !prev.importFromFile }))}
+          className={"checkbox-row " + (importSources.importFromFile ? "checkbox-row--checked" : "checkbox-row--unchecked")}
+          role="checkbox"
+          aria-checked={importSources.importFromFile}
+        >
+          <span className={"checkbox-box " + (importSources.importFromFile ? "checkbox-box--checked" : "checkbox-box--unchecked")} aria-hidden="true">✓</span>
+          <span className="checkbox-label-container">
+            <span className="checkbox-label">Import from a file (.json or .html export)</span>
+            <span className="checkbox-label-description">We'll ask you to upload it next</span>
+          </span>
+        </button>
+      </div>
+    ),
+    primaryLabel: "Next",
+    secondaryLabel: "Back",
+  });
+
+  // 4. File upload (only when user checked "Import from a file")
+  if (importSources.importFromFile) {
+    STEPS.push({
+      id: "onboardingFileUpload",
+      title: "Import from a file",
+      subtitle:
+        "If you exported from another bookmark manager (or from Mindful), bring that file in now.",
+      body: (
+        <div className="import-styles mt-4">
+          {manualState.jsonData && fileUploadPreview ? (
+            /* ── File selected: preview card ── */
+            <>
+              <div className="file-preview-card">
+                <p className="file-preview-label">{formatFilePreviewText(fileUploadPreview).label}</p>
+                <p className="file-preview-summary">{formatFilePreviewText(fileUploadPreview).summary}</p>
+              </div>
+              <button type="button" className="json-file-remove" onClick={clearFileUpload}>
+                Choose a different file
+              </button>
+            </>
+          ) : (
+            /* ── No file yet: drop zone ── */
+            <>
+              <p className="json-format-hint">Supported formats: Chrome (.html), Toby (.json), TabMe (.json), Mindful (.json)</p>
+              <div
+                className={`json-drop-zone${fileUploadIsDragOver ? " json-drop-zone--active" : ""}`}
+                onDragOver={(e) => { e.preventDefault(); setFileUploadIsDragOver(true); }}
+                onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setFileUploadIsDragOver(false); }}
+                onDrop={async (e) => {
+                  e.preventDefault();
+                  setFileUploadIsDragOver(false);
+                  const file = e.dataTransfer.files?.[0];
+                  if (file) await processUploadedFile(file);
+                }}
+              >
+                <span className="json-drop-zone-label">Drag &amp; drop a file here, or</span>
+                <button
+                  type="button"
+                  className="json-drop-zone-button"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  Choose File
+                </button>
+                <span className="json-drop-zone-hint">.json or .html</span>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="application/json,.json,text/html,.html,.htm"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (file) await processUploadedFile(file);
+                  }}
+                  className="json-input-hidden"
+                />
+              </div>
+              {fileUploadError && <div className="error-message">{fileUploadError}</div>}
+            </>
+          )}
+        </div>
+      ),
+      primaryLabel: manualState.jsonData ? "Next" : "Skip",
+      secondaryLabel: "Back",
+    });
+  }
+
+  // 5. Choice between Smart vs Manual import
   STEPS.push({
     id: "importBookmarks",
-    title: "Bring Mindful up to speed.",
-    subtitle:
-      "Choose how you'd like to get your existing web life into Mindful.",
+    title: "How should we organize your links?",
     body: (
       <ImportBookmarksStep
         setPrimaryDisabled={setImportPrimaryDisabled}
@@ -150,7 +370,7 @@ export const OnboardingOverlay: React.FC = () => {
     primaryDisabled: importPrimaryDisabled,
   });
 
-  // 4. Final step depends on importFlow
+  // 6. Final step depends on importFlow
   if (importFlow === "smart") {
     STEPS.push({
       id: "smartImport",
@@ -173,81 +393,8 @@ export const OnboardingOverlay: React.FC = () => {
     });
 
   } else if (importFlow === "manual") {
-    const step1Copy = getImportBookmarksStepCopy(1);
     STEPS.push({
-      id: "manualImportJson" as any,
-      title: step1Copy.title,
-      subtitle: step1Copy.subtitle, 
-      body: (
-        <div className="import-styles">
-          <ImportBookmarksStepBody
-            step={1}
-            showInternalHeader={false}
-            state={manualState}
-            busy={manualCommitBusy}
-            hasExistingData={false}
-          />
-        </div>
-      ),
-      primaryLabel: nextOrSkip(manualState.jsonYes),
-      secondaryLabel: "Back",
-      primaryDisabled: manualState.jsonYes && !manualState.jsonData, // require file if they said yes
-    });
-
-    const step2Copy = getImportBookmarksStepCopy(2);
-    STEPS.push({
-      id: "manualImportBookmarks" as any,
-      title: step2Copy.title, 
-      body: (
-        <div className="import-styles">
-          <ImportBookmarksStepBody
-            step={2}
-            showInternalHeader={false}
-            state={manualState}
-          />
-        </div>
-      ),
-      primaryLabel: nextOrSkip(manualState.bookmarksYes),
-      secondaryLabel: "Back",
-    });
-
-    const step3Copy = getImportBookmarksStepCopy(3);
-    STEPS.push({
-      id: "manualImportTabs" as any,
-      title: step3Copy.title,
-      body: (
-        <div className="import-styles">
-          <ImportBookmarksStepBody
-            step={3}
-            showInternalHeader={false}
-            state={manualState}
-          />
-        </div>
-      ),
-      primaryLabel: nextOrSkip(manualState.tabsYes),
-      secondaryLabel: "Back",
-    });
-
-    const step4Copy = getImportBookmarksStepCopy(4);
-    const autoOrganizeEnabled = manualState.postProcessMode === ImportPostProcessMode.SemanticGrouping;
-    STEPS.push({
-      id: "manualImportOrganize" as any,
-      title: step4Copy.title,
-      body: (
-        <div className="import-styles">
-          <ImportBookmarksStepBody
-            step={4}
-            showInternalHeader={false}
-            state={manualState}
-          />
-        </div>
-      ),
-      primaryLabel: nextOrSkip(autoOrganizeEnabled),
-      secondaryLabel: "Back",
-    });
-
-    STEPS.push({
-      id: "manualImportCommit" as any,
+      id: "manualImportCommit",
       title: "Setting things up ...",
       body: (
         <ManualImportStep
@@ -288,6 +435,12 @@ export const OnboardingOverlay: React.FC = () => {
       setManualImportPrimaryWorkspaceId(null);
       setImportPrimaryDisabled(true);
       setImportFlow(null);
+      setImportSources({ chromeBookmarks: true, openTabs: true, importFromFile: false });
+      setTabScope(OpenTabsScope.All);
+      setFileUploadPreview(null);
+      setFileUploadError(undefined);
+      setFileUploadIsDragOver(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
 
       resetManualWizard();
 
@@ -368,12 +521,6 @@ export const OnboardingOverlay: React.FC = () => {
       setStepIndex((prev) => Math.max(prev - 1, 0));
     }
   };
-  /* ---------------------------------------------------------- */
-
-  /* -------------------- Helper functions -------------------- */
-  function nextOrSkip(checked: boolean): string {
-    return checked ? "Next" : "Skip";
-  }
   /* ---------------------------------------------------------- */
 
   /* -------------------- Main component rendering -------------------- */
