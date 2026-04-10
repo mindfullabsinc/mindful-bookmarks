@@ -235,8 +235,8 @@ describe("localWorkspaceRegistry", () => {
     await archiveWorkspace(wsId);
 
     const updatedReg = store[WORKSPACE_REGISTRY_KEY] as WorkspaceRegistryType;
-    expect(updatedReg.items[wsId].archived).toBeUndefined();
-    expect(updatedReg.activeId).toBe(wsId);
+    expect(updatedReg.items[wsId].archived).toBe(true);
+    expect(updatedReg.activeId).not.toBe(wsId);
   });
 
   test("archiveWorkspace archives a workspace and reassigns active to default when possible", async () => {

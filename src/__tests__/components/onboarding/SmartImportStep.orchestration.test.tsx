@@ -23,6 +23,14 @@ jest.mock("@/components/shared/ImportProgress", () => {
   };
 });
 
+jest.mock("@/scripts/workspaces/registry", () => {
+  const actual = jest.requireActual("@/scripts/workspaces/registry");
+  return {
+    ...actual,
+    pruneNewWorkspacePlaceholders: jest.fn().mockResolvedValue(undefined),
+  };
+});
+
 /* Component under test (import AFTER mocks are declared) */
 import { SmartImportStep } from "@/components/onboarding/SmartImportStep";
 

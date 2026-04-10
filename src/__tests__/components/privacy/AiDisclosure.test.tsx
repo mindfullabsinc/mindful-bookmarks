@@ -5,7 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { AiDisclosure } from "@/components/privacy/AiDisclosure";
 
 describe("AiDisclosure", () => {
-  it("renders inline variant by default, with serviceName in subtitle, and toggles body via Learn more/Hide", async () => {
+  it("renders inline variant by default and toggles body via Learn more/Hide", async () => {
     const user = userEvent.setup();
 
     render(<AiDisclosure />);
@@ -16,7 +16,7 @@ describe("AiDisclosure", () => {
     ).toBeInTheDocument();
 
     expect(
-      screen.getByText(/Mindful can organize bookmarks using an AI service \(OpenAI\)\./i)
+      screen.getByText(/Mindful uses AI to automatically group your links\./i)
     ).toBeInTheDocument();
 
     // Body is hidden initially
@@ -56,13 +56,13 @@ describe("AiDisclosure", () => {
     ).toBeInTheDocument();
   });
 
-  it("uses provided serviceName in inline subtitle and body", async () => {
+  it("uses provided serviceName in body", async () => {
     const user = userEvent.setup();
 
     render(<AiDisclosure serviceName="Anthropic" />);
 
     expect(
-      screen.getByText(/Mindful can organize bookmarks using an AI service \(Anthropic\)\./i)
+      screen.getByText(/Mindful uses AI to automatically group your links\./i)
     ).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /learn more/i }));

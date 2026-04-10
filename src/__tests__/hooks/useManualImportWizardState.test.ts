@@ -34,6 +34,7 @@ describe("useManualImportWizardState", () => {
     expect(selection).toEqual({
       jsonFileName: null,
       jsonData: null,
+      jsonImportMode: undefined,
       importBookmarks: false,
       tabScope: undefined,
       importPostProcessMode: ImportPostProcessMode.PreserveStructure,
@@ -68,6 +69,7 @@ describe("useManualImportWizardState", () => {
     expect(selection).toEqual({
       jsonFileName: "bookmarks.json",
       jsonData: "{...}",
+      jsonImportMode: "add",
       importBookmarks: true,
       tabScope: OpenTabsScope.Current,
       importPostProcessMode: ImportPostProcessMode.PreserveStructure,
@@ -89,6 +91,7 @@ describe("useManualImportWizardState", () => {
     expect(result.current.selection).toEqual({
       jsonFileName: "import.json",
       jsonData: "data",
+      jsonImportMode: "add",
       importBookmarks: true,
       tabScope: OpenTabsScope.Current,
       importPostProcessMode:
@@ -147,21 +150,22 @@ describe("useManualImportWizardState", () => {
 
     const { state, selection } = result.current;
 
-    expect(state.jsonYes).toBe(false);
-    expect(state.jsonFileName).toBeNull();
-    expect(state.jsonData).toBeNull();
-    expect(state.bookmarksYes).toBe(false);
-    expect(state.tabsYes).toBe(false);
-    expect(state.tabScope).toBe(OpenTabsScope.All);
+    expect(state.jsonYes).toBe(true);
+    expect(state.jsonFileName).toBe("file.json");
+    expect(state.jsonData).toBe("data");
+    expect(state.bookmarksYes).toBe(true);
+    expect(state.tabsYes).toBe(true);
+    expect(state.tabScope).toBe(OpenTabsScope.Current);
     expect(state.postProcessMode).toBe(
       ImportPostProcessMode.PreserveStructure
     );
 
     expect(selection).toEqual({
-      jsonFileName: null,
-      jsonData: null,
-      importBookmarks: false,
-      tabScope: undefined,
+      jsonFileName: "file.json",
+      jsonData: "data",
+      jsonImportMode: "add",
+      importBookmarks: true,
+      tabScope: OpenTabsScope.Current,
       importPostProcessMode:
         ImportPostProcessMode.PreserveStructure,
     });

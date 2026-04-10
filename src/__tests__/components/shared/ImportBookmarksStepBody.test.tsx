@@ -93,21 +93,25 @@ function WizardHarness({
 describe("ImportBookmarksStepBody", () => {
   test("getImportBookmarksStepCopy returns step copy", () => {
     const copy = getImportBookmarksStepCopy(1);
-    expect(copy.title).toMatch(/json file/i);
+    expect(copy.title).toMatch(/\.json or \.html/i);
 
     const copy4 = getImportBookmarksStepCopy(4);
-    expect(copy4.title).toMatch(/automatically organize/i);
+    expect(copy4.title).toMatch(/organize your links automatically/i);
   });
 
   test("renders internal header by default, and can hide it", () => {
     const { rerender } = render(<WizardHarness step={1} />);
 
     expect(screen.getByText(`Step 1 of ${LAST_STEP}`)).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /do you have a json file to import/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /do you have a \.json or \.html file to import/i })
+    ).toBeInTheDocument();
 
     rerender(<WizardHarness step={1} showInternalHeader={false} />);
     expect(screen.queryByText(`Step 1 of ${LAST_STEP}`)).not.toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: /do you have a json file to import/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: /do you have a \.json or \.html file to import/i })
+    ).not.toBeInTheDocument();
   });
 
   describe("step 1 (JSON file)", () => {
@@ -132,16 +136,18 @@ describe("ImportBookmarksStepBody", () => {
 
       await user.upload(fileInput as HTMLInputElement, file);
 
-      // Don't assert "Selected:" (can be split across nodes); assert filename + Remove button
+      // Assert preview + choose different file button
       await waitFor(() => {
-        expect(screen.getByText("bookmarks.json")).toBeInTheDocument();
-        expect(screen.getByRole("button", { name: /remove/i })).toBeInTheDocument();
+        expect(screen.getByText(/file ready to import/i)).toBeInTheDocument();
+        expect(
+          screen.getByRole("button", { name: /choose a different file/i })
+        ).toBeInTheDocument();
       });
 
-      await user.click(screen.getByRole("button", { name: /remove/i }));
+      await user.click(screen.getByRole("button", { name: /choose a different file/i }));
 
       await waitFor(() => {
-        expect(screen.queryByText("bookmarks.json")).not.toBeInTheDocument();
+        expect(screen.queryByText(/file ready to import/i)).not.toBeInTheDocument();
         expect(document.querySelector("#json-file-input")).toBeTruthy();
       });
     });
@@ -156,48 +162,59 @@ describe("ImportBookmarksStepBody", () => {
       expect(fileInput).toBeDisabled();
       unmount();
 
-      // Case B: busy disables Remove button when a file is already selected
-      render(
-        <WizardHarness
-          step={1}
-          busy
-          initial={{
-            jsonYes: true,
-            jsonFileName: "x.json",
-            jsonData: "{}",
-          }}
-        />
-      );
+      // Case B: busy disables "Choose a different file" when a file is already selected
+      const { rerender } = render(<WizardHarness step={1} initial={{ jsonYes: true }} />);
 
-      const removeBtn = screen.getByRole("button", { name: /remove/i });
-      expect(removeBtn).toBeDisabled();
+      const fileInputSelected = document.querySelector("#json-file-input") as HTMLInputElement | null;
+      expect(fileInputSelected).toBeTruthy();
+
+      const jsonString = JSON.stringify({ hello: "world" });
+      const file = new File([jsonString], "bookmarks.json", { type: "application/json" });
+      Object.defineProperty(file, "text", {
+        configurable: true,
+        value: async () => jsonString,
+      });
+
+      await user.upload(fileInputSelected as HTMLInputElement, file);
+
+      await waitFor(() => {
+        expect(screen.getByText(/file ready to import/i)).toBeInTheDocument();
+      });
+
+      rerender(<WizardHarness step={1} busy initial={{ jsonYes: true }} />);
+
+      const chooseDifferentBtn = screen.getByRole("button", { name: /choose a different file/i });
+      expect(chooseDifferentBtn).toBeDisabled();
 
       // Clicking shouldn't change anything / throw
-      await user.click(removeBtn);
-      expect(screen.getByText("x.json")).toBeInTheDocument();
+      await user.click(chooseDifferentBtn);
+      expect(screen.getByText(/file ready to import/i)).toBeInTheDocument();
     });
     
     test("turning Yes off clears selected JSON state (clears selection and hides container)", async () => {
       const user = userEvent.setup();
 
-      render(
-        <WizardHarness
-          step={1}
-          initial={{
-            jsonYes: true,
-            jsonFileName: "x.json",
-            jsonData: "{}",
-          }}
-        />
-      );
+      render(<WizardHarness step={1} initial={{ jsonYes: true }} />);
 
-      expect(screen.getByText(/selected:/i)).toBeInTheDocument();
-      expect(screen.getByText("x.json")).toBeInTheDocument();
+      const fileInput = document.querySelector("#json-file-input") as HTMLInputElement | null;
+      expect(fileInput).toBeTruthy();
+
+      const jsonString = JSON.stringify({ hello: "world" });
+      const file = new File([jsonString], "bookmarks.json", { type: "application/json" });
+      Object.defineProperty(file, "text", {
+        configurable: true,
+        value: async () => jsonString,
+      });
+
+      await user.upload(fileInput as HTMLInputElement, file);
+      await waitFor(() => {
+        expect(screen.getByText(/file ready to import/i)).toBeInTheDocument();
+      });
 
       const yesRow = screen.getByRole("button", { name: /^yes$/i });
       await user.click(yesRow); // toggles off -> should clear selection and hide json input container
 
-      expect(screen.queryByText(/selected:/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/file ready to import/i)).not.toBeInTheDocument();
       expect(document.querySelector("#json-file-input")).not.toBeInTheDocument();
     });
   });

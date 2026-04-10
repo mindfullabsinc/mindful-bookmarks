@@ -15,6 +15,9 @@ export function makeAppContext(
     setActiveWorkspaceId: async () => {},
     workspacesVersion: 0,
     bumpWorkspacesVersion: () => {},
+    postImportTick: 0,
+    postImportPreviousIds: [],
+    bumpPostImport: () => {},
 
     /* Bookmarks */
     groupsIndex: [],

@@ -152,19 +152,21 @@ describe('WorkspaceSwitcher', () => {
     expect(mock_listLocalWorkspaces).toHaveBeenCalledTimes(2);
   });
 
-  test('rename workspace prompts for new name and refreshes list', async () => {
+  test('rename workspace commits inline edit and refreshes list', async () => {
     arrange();
     // Open panel
     fireEvent.click(screen.getByRole('button', { name: /show workspaces/i }));
     await screen.findByRole('dialog', { name: /workspace switcher/i });
     await screen.findAllByRole('button', { name: /rename/i }); // ensure rows rendered
 
-    // prompt returns a new value
-    promptSpy.mockImplementation(() => 'Renamed');
-
-    // click first row's rename
+    // click first row's rename to enter edit mode
     const renameBtn = await screen.findByRole('button', { name: /rename alpha/i });
     fireEvent.click(renameBtn);
+
+    const editSpan = await screen.findByLabelText(/rename workspace/i);
+    editSpan.textContent = 'Renamed';
+    fireEvent.input(editSpan);
+    fireEvent.blur(editSpan);
 
     await waitFor(() => {
       expect(mock_renameWorkspace).toHaveBeenCalledWith('ws-a', 'Renamed');

@@ -170,7 +170,7 @@ describe("commitManualImportIntoWorkspace", () => {
         purpose: "p1" as any,
         workspaceService,
       })
-    ).rejects.toThrow("That JSON file doesn’t look valid. Please re-export and try again.");
+    ).rejects.toThrow("That JSON file doesn't look valid. Please re-export and try again.");
   });
 
   it("uses the correct Chrome bookmarks importer based on mode", async () => {

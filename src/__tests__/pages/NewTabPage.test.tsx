@@ -218,22 +218,6 @@ jest.mock('aws-amplify/auth', () => ({
 }));
 
 
-let lastEmptyStateOnImport: (() => void) | undefined;
-jest.mock('@/components/EmptyBookmarksState', () => ({
-  __esModule: true,
-  default: ({ onImport }: { onImport: () => void }) => {
-    // expose the latest handler so tests can call it deterministically
-    lastEmptyStateOnImport = onImport;
-    return (
-      <section aria-label="Getting started with bookmarks">
-        <button type="button" aria-label="Import bookmarks" onClick={onImport}>
-          Import bookmarks
-        </button>
-      </section>
-    );
-  },
-}));
-
 jest.mock('@/hooks/useImportBookmarks', () => ({
   __esModule: true,
   default: jest.fn(),            // mock default export
@@ -427,28 +411,6 @@ describe.each([
     });
   });
 
-  it('should import bookmarks via the EmptyBookmarksState button', async () => {
-    // Ensure no stray localStorage hides the real component if your test env leaks between tests
-    localStorage.removeItem('mindful.emptyStateChecklist');
-    localStorage.removeItem('mindful.emptyStateDismissed');
-
-    render(
-      <AppContextProvider user={mockUser}>
-        <NewTabPage user={mockUser} signOut={mockSignOut} />
-      </AppContextProvider>
-    );
-
-    // Wait until the grid proves the content subtree is mounted
-    await screen.findByTestId('draggable-grid');
-
-    // Deterministically trigger the same effect as clicking the button
-    expect(lastEmptyStateOnImport).toBeDefined();
-    await act(async () => { lastEmptyStateOnImport!(); });
-
-    // In remote mode the AnalyticsProvider is lazy-loaded; give React a tick
-    await waitFor(() => expect(mockImportBookmarksFromJSON).toHaveBeenCalledTimes(1));
-  });
-  
   // Conditionally run tests that are only relevant for LOCAL storage
   if (storageMode === StorageMode.LOCAL) {
     it('should listen for storage changes and reload data accordingly', async () => {
