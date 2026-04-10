@@ -67,6 +67,8 @@ export const OnboardingOverlay: React.FC = () => {
     onboardingPurposes,
     setActiveWorkspaceId,
     bookmarkGroups,
+    workspaces,
+    bumpPostImport,
   } = useContext(AppContext);
 
   const hasExistingData = bookmarkGroups.some(
@@ -505,7 +507,11 @@ export const OnboardingOverlay: React.FC = () => {
         await setActiveWorkspaceId(primaryWorkspaceId as any);
       }
 
+      // Capture workspace IDs before completing so WorkspaceSwitcher can
+      // animate newly created ones (same mechanism as standalone import).
+      const previousIds = Object.keys(workspaces);
       await completeOnboarding();
+      bumpPostImport(previousIds);
       return;
     }
 
