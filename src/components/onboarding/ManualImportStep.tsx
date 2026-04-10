@@ -166,8 +166,8 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
 
         if (cancelled || token !== runTokenRef.current) return;
 
-        bumpWorkspacesVersion();
         await pruneNewWorkspacePlaceholders();
+        bumpWorkspacesVersion();
         setBackendPhase("finalizing");
         setCommitMessage("Import complete.");
         onProgress?.("Import complete.");

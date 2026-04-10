@@ -19,6 +19,7 @@ import { AppContext } from "@/scripts/AppContextProvider";
 
 /* Service implementations */
 import { createWorkspaceServiceLocal } from "@/scripts/import/workspaceServiceLocal";
+import { pruneNewWorkspacePlaceholders } from "@/scripts/workspaces/registry";
 import { chromeBrowserSourceService } from "@/scripts/import/browserSourceServiceChrome";
 import { basicNsfwFilter } from "@/scripts/import/nsfwFilter";
 import { remoteGroupingLLM } from "@/scripts/import/groupingLLMRemote";
@@ -113,11 +114,13 @@ export const SmartImportStep: React.FC<SmartImportStepProps> = ({
         const id = await start(purposes);
         if (!cancelled) {
           if (id) setPrimaryWorkspaceId(id);
+          await pruneNewWorkspacePlaceholders();
           bumpWorkspacesVersion();
         }
       } catch (err) {
         console.error("[SmartImportStep] error during smart import", err);
         if (!cancelled) {
+          await pruneNewWorkspacePlaceholders();
           bumpWorkspacesVersion();
         }
       } finally {
