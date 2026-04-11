@@ -19,7 +19,9 @@ const TopBanner = ({
   onSignIn,
   onSignOut,
   isSignedIn,
-  onStorageModeChange
+  onStorageModeChange,
+  onOrganize = () => {},
+  isOrganizing = false,
 }) => {
   /* -------------------- Context / state -------------------- */
   const { openOnboarding, storageMode = DEFAULT_STORAGE_MODE } = useContext(AppContext);
@@ -65,7 +67,32 @@ const TopBanner = ({
         <LogoComponent />
 
         {/* Right: icons + avatar */}
-        <nav className="hidden items-right gap-6 md:flex">
+        <nav className="hidden items-center gap-3 md:flex">
+          <Tooltip label="Group and clean up your links">
+            <button
+              onClick={onOrganize}
+              disabled={isOrganizing}
+              className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg
+                         text-sm font-medium
+                         text-neutral-700 dark:text-neutral-200
+                         bg-white dark:bg-neutral-800
+                         border border-neutral-200 dark:border-neutral-700
+                         hover:bg-neutral-50 dark:hover:bg-neutral-700
+                         shadow-sm transition-colors
+                         disabled:opacity-60 disabled:cursor-not-allowed
+                         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60"
+              aria-label="Organize workspace with AI"
+            >
+              {isOrganizing
+                ? <i className="fas fa-spinner fa-spin text-blue-500" />
+                : <i className="fas fa-wand-magic-sparkles text-blue-500" />
+              }
+              {isOrganizing ? 'Organizing ...' : 'Organize'}
+            </button>
+          </Tooltip>
+
+          <div className="w-px h-5 bg-neutral-200 dark:bg-neutral-700" />
+
         <Tooltip label="Onboarding">
           <button
             onClick={openOnboarding} 

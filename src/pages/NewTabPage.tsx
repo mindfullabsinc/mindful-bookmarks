@@ -30,6 +30,11 @@ import { AppContext } from "@/scripts/AppContextProvider";
 import { copyItems, moveItems } from "@/scripts/copyBookmarks";
 import { commitManualImportIntoWorkspace } from '@/scripts/import/commitManualImportIntoWorkspace';
 import { createWorkspaceServiceLocal } from '@/scripts/import/workspaceServiceLocal';
+import { remoteGroupingLLM } from '@/scripts/import/groupingLLMRemote';
+
+/* Constants */
+import { ImportSource } from '@/core/constants/import';
+import { PurposeId } from '@shared/constants/purposeId';
 
 /* Components */
 import TopBanner from "@/components/TopBanner";
@@ -37,6 +42,8 @@ import DraggableGrid, { GridHandle } from '@/components/DraggableGrid';
 import { WorkspaceSwitcher } from "@/components/WorkspaceSwitcher";
 import CopyToModal from "@/components/modals/CopyToModal";
 import { Toast } from "@/components/primitives/Toast";
+import { OrganizeBanner, ORGANIZE_PHASE_SEQUENCE } from '@/components/OrganizeBanner';
+import type { ImportPhase } from '@/core/types/importPhase';
 
 /* Events */
 import { openCopyTo, type CopyPayload } from "@/scripts/events/copyToBridge";
@@ -59,6 +66,7 @@ type AppCtxShape = {
   workspaces: Record<string, any>;
   bumpPostImport: (previousIds: string[]) => void;
   bumpWorkspacesVersion: () => void;
+  onboardingPurposes: string[];
 };
 
 type NewTabPageProps = {
@@ -111,6 +119,7 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
     workspaces,
     bumpPostImport,
     bumpWorkspacesVersion,
+    onboardingPurposes,
   } = useContext(AppContext) as AppCtxShape;
 
   const gridRef = useRef<GridHandle | null>(null);
@@ -127,10 +136,14 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
     exportBookmarksToJSON,
     importBookmarksFromJSON,
     changeStorageMode,
+    updateAndPersistGroups,
   } = useBookmarkManager();
 
   // Copy modal state + pending request
   const [copyOpen, setCopyOpen] = useState(false);
+  const [isOrganizing, setIsOrganizing] = useState(false);
+  const [organizePhase, setOrganizePhase] = useState<ImportPhase>('initializing');
+  const [organizeSucceeded, setOrganizeSucceeded] = useState(false);
   const pendingCopyRef = useRef<CopyPayload | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const toast = (msg: string) => setToastMsg(msg);
@@ -312,6 +325,80 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
       toast(`Import failed: ${err?.message ?? String(err)}`);
     }
   }, [userId, activeWorkspaceId, workspaces, bumpPostImport, bumpWorkspacesVersion]);
+
+  /**
+   * Reorganize all bookmarks in the current workspace using AI grouping.
+   * Flattens every bookmark into RawItems, sends them to the grouping API,
+   * then replaces the workspace groups with the AI-suggested grouping.
+   */
+  const organizeWorkspace = useCallback(async () => {
+    if (isOrganizing || !bookmarkGroupsRaw) return;
+
+    const realGroups = bookmarkGroupsRaw.filter(g => g.groupName !== EMPTY_GROUP_IDENTIFIER);
+    const allBookmarks = realGroups.flatMap(g => g.bookmarks ?? []);
+
+    if (allBookmarks.length === 0) {
+      toast('No bookmarks to organize.');
+      return;
+    }
+
+    // Build a lookup map so we can restore full BookmarkType (faviconUrl, etc.) after grouping
+    const bookmarkById = new Map<string, BookmarkType>();
+    for (const bm of allBookmarks) {
+      bookmarkById.set(bm.id, bm);
+    }
+
+    const rawItems = allBookmarks.map(bm => ({
+      id: bm.id,
+      name: bm.name ?? bm.url,
+      url: bm.url,
+      source: ImportSource.Bookmarks as any,
+    }));
+
+    const purposes = onboardingPurposes?.length
+      ? onboardingPurposes
+      : [PurposeId.Personal];
+
+    setOrganizePhase('initializing');
+    setIsOrganizing(true);
+    try {
+      // Phase: categorizing — API call is now in flight
+      setOrganizePhase('categorizing');
+      const result = await remoteGroupingLLM.group({ items: rawItems, purposes: purposes as any });
+
+      // Phase: persisting — write new groups to storage
+      setOrganizePhase('persisting');
+      const emptyGroup = bookmarkGroupsRaw.find(g => g.groupName === EMPTY_GROUP_IDENTIFIER);
+      await updateAndPersistGroups(() => {
+        const newGroups: BookmarkGroupType[] = result.groups
+          .filter(cg => cg.items.length > 0)
+          .map(cg => ({
+            id: crypto.randomUUID(),
+            groupName: cg.name,
+            bookmarks: cg.items.map(item =>
+              bookmarkById.get(item.id) ?? { id: item.id, name: item.name, url: item.url }
+            ),
+          }));
+
+        if (emptyGroup) newGroups.push(emptyGroup);
+        return newGroups;
+      });
+
+      // Phase: done — crossfade to success card, then slide the whole banner out
+      setOrganizePhase('done');
+      await new Promise(r => setTimeout(r, 600));  // let 'done' phase register
+      setOrganizeSucceeded(true);                  // success card fades in, organizing card fades out
+      await new Promise(r => setTimeout(r, 2000)); // hold success state
+      setIsOrganizing(false);                      // slide banner out
+      await new Promise(r => setTimeout(r, 500));  // wait for slide-out to finish
+      setOrganizeSucceeded(false);                 // reset for next run
+    } catch (err: any) {
+      toast(`Couldn't organize workspace: ${err?.message ?? String(err)}`);
+    } finally {
+      setIsOrganizing(false);
+      setOrganizePhase('initializing'); // reset for next run
+    }
+  }, [isOrganizing, bookmarkGroupsRaw, onboardingPurposes, updateAndPersistGroups]);
 
   /**
    * Execute a confirmed copy or move request emitted by the modal, then surface the result via toast.
@@ -587,6 +674,8 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
         onSignOut={signOut || defaultSignOut}
         isSignedIn={isSignedIn /* prefer context-derived status over props */}
         onStorageModeChange={changeStorageMode}
+        onOrganize={organizeWorkspace}
+        isOrganizing={isOrganizing}
       />
 
       {/* Page-level file drop overlay */}
@@ -613,6 +702,12 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
               transition-[padding-left]
             "
           >
+            <OrganizeBanner
+              visible={isOrganizing}
+              backendPhase={organizePhase}
+              succeeded={organizeSucceeded}
+            />
+
             <DraggableGrid
               ref={gridRef as any}
               user={isSignedIn ? { sub: userId as string } : null}
