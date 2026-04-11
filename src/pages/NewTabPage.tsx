@@ -144,6 +144,10 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
   const [isOrganizing, setIsOrganizing] = useState(false);
   const [organizePhase, setOrganizePhase] = useState<ImportPhase>('initializing');
   const [organizeSucceeded, setOrganizeSucceeded] = useState(false);
+  // Snapshot of groups captured before each organize run — used by Undo.
+  const preOrganizeSnapshotRef = useRef<BookmarkGroupType[] | null>(null);
+  // Incremented each run; lets the async flow detect when Undo has invalidated it.
+  const organizeRunRef = useRef(0);
   const pendingCopyRef = useRef<CopyPayload | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const toast = (msg: string) => setToastMsg(msg);
@@ -330,6 +334,9 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
    * Reorganize all bookmarks in the current workspace using AI grouping.
    * Flattens every bookmark into RawItems, sends them to the grouping API,
    * then replaces the workspace groups with the AI-suggested grouping.
+   *
+   * Uses organizeRunRef to detect stale runs — if the user clicks Undo mid-flight,
+   * each await resumes to a stale run ID and exits early without updating state.
    */
   const organizeWorkspace = useCallback(async () => {
     if (isOrganizing || !bookmarkGroupsRaw) return;
@@ -359,12 +366,18 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
       ? onboardingPurposes
       : [PurposeId.Personal];
 
+    // Snapshot current groups so Undo can restore them
+    preOrganizeSnapshotRef.current = [...bookmarkGroupsRaw];
+    const runId = ++organizeRunRef.current;
+    const isStale = () => organizeRunRef.current !== runId;
+
     setOrganizePhase('initializing');
     setIsOrganizing(true);
     try {
       // Phase: categorizing — API call is now in flight
       setOrganizePhase('categorizing');
       const result = await remoteGroupingLLM.group({ items: rawItems, purposes: purposes as any });
+      if (isStale()) return; // Undo clicked before data was written — just bail
 
       // Phase: persisting — write new groups to storage
       setOrganizePhase('persisting');
@@ -384,21 +397,55 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
         return newGroups;
       });
 
+      if (isStale()) {
+        // Undo clicked after data was written — revert immediately
+        const snapshot = preOrganizeSnapshotRef.current;
+        if (snapshot) await updateAndPersistGroups(() => snapshot);
+        return;
+      }
+
       // Phase: done — crossfade to success card, then slide the whole banner out
       setOrganizePhase('done');
       await new Promise(r => setTimeout(r, 600));  // let 'done' phase register
+      if (isStale()) return;
+
       setOrganizeSucceeded(true);                  // success card fades in, organizing card fades out
-      await new Promise(r => setTimeout(r, 2000)); // hold success state
+      await new Promise(r => setTimeout(r, 4000)); // hold success state
+      if (isStale()) return;
+
       setIsOrganizing(false);                      // slide banner out
       await new Promise(r => setTimeout(r, 500));  // wait for slide-out to finish
+      if (isStale()) return;
+
       setOrganizeSucceeded(false);                 // reset for next run
+      preOrganizeSnapshotRef.current = null;
     } catch (err: any) {
+      if (isStale()) return;
       toast(`Couldn't organize workspace: ${err?.message ?? String(err)}`);
     } finally {
-      setIsOrganizing(false);
-      setOrganizePhase('initializing'); // reset for next run
+      if (!isStale()) {
+        setIsOrganizing(false);
+        setOrganizePhase('initializing');
+      }
     }
   }, [isOrganizing, bookmarkGroupsRaw, onboardingPurposes, updateAndPersistGroups]);
+
+  /**
+   * Revert the workspace to the snapshot captured before the last organize run.
+   * Safe to call during or after organizing — incrementing organizeRunRef signals
+   * the in-flight async flow to exit without further state updates.
+   */
+  const undoOrganize = useCallback(async () => {
+    const snapshot = preOrganizeSnapshotRef.current;
+    organizeRunRef.current++;          // invalidate any in-flight organize run
+    setIsOrganizing(false);
+    setOrganizeSucceeded(false);
+    setOrganizePhase('initializing');
+    preOrganizeSnapshotRef.current = null;
+    if (snapshot) {
+      await updateAndPersistGroups(() => snapshot);
+    }
+  }, [updateAndPersistGroups]);
 
   /**
    * Execute a confirmed copy or move request emitted by the modal, then surface the result via toast.
@@ -706,6 +753,7 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
               visible={isOrganizing}
               backendPhase={organizePhase}
               succeeded={organizeSucceeded}
+              onUndo={undoOrganize}
             />
 
             <DraggableGrid

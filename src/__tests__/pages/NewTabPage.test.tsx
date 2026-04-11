@@ -571,6 +571,52 @@ describe.each([
       },
     ]);
   });
+
+  it('restores the previous workspace groups when undo is clicked during organize', async () => {
+    const workspaceGroups = [
+      {
+        id: 'g1',
+        groupName: 'Work',
+        bookmarks: [{ id: 'b1', name: 'Doc', url: 'https://docs.com', faviconUrl: 'https://docs.com/favicon.ico' }],
+      },
+      {
+        id: 'g2',
+        groupName: 'Personal',
+        bookmarks: [{ id: 'b2', name: 'Mail', url: 'https://mail.com' }],
+      },
+    ];
+    bookmarksDataMock.loadInitialBookmarks.mockResolvedValue(workspaceGroups as any);
+
+    render(
+      <AppContextProvider user={mockUser}>
+        <NewTabPage user={mockUser} />
+      </AppContextProvider>
+    );
+
+    await screen.findByTestId('top-banner');
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /organize workspace/i }));
+    });
+
+    await waitFor(() => {
+      expect(mockUpdateAndPersistGroups).toHaveBeenCalledTimes(1);
+    });
+
+    const organizeButton = screen.getByRole('button', { name: /organize workspace/i });
+    expect(organizeButton).toBeDisabled();
+
+    await act(async () => {
+      fireEvent.click(screen.getAllByRole('button', { name: /undo/i })[0]);
+    });
+
+    await waitFor(() => {
+      expect(mockUpdateAndPersistGroups).toHaveBeenCalledTimes(2);
+    });
+
+    const restoreGroups = mockUpdateAndPersistGroups.mock.calls[1][0];
+    expect(restoreGroups()).toEqual(workspaceGroups);
+    expect(organizeButton).not.toBeDisabled();
+  });
 });
 
 /* ------------------------------------------------------------------ */

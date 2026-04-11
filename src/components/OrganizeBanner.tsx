@@ -73,9 +73,11 @@ type OrganizeBannerProps = {
   backendPhase: ImportPhase;
   /** When true, crossfades from the organizing card to the success card. */
   succeeded?: boolean;
+  /** Called when the user clicks Undo in either card. */
+  onUndo?: () => void;
 };
 
-export function OrganizeBanner({ visible, backendPhase, succeeded = false }: OrganizeBannerProps) {
+export function OrganizeBanner({ visible, backendPhase, succeeded = false, onUndo }: OrganizeBannerProps) {
   const { visualPhase, visualPhaseIndex } = useSmoothedPhase(
     ORGANIZE_PHASE_SEQUENCE,
     backendPhase,
@@ -120,7 +122,7 @@ export function OrganizeBanner({ visible, backendPhase, succeeded = false }: Org
             <div className="flex-1 min-w-0">
               {/* Static title */}
               <p className="text-sm font-medium text-neutral-800 dark:text-neutral-100 leading-tight">
-                Grouping related links into a cleaner structure
+                Grouping related links
               </p>
 
               {/* Rotating micro-copy */}
@@ -136,6 +138,15 @@ export function OrganizeBanner({ visible, backendPhase, succeeded = false }: Org
                 />
               </div>
             </div>
+
+            {onUndo && (
+              <button
+                onClick={onUndo}
+                className="cursor-pointer shrink-0 text-xs text-blue-600 dark:text-blue-400 hover:underline focus-visible:outline-none"
+              >
+                Undo
+              </button>
+            )}
           </div>
 
           {/* Success card — fades in when succeeded, absolutely overlays top of the organizing card */}
@@ -153,9 +164,17 @@ export function OrganizeBanner({ visible, backendPhase, succeeded = false }: Org
             <div className="shrink-0 text-green-500 text-lg">
               <i className="fas fa-circle-check" />
             </div>
-            <p className="text-sm font-medium text-neutral-800 dark:text-neutral-100">
+            <p className="flex-1 text-sm font-medium text-neutral-800 dark:text-neutral-100">
               Workspace organized
             </p>
+            {onUndo && (
+              <button
+                onClick={onUndo}
+                className="cursor-pointer shrink-0 text-xs text-green-700 dark:text-green-400 hover:underline focus-visible:outline-none"
+              >
+                Undo
+              </button>
+            )}
           </div>
 
         </div>
