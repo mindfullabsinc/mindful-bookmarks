@@ -49,6 +49,7 @@ jest.mock('@/scripts/import/workspaceServiceLocal', () => ({
 jest.mock('@/scripts/import/commitManualImportIntoWorkspace', () => ({
   commitManualImportIntoWorkspace: jest.fn(),
 }));
+
 const useImportBookmarksMock =
   useImportBookmarksDefault as unknown as jest.MockedFunction<typeof useImportBookmarksDefault>;
 
@@ -222,12 +223,17 @@ jest.mock('@/components/TopBanner', () => ({
   default: (props: {
     onExportBookmarks: () => void;
     onSignOut: () => void;
+    onOrganize?: () => void;
     onStorageModeChange?: (mode: StorageModeType) => void;
     isSignedIn: boolean;
+    isOrganizing?: boolean;
     userAttributes?: { email?: string };
   }) => (
     <div data-testid="top-banner">
       <button type="button" onClick={props.onExportBookmarks}>Export Bookmarks</button>
+      <button type="button" onClick={props.onOrganize} disabled={props.isOrganizing}>
+        Organize Workspace
+      </button>
       <button type="button" onClick={props.onSignOut}>Sign Out</button>
       <span>{`Signed In: ${props.isSignedIn}`}</span>
       <span>{props.userAttributes?.email}</span>
@@ -320,6 +326,7 @@ describe.each([
   let mockExportBookmarksToJSON: jest.Mock;
   let mockImportBookmarksFromJSON: jest.Mock;
   let mockChangeStorageMode: jest.Mock;
+  let mockUpdateAndPersistGroups: jest.Mock;
   let mockOpenImport: jest.Mock;
   let mockCloseImport: jest.Mock;
   let mockRenderModal: jest.Mock;
@@ -337,6 +344,9 @@ describe.each([
     mockExportBookmarksToJSON = jest.fn();
     mockImportBookmarksFromJSON = jest.fn();
     mockChangeStorageMode = jest.fn();
+    mockUpdateAndPersistGroups = jest.fn(async (updater?: () => unknown) => (
+      typeof updater === 'function' ? updater() : undefined
+    ));
 
     const mockHandleUploadJson = jest.fn<Promise<void>, [File]>(async () => {});
     const mockHandleImportChrome = jest.fn<Promise<void>, []>(async () => {});
@@ -363,6 +373,7 @@ describe.each([
       exportBookmarksToJSON: mockExportBookmarksToJSON,
       importBookmarksFromJSON: mockImportBookmarksFromJSON,
       changeStorageMode: mockChangeStorageMode,
+      updateAndPersistGroups: mockUpdateAndPersistGroups,
     });
 
     // Seed the real loader used by the provider
@@ -514,6 +525,98 @@ describe.each([
     fireEvent.click(screen.getByText('Sign Out'));
     expect(mockSignOut).toHaveBeenCalledTimes(1);
   });
+
+  it('organizes only the active workspace when the AI Organize button is clicked', async () => {
+    const workspaceGroups = [
+      {
+        id: 'g1',
+        groupName: 'Work',
+        bookmarks: [{ id: 'b1', name: 'Doc', url: 'https://docs.com', faviconUrl: 'https://docs.com/favicon.ico' }],
+      },
+      {
+        id: 'g2',
+        groupName: 'Personal',
+        bookmarks: [{ id: 'b2', name: 'Mail', url: 'https://mail.com' }],
+      },
+    ];
+    bookmarksDataMock.loadInitialBookmarks.mockResolvedValue(workspaceGroups as any);
+
+    render(
+      <AppContextProvider user={mockUser}>
+        <NewTabPage user={mockUser} />
+      </AppContextProvider>
+    );
+
+    await screen.findByTestId('top-banner');
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /organize workspace/i }));
+    });
+
+    await waitFor(() => {
+      expect(mockUpdateAndPersistGroups).toHaveBeenCalledWith(expect.any(Function));
+    });
+
+    const buildNextGroups = mockUpdateAndPersistGroups.mock.calls[0][0];
+    expect(
+      buildNextGroups().map((group: { groupName: string; bookmarks: Array<{ id: string; faviconUrl?: string }> }) => ({
+        groupName: group.groupName,
+        bookmarkIds: group.bookmarks.map(bookmark => bookmark.id),
+        firstBookmarkFavicon: group.bookmarks[0]?.faviconUrl,
+      }))
+    ).toEqual([
+      {
+        groupName: 'Imported',
+        bookmarkIds: ['b1', 'b2'],
+        firstBookmarkFavicon: 'https://docs.com/favicon.ico',
+      },
+    ]);
+  });
+
+  it('restores the previous workspace groups when undo is clicked during organize', async () => {
+    const workspaceGroups = [
+      {
+        id: 'g1',
+        groupName: 'Work',
+        bookmarks: [{ id: 'b1', name: 'Doc', url: 'https://docs.com', faviconUrl: 'https://docs.com/favicon.ico' }],
+      },
+      {
+        id: 'g2',
+        groupName: 'Personal',
+        bookmarks: [{ id: 'b2', name: 'Mail', url: 'https://mail.com' }],
+      },
+    ];
+    bookmarksDataMock.loadInitialBookmarks.mockResolvedValue(workspaceGroups as any);
+
+    render(
+      <AppContextProvider user={mockUser}>
+        <NewTabPage user={mockUser} />
+      </AppContextProvider>
+    );
+
+    await screen.findByTestId('top-banner');
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /organize workspace/i }));
+    });
+
+    await waitFor(() => {
+      expect(mockUpdateAndPersistGroups).toHaveBeenCalledTimes(1);
+    });
+
+    const organizeButton = screen.getByRole('button', { name: /organize workspace/i });
+    expect(organizeButton).toBeDisabled();
+
+    await act(async () => {
+      fireEvent.click(screen.getAllByRole('button', { name: /undo/i })[0]);
+    });
+
+    await waitFor(() => {
+      expect(mockUpdateAndPersistGroups).toHaveBeenCalledTimes(2);
+    });
+
+    const restoreGroups = mockUpdateAndPersistGroups.mock.calls[1][0];
+    expect(restoreGroups()).toEqual(workspaceGroups);
+    expect(organizeButton).not.toBeDisabled();
+  });
 });
 
 /* ------------------------------------------------------------------ */
@@ -591,6 +694,7 @@ describe('NewTabPage file drag-and-drop', () => {
       exportBookmarksToJSON: jest.fn(),
       importBookmarksFromJSON: jest.fn(),
       changeStorageMode: jest.fn(),
+      updateAndPersistGroups: jest.fn(),
     });
     useImportBookmarksMock.mockReturnValue({
       openImport: jest.fn(),
@@ -694,9 +798,16 @@ describe('NewTabPage file drag-and-drop', () => {
     jest.useFakeTimers();
     try {
       await renderPage();
-      fireDrop(makeJsonFile());
 
-      await waitFor(() => expect(bumpWorkspacesVersion).toHaveBeenCalledTimes(1));
+      // Wrap fireDrop in async act so the microtask chain (file.text() → mockCommit →
+      // bumpWorkspacesVersion) flushes before we assert. Using waitFor here would advance
+      // fake timers 50 ms per poll; three polls would cross the 150 ms threshold and fire
+      // bumpPostImport prematurely, causing a flaky failure in CI.
+      await act(async () => {
+        fireDrop(makeJsonFile());
+      });
+
+      expect(bumpWorkspacesVersion).toHaveBeenCalledTimes(1);
       expect(bumpPostImport).not.toHaveBeenCalled();
 
       act(() => jest.advanceTimersByTime(150));

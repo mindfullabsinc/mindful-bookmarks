@@ -30,6 +30,11 @@ import { AppContext } from "@/scripts/AppContextProvider";
 import { copyItems, moveItems } from "@/scripts/copyBookmarks";
 import { commitManualImportIntoWorkspace } from '@/scripts/import/commitManualImportIntoWorkspace';
 import { createWorkspaceServiceLocal } from '@/scripts/import/workspaceServiceLocal';
+import { remoteGroupingLLM } from '@/scripts/import/groupingLLMRemote';
+
+/* Constants */
+import { ImportSource } from '@/core/constants/import';
+import { PurposeId } from '@shared/constants/purposeId';
 
 /* Components */
 import TopBanner from "@/components/TopBanner";
@@ -37,6 +42,8 @@ import DraggableGrid, { GridHandle } from '@/components/DraggableGrid';
 import { WorkspaceSwitcher } from "@/components/WorkspaceSwitcher";
 import CopyToModal from "@/components/modals/CopyToModal";
 import { Toast } from "@/components/primitives/Toast";
+import { OrganizeBanner, ORGANIZE_PHASE_SEQUENCE } from '@/components/OrganizeBanner';
+import type { ImportPhase } from '@/core/types/importPhase';
 
 /* Events */
 import { openCopyTo, type CopyPayload } from "@/scripts/events/copyToBridge";
@@ -59,6 +66,7 @@ type AppCtxShape = {
   workspaces: Record<string, any>;
   bumpPostImport: (previousIds: string[]) => void;
   bumpWorkspacesVersion: () => void;
+  onboardingPurposes: string[];
 };
 
 type NewTabPageProps = {
@@ -111,6 +119,7 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
     workspaces,
     bumpPostImport,
     bumpWorkspacesVersion,
+    onboardingPurposes,
   } = useContext(AppContext) as AppCtxShape;
 
   const gridRef = useRef<GridHandle | null>(null);
@@ -127,10 +136,18 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
     exportBookmarksToJSON,
     importBookmarksFromJSON,
     changeStorageMode,
+    updateAndPersistGroups,
   } = useBookmarkManager();
 
   // Copy modal state + pending request
   const [copyOpen, setCopyOpen] = useState(false);
+  const [isOrganizing, setIsOrganizing] = useState(false);
+  const [organizePhase, setOrganizePhase] = useState<ImportPhase>('initializing');
+  const [organizeSucceeded, setOrganizeSucceeded] = useState(false);
+  // Snapshot of groups captured before each organize run — used by Undo.
+  const preOrganizeSnapshotRef = useRef<BookmarkGroupType[] | null>(null);
+  // Incremented each run; lets the async flow detect when Undo has invalidated it.
+  const organizeRunRef = useRef(0);
   const pendingCopyRef = useRef<CopyPayload | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const toast = (msg: string) => setToastMsg(msg);
@@ -312,6 +329,123 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
       toast(`Import failed: ${err?.message ?? String(err)}`);
     }
   }, [userId, activeWorkspaceId, workspaces, bumpPostImport, bumpWorkspacesVersion]);
+
+  /**
+   * Reorganize all bookmarks in the current workspace using AI grouping.
+   * Flattens every bookmark into RawItems, sends them to the grouping API,
+   * then replaces the workspace groups with the AI-suggested grouping.
+   *
+   * Uses organizeRunRef to detect stale runs — if the user clicks Undo mid-flight,
+   * each await resumes to a stale run ID and exits early without updating state.
+   */
+  const organizeWorkspace = useCallback(async () => {
+    if (isOrganizing || !bookmarkGroupsRaw) return;
+
+    const realGroups = bookmarkGroupsRaw.filter(g => g.groupName !== EMPTY_GROUP_IDENTIFIER);
+    const allBookmarks = realGroups.flatMap(g => g.bookmarks ?? []);
+
+    if (allBookmarks.length === 0) {
+      toast('No bookmarks to organize.');
+      return;
+    }
+
+    // Build a lookup map so we can restore full BookmarkType (faviconUrl, etc.) after grouping
+    const bookmarkById = new Map<string, BookmarkType>();
+    for (const bm of allBookmarks) {
+      bookmarkById.set(bm.id, bm);
+    }
+
+    const rawItems = allBookmarks.map(bm => ({
+      id: bm.id,
+      name: bm.name ?? bm.url,
+      url: bm.url,
+      source: ImportSource.Bookmarks as any,
+    }));
+
+    const purposes = onboardingPurposes?.length
+      ? onboardingPurposes
+      : [PurposeId.Personal];
+
+    // Snapshot current groups so Undo can restore them
+    preOrganizeSnapshotRef.current = [...bookmarkGroupsRaw];
+    const runId = ++organizeRunRef.current;
+    const isStale = () => organizeRunRef.current !== runId;
+
+    setOrganizePhase('initializing');
+    setIsOrganizing(true);
+    try {
+      // Phase: categorizing — API call is now in flight
+      setOrganizePhase('categorizing');
+      const result = await remoteGroupingLLM.group({ items: rawItems, purposes: purposes as any });
+      if (isStale()) return; // Undo clicked before data was written — just bail
+
+      // Phase: persisting — write new groups to storage
+      setOrganizePhase('persisting');
+      const emptyGroup = bookmarkGroupsRaw.find(g => g.groupName === EMPTY_GROUP_IDENTIFIER);
+      await updateAndPersistGroups(() => {
+        const newGroups: BookmarkGroupType[] = result.groups
+          .filter(cg => cg.items.length > 0)
+          .map(cg => ({
+            id: crypto.randomUUID(),
+            groupName: cg.name,
+            bookmarks: cg.items.map(item =>
+              bookmarkById.get(item.id) ?? { id: item.id, name: item.name, url: item.url }
+            ),
+          }));
+
+        if (emptyGroup) newGroups.push(emptyGroup);
+        return newGroups;
+      });
+
+      if (isStale()) {
+        // Undo clicked after data was written — revert immediately
+        const snapshot = preOrganizeSnapshotRef.current;
+        if (snapshot) await updateAndPersistGroups(() => snapshot);
+        return;
+      }
+
+      // Phase: done — crossfade to success card, then slide the whole banner out
+      setOrganizePhase('done');
+      await new Promise(r => setTimeout(r, 600));  // let 'done' phase register
+      if (isStale()) return;
+
+      setOrganizeSucceeded(true);                  // success card fades in, organizing card fades out
+      await new Promise(r => setTimeout(r, 4000)); // hold success state
+      if (isStale()) return;
+
+      setIsOrganizing(false);                      // slide banner out
+      await new Promise(r => setTimeout(r, 500));  // wait for slide-out to finish
+      if (isStale()) return;
+
+      setOrganizeSucceeded(false);                 // reset for next run
+      preOrganizeSnapshotRef.current = null;
+    } catch (err: any) {
+      if (isStale()) return;
+      toast(`Couldn't organize workspace: ${err?.message ?? String(err)}`);
+    } finally {
+      if (!isStale()) {
+        setIsOrganizing(false);
+        setOrganizePhase('initializing');
+      }
+    }
+  }, [isOrganizing, bookmarkGroupsRaw, onboardingPurposes, updateAndPersistGroups]);
+
+  /**
+   * Revert the workspace to the snapshot captured before the last organize run.
+   * Safe to call during or after organizing — incrementing organizeRunRef signals
+   * the in-flight async flow to exit without further state updates.
+   */
+  const undoOrganize = useCallback(async () => {
+    const snapshot = preOrganizeSnapshotRef.current;
+    organizeRunRef.current++;          // invalidate any in-flight organize run
+    setIsOrganizing(false);
+    setOrganizeSucceeded(false);
+    setOrganizePhase('initializing');
+    preOrganizeSnapshotRef.current = null;
+    if (snapshot) {
+      await updateAndPersistGroups(() => snapshot);
+    }
+  }, [updateAndPersistGroups]);
 
   /**
    * Execute a confirmed copy or move request emitted by the modal, then surface the result via toast.
@@ -587,6 +721,8 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
         onSignOut={signOut || defaultSignOut}
         isSignedIn={isSignedIn /* prefer context-derived status over props */}
         onStorageModeChange={changeStorageMode}
+        onOrganize={organizeWorkspace}
+        isOrganizing={isOrganizing}
       />
 
       {/* Page-level file drop overlay */}
@@ -613,6 +749,13 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
               transition-[padding-left]
             "
           >
+            <OrganizeBanner
+              visible={isOrganizing}
+              backendPhase={organizePhase}
+              succeeded={organizeSucceeded}
+              onUndo={undoOrganize}
+            />
+
             <DraggableGrid
               ref={gridRef as any}
               user={isSignedIn ? { sub: userId as string } : null}
