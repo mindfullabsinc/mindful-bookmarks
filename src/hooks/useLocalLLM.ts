@@ -11,6 +11,10 @@ export function useLocalLLM() {
   const [isSupported, setIsSupported] = useState<boolean | null>(null);
   const [availableModels] = useState<ModelMetadata[]>(aiClient.getAvailableModels());
   const [selectedModelId, setSelectedModelId] = useState<string>(availableModels[0]?.id || '');
+  
+  const [isModelLoaded, setIsModelLoaded] = useState(false);
+  const [loadedModelId, setLoadedModelId] = useState<string | null>(null);
+  
   const [progress, setProgress] = useState<ProgressInfo | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -24,12 +28,22 @@ export function useLocalLLM() {
     aiClient.onProgress((p) => setProgress(p));
   }, []);
 
-  const loadModel = async () => {
+  // Returns a promise that resolves when the model is ready
+  const loadModel = async (modelIdToLoad?: string) => {
+    const targetId = modelIdToLoad || selectedModelId;
+    
+    // If already loaded, skip
+    if (isModelLoaded && loadedModelId === targetId) return true;
+
     setIsInitializing(true);
     try {
-      await aiClient.selectModel(selectedModelId);
+      await aiClient.selectModel(targetId);
+      setIsModelLoaded(true);
+      setLoadedModelId(targetId);
+      return true;
     } catch (err) {
       console.error("Initialization failed", err);
+      return false;
     } finally {
       setIsInitializing(false);
       setProgress(null);
@@ -37,15 +51,29 @@ export function useLocalLLM() {
   };
 
   const sendMessage = async (text: string) => {
-    if (!text.trim()) return;
+    const trimmedText = text.trim();
+    if (!trimmedText) return;
 
-    const newMessages: Message[] = [...messages, { role: 'user', content: text }];
-    setMessages([...newMessages, { role: 'assistant', content: '' }]);
+    // 1. Immediately show the user's message
+    const newMessages: Message[] = [...messages, { role: 'user', content: trimmedText }];
+    setMessages(newMessages);
+
+    // 2. Check if we need to load/download the model first
+    if (!isModelLoaded || loadedModelId !== selectedModelId) {
+      const success = await loadModel(selectedModelId);
+      if (!success) {
+        setMessages(prev => [...prev, { role: 'assistant', content: 'Error: Failed to load the local model.' }]);
+        return;
+      }
+    }
+
+    // 3. Trigger assistant response
+    setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
     setIsGenerating(true);
 
     try {
       let fullResponse = "";
-      await aiClient.generateResponse(text, (token) => {
+      await aiClient.generateResponse(trimmedText, (token) => {
         fullResponse += token;
         setMessages((prev) => {
           const updated = [...prev];
@@ -58,6 +86,14 @@ export function useLocalLLM() {
       });
     } catch (err) {
       console.error("Generation failed", err);
+      setMessages(prev => {
+        const updated = [...prev];
+        const last = updated[updated.length - 1];
+        if (last && last.role === 'assistant') {
+            last.content = "Error: The model encountered an issue during generation.";
+        }
+        return updated;
+      });
     } finally {
       setIsGenerating(false);
     }
@@ -68,6 +104,7 @@ export function useLocalLLM() {
     availableModels,
     selectedModelId,
     setSelectedModelId,
+    isModelLoaded,
     progress,
     isInitializing,
     isGenerating,

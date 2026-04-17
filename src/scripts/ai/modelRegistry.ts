@@ -6,11 +6,6 @@ import { ModelMetadata } from './ai.types';
  */
 export const SUPPORTED_MODELS: ModelMetadata[] = [
   {
-    id: 'SmolLM2-135M-Instruct-q4f16_1-MLC',
-    friendlyName: 'SmolLM2 135M (Fastest, ~150MB)',
-    estimatedSize: '150MB'
-  },
-  {
     id: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
     friendlyName: 'Llama 3.2 1B (Balanced, ~800MB)',
     estimatedSize: '800MB'
