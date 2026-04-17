@@ -42,7 +42,8 @@ export default defineConfig({
         FAQs: resolve(__dirname, 'faqs.html'),  // Entry point for the Mindful landing page > FAQs page
         ManageAccount: resolve(__dirname, 'ManageAccount.html'),  // Entry point for Manage Account page
         NewTab: resolve(__dirname, 'NewTab.html'),  // Entry point for the new tab page
-        PopUp: resolve(__dirname, 'PopUp.html'),   // Entry point for the popup window
+        PopUp: resolve(__dirname, 'PopUp.html'),
+        Labs: resolve(__dirname, 'Labs.html'),   // Entry point for the popup window
       },
       output: {
         entryFileNames: '[name].js', // Maintain separate output files
