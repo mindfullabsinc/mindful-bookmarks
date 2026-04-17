@@ -31,6 +31,9 @@ export default defineConfig({
       "@shared": fileURLToPath(new URL("./shared", import.meta.url)),
     },
   },
+  worker: {
+    format: "es",
+  },
   build: {
     rollupOptions: {
       input: {
@@ -51,7 +54,10 @@ export default defineConfig({
     emptyOutDir: true, // Clean the output directory before each build
     sourcemap: true,  // make runtime errors map to source
   },
-  esbuild: { // helps keep names visible in dev
+  esworker: {
+    format: "es",
+  },
+  build: { // helps keep names visible in dev
     keepNames: true,
   },
 });

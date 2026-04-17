@@ -25,3 +25,8 @@ amplify_outputs.*.json
 
 .claude/
 .claudeignore
+
+apply_fixes.py
+changed_llm_context.py
+clean_llm_changes.py
+llm_context.py
