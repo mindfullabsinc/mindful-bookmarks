@@ -33,6 +33,7 @@
 		"@dnd-kit/modifiers": "^9.0.0",
 		"@dnd-kit/sortable": "^10.0.0",
 		"@fortawesome/fontawesome-free": "^7.0.1",
+		"@mlc-ai/web-llm": "^0.2.82",
 		"aws-amplify": "^6.15.4",
 		"clsx": "^2.1.1",
 		"crypto-js": "^4.2.0",
