@@ -91,14 +91,14 @@ describe("groupBookmarks handler", () => {
       expect(res.statusCode).toBe(200);
     });
 
-    test("allows requests when count equals RATE_LIMIT_MAX (boundary: check is >5, not >=5)", async () => {
-      mockCount(5);
+    test("allows requests when count equals RATE_LIMIT_MAX (boundary: check is >10, not >=10)", async () => {
+      mockCount(10);
       const res = await handler(smallBatch());
       expect(res.statusCode).toBe(200);
     });
 
     test("blocks the request when count exceeds RATE_LIMIT_MAX", async () => {
-      mockCount(6);
+      mockCount(11);
       const res = await handler(smallBatch());
       expect(res.statusCode).toBe(429);
       expect(JSON.parse(res.body).message).toMatch(/rate limit/i);
@@ -108,7 +108,7 @@ describe("groupBookmarks handler", () => {
       // First call (IP A) is over limit; second call (IP B) is its first request.
       dynamoMock
         .on(UpdateItemCommand)
-        .resolvesOnce({ Attributes: { n: { N: "6" } } })
+        .resolvesOnce({ Attributes: { n: { N: "11" } } })
         .resolvesOnce({ Attributes: { n: { N: "1" } } });
 
       const resA = await handler(smallBatch("10.0.0.1"));

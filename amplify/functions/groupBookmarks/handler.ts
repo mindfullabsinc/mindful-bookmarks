@@ -44,7 +44,7 @@ const openai = new OpenAI({ apiKey });
 const dynamo = new DynamoDBClient({});
 const RATE_LIMIT_TABLE = process.env.RATE_LIMIT_TABLE;
 const RATE_WINDOW_SEC = 600;  // 10-minute rolling window
-const RATE_LIMIT_MAX = 5;     // max AI Organize calls per IP per window
+const RATE_LIMIT_MAX = 10;    // max AI Organize calls per IP per window
 /* ---------------------------------------------------------- */
 
 /* -------------------- Helper functions -------------------- */
