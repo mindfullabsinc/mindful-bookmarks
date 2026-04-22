@@ -74,6 +74,10 @@ export default function PricingPage() {
                   },
                   {
                     icon: <Check className="mt-0.5 h-4 w-4 text-blue-500" />,
+                    text: "Smart auto-import and categorization.",
+                  },
+                  {
+                    icon: <Check className="mt-0.5 h-4 w-4 text-blue-500" />,
                     text: "Dark mode that adapts to your system settings.",
                   },
                 ]}
@@ -107,10 +111,6 @@ export default function PricingPage() {
                   {
                     icon: <Check className="mt-0.5 h-4 w-4 text-blue-600" />,
                     text: "Sync across devices and browsers.",
-                  },
-                  {
-                    icon: <Check className="mt-0.5 h-4 w-4 text-blue-600" />,
-                    text: "Smart auto-import and categorization.",
                   },
                   {
                     icon: <Check className="mt-0.5 h-4 w-4 text-blue-600" />,
