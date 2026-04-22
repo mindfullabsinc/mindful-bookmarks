@@ -100,8 +100,7 @@ export default function LandingPage() {
                     A calm, visual space for your digital mind
                   </h1>
                   <p className="mt-4 max-w-xl text-lg text-neutral-600">
-                    Mindful turns your new tab into a simple, visual space for the links you actually care about.
-                    Arrange workspaces and group links to build your own personal command center.
+                    Mindful turns your new tab into a clean, visual command center for the links that actually matter. Import your tabs, organize them instantly, and stop losing things in the chaos. 
                   </p>
 
                   {/* CTA Button */}
@@ -135,7 +134,7 @@ export default function LandingPage() {
                   className="relative flex justify-end"
                 >
                   <img
-                    src="/assets/ui-screenshots/hero.png"
+                    src="/assets/screenshots/website/hero.png"
                     alt="Mindful Bookmarks UI"
                     className={`
                       w-full max-w-[800px]
@@ -148,16 +147,18 @@ export default function LandingPage() {
             </div>
           </section> 
 
-          {/* FEATURE: PopUp */}
+          {/* FEATURE: Switch from Toby or Tabme */}
           <FeatureSection
             id="features"
             textSide="left"
-            title="Catch important links the moment they matter"
-            body="Save links in seconds, all without switching tabs or losing your momentum."
+            title="Switch from Toby or Tabme in seconds"
+            body={[
+              "Already using Toby, Tabme, or Chrome Bookmarks? Export your data, drag in the file, and your workspaces appear instantly. No copy-pasting. No starting over."
+            ]}
             visual={
               <img
-                src="/assets/ui-screenshots/popup-menu2.png"
-                alt="Mindful PopUp menu"
+                src="/assets/screenshots/website/toby-import.png"
+                alt="Toby import"
                 className={`w-full max-w-[800px] bg-white rounded-2xl ${LIGHT_SHADOW}`}
               />
             }
@@ -170,47 +171,88 @@ export default function LandingPage() {
             title="Workspaces that match your mind, not your tabs"
             body="Organize different parts of your life into dedicated screens and switch contexts without relying on messy tab groups."
             visual={
-              <div className="relative w-full max-w-[520px]">
+              <img
+                src="/assets/screenshots/website/workspace-switcher.png"
+                alt="Switch workspaces"
+                className={`w-full max-w-[520px] bg-white rounded-2xl ${LIGHT_SHADOW}`}
+              />
+            }
+          />
+
+          {/* FEATURE: AI Organize */}
+          <FeatureSection
+            textSide="left"
+            title="Clean up your entire workspace in one click"
+            body={[
+              "Mindful uses AI to group your links into logical categories automatically. One click, instant results, with an Undo button if you change your mind."
+            ]}
+            visual={
+              <div>
                 <img
-                  src="/assets/ui-screenshots/workspace-switcher.png"
-                  alt="Switch workspaces"
-                  className={`w-full max-w-[520px] bg-white rounded-2xl ${LIGHT_SHADOW}`}
+                  src="/assets/screenshots/website/ai-organize-before.png"
+                  alt="AI Organize before"
+                  className={`w-full max-w-[600px] bg-white rounded-2xl ${LIGHT_SHADOW}`}
                 />
                 <img
-                  src="/assets/ui-screenshots/copy-workspaces.png"
-                  alt="Copy between workspaces"
-                  className={`absolute bottom-[-80px] right-[-50px] w-[55%] max-w-[360px] rounded-2xl bg-white ${LIGHT_SHADOW}`}
+                  src="/assets/screenshots/website/ai-organize-after.png"
+                  alt="AI Organize after"
+                  className={`absolute w-full max-w-[800px] bottom-[-40px] right-[-330px] rounded-2xl bg-white ${LIGHT_SHADOW}`}
                 />
               </div>
             }
           />
 
-          {/* FEATURE: Local by default */}
+          {/* FEATURE: PopUp */}
           <FeatureSection
-            textSide="left"
-            title="Your data stays on your device"
-            body={[
-              "Mindful stores everything on your device and nowhere else. Easily import or export your data.",
-              "Coming soon: smart grouping and categorization."
-            ]}
+            textSide="right"
+            title="Catch important links the moment they matter"
+            body="Save links in seconds, all without switching tabs or losing your momentum."
             visual={
               <img
-                src="/assets/ui-screenshots/import-bookmarks.png"
-                alt="Import bookmarks"
+                src="/assets/screenshots/website/popup.png"
+                alt="Mindful PopUp menu"
                 className={`w-full max-w-[800px] bg-white rounded-2xl ${LIGHT_SHADOW}`}
               />
             }
           />
-          
-          {/* FEATURE: Dark mode */}
+
+          {/* FEATURE: Unlimited workspaces */}
+          <section className="relative mx-auto flex min-h-[48vh] max-w-7xl items-center justify-center px-4 pt-32 text-center md:pt-40">
+            <motion.div {...fadeUp} className="max-w-3xl">
+              <h2 className="text-4xl font-semibold leading-tight tracking-tight md:text-6xl">
+                Actually free
+              </h2>
+              <p className="mx-auto mt-6 max-w-none text-xl leading-relaxed text-neutral-600 md:whitespace-nowrap md:text-2xl">
+                Unlimited bookmarks. Unlimited workspaces. No account. No forced upgrades.
+              </p>
+            </motion.div>
+          </section>
+
+          {/* FEATURE: Local by default */}
           <FeatureSection
             textSide="right"
+            title="Your data stays on your device"
+            body={[
+              "Mindful stores everything on your device and nowhere else. Import/export anytime as JSON or HTML. No account required, ever."
+            ]}
+            visual={
+              <img
+                src="/assets/screenshots/website/import-flow.png"
+                alt="Import Flow"
+                className={`w-full max-w-[800px] bg-white rounded-2xl ${LIGHT_SHADOW}`}
+              />
+            }
+          />
+
+          {/* FEATURE: Dark mode */}
+          <FeatureSection
+            textSide="left"
             sectionClassName="pb-40 md:pb-40"
             title="Effortless dark mode"
             body="Mindful switches between light and dark mode based on your device settings, keeping your workspace comfortable day or night."
             visual={
               <img
-                src="/assets/ui-screenshots/dark-mode.png"
+                src="/assets/screenshots/website/dark-mode.png"
                 alt="Dark mode UI"
                 className={`w-full max-w-[800px] rounded-2xl ${DARK_SHADOW}`}
               />
