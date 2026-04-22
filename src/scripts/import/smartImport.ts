@@ -142,7 +142,7 @@ export async function runSmartImport(
   /* 3) Collect raw items from sources */
   emit(options, {
     phase: "collecting",
-    message: "Collecting bookmarks, tabs, and history…",
+    message: "Collecting links ...",
   });
 
   // TODO: Incorporate history

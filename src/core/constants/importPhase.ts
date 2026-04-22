@@ -4,7 +4,7 @@ export type PhaseMessageMap = Partial<Record<ImportPhase, string>>;
 
 export const PHASE_MESSAGES: PhaseMessageMap = {
   initializing: "Starting import ...",
-  collecting: "Collecting bookmarks, tabs, and history ...",
+  collecting: "Collecting links ...",
   filtering: "Cleaning up duplicates and clutter ...",
   categorizing: "Organizing everything neatly ...",
   persisting: "Saving your new workspace ...",
