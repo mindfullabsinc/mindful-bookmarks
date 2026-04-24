@@ -189,5 +189,35 @@ describe("remoteGroupingLLM.group", () => {
     });
 
     expect(consoleErrorSpy).toHaveBeenCalled();
+    expect(result.rateLimited).toBeFalsy();
+  });
+
+  it("returns rateLimited: true and the fallback group when the API responds with 429", async () => {
+    const items = makeItems(10);
+    const input: GroupingInput = {
+      items,
+      purposes: [PurposeId.Personal],
+    };
+
+    jest.spyOn(console, "error").mockImplementation(() => {});
+
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 429,
+      text: async () => "Too Many Requests",
+    });
+
+    const result = await remoteGroupingLLM.group(input);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.rateLimited).toBe(true);
+    expect(result.groups).toHaveLength(1);
+    expect(result.groups[0]).toEqual({
+      id: "imported",
+      name: "Imported",
+      description: "All imported items",
+      purpose: PurposeId.Personal,
+      items,
+    });
   });
 });
