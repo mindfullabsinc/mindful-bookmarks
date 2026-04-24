@@ -46,7 +46,14 @@ export function useSmoothedPhase(
   useEffect(() => {
     const backendIndex = phaseSequence.indexOf(backendPhase);
     if (backendIndex === -1) return;
-    if (backendIndex <= visualPhaseIndex) return;
+
+    // Backend moved backward (new run started) — reset immediately
+    if (backendIndex < visualPhaseIndex) {
+      setVisualPhaseIndex(backendIndex);
+      return;
+    }
+
+    if (backendIndex === visualPhaseIndex) return;
 
     const t = setTimeout(() => {
       setVisualPhaseIndex((prev) => Math.min(prev + 1, backendIndex));

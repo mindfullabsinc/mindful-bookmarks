@@ -1,5 +1,7 @@
 /* -------------------- Imports -------------------- */
 import { defineBackend } from '@aws-amplify/backend';
+import { RemovalPolicy } from 'aws-cdk-lib';
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as apigwv2 from 'aws-cdk-lib/aws-apigatewayv2';
 import * as kms from 'aws-cdk-lib/aws-kms';
@@ -52,6 +54,26 @@ const kmsKey = kms.Key.fromKeyArn(stack, 'BookmarksKmsKey', kmsKeyId);
 // Grant only what each function needs
 kmsKey.grant(saveBookmarksFn, 'kms:GenerateDataKey');
 kmsKey.grant(loadBookmarksFn, 'kms:Decrypt');
+/* ---------------------------------------------------------- */
+
+/* -------------------- DynamoDB rate-limit table -------------------- */
+/**
+ * Tracks per-IP call counts for the groupBookmarks endpoint.
+ * Each item is keyed by "rl#<ip>#<window>" and has a TTL so rows
+ * are automatically cleaned up after the window expires.
+ *
+ * Must be created in the groupBookmarks function's own nested stack to avoid
+ * cross-nested-stack reference issues that prevent the env var from resolving
+ * in Amplify sandbox/deployments.
+ */
+const rateLimitTable = new dynamodb.Table(groupBookmarksFn.stack, 'GroupBookmarksRateLimit', {
+  partitionKey: { name: 'pk', type: dynamodb.AttributeType.STRING },
+  billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+  timeToLiveAttribute: 'ttl',
+  removalPolicy: RemovalPolicy.DESTROY,
+});
+rateLimitTable.grantReadWriteData(groupBookmarksFn);
+groupBookmarksFn.addEnvironment('RATE_LIMIT_TABLE', rateLimitTable.tableName);
 /* ---------------------------------------------------------- */
 
 /* -------------------- Lambda environment -------------------- */
@@ -160,6 +182,16 @@ api.addRoutes({
   integration: new HttpLambdaIntegration('groupBookmarksIntegration', groupBookmarksFn),
   // No authorizer: public endpoint, safe because it only writes to OpenAI and returns JSON
 });
+
+// Stage-level throttle: guards the whole API against flood/abuse.
+// Per-IP rate limiting is enforced inside the Lambda via DynamoDB.
+const cfnStage = api.defaultStage?.node.defaultChild as apigwv2.CfnStage;
+if (cfnStage) {
+  cfnStage.defaultRouteSettings = {
+    throttlingBurstLimit: 30,  // max concurrent in-flight requests
+    throttlingRateLimit: 10,   // sustained requests/second across all callers
+  };
+}
 /* ---------------------------------------------------------- */
 
 /* -------------------- Lambda IAM for S3 + KMS -------------------- */

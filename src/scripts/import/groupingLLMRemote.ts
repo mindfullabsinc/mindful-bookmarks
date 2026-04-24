@@ -88,6 +88,7 @@ export const remoteGroupingLLM: GroupingLLM = {
     });
 
     if (!res.ok) {
+      const isRateLimited = res.status === 429;
       console.error("remoteGroupingLLM error", res.status, await res.text());
 
       const fallbackGroup: CategorizedGroup = {
@@ -98,7 +99,7 @@ export const remoteGroupingLLM: GroupingLLM = {
         items: input.items,
       };
 
-      return { groups: [fallbackGroup] };
+      return { groups: [fallbackGroup], rateLimited: isRateLimited };
     }
 
     const data = (await res.json()) as GroupingLLMResponse;

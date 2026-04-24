@@ -96,7 +96,7 @@ describe("useSmoothedPhase", () => {
     expect(result!.visualPhase).toBe("categorizing");
   });
 
-  it("does not regress if backendPhase goes backwards", () => {
+  it("resets immediately when backendPhase goes backwards (e.g. new organize run)", () => {
     let result: ReturnType<typeof useSmoothedPhase> | null = null;
 
     function Test({ backendPhase }: { backendPhase: Phase }) {
@@ -106,19 +106,22 @@ describe("useSmoothedPhase", () => {
 
     const { rerender } = render(<Test backendPhase="categorizing" />);
 
-    // Step to organizing (index 2) *in increments*
+    // Step to index 2 (categorizing) in increments
     tickPhaseOnce();
     expect(result!.visualPhase).toBe("importing");
 
     tickPhaseOnce();
     expect(result!.visualPhase).toBe("categorizing");
 
-    // Backend regresses
+    // Backend resets to start of a new run
     rerender(<Test backendPhase="initializing" />);
 
-    // Ensure no regression occurs
+    // Visual phase resets immediately to match backendPhase
+    expect(result!.visualPhase).toBe("initializing");
+
+    // A tick with backend already at index 0 does not advance
     tickPhaseOnce();
-    expect(result!.visualPhase).toBe("categorizing");
+    expect(result!.visualPhase).toBe("initializing");
   });
 });
 
