@@ -379,11 +379,6 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
       const result = await remoteGroupingLLM.group({ items: rawItems, purposes: purposes as any });
       if (isStale()) return; // Undo clicked before data was written — just bail
 
-      if (result.rateLimited) {
-        toast("AI Organize limit reached — please wait a few minutes before trying again.");
-        return; // finally block resets isOrganizing + phase
-      }
-
       // Phase: persisting — write new groups to storage
       setOrganizePhase('persisting');
       const emptyGroup = bookmarkGroupsRaw.find(g => g.groupName === EMPTY_GROUP_IDENTIFIER);

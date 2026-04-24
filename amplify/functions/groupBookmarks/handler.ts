@@ -1,13 +1,12 @@
 /* -------------------- Imports -------------------- */
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
-import { DynamoDBClient, UpdateItemCommand } from "@aws-sdk/client-dynamodb";
 import OpenAI from "openai";
 
 /* Shared Amplify helpers */
 import { withCorsAndErrors } from "../_shared/safe";
 import { resp } from "../_shared/http";
 import { evalCors } from "../_shared/cors"; // CorsPack type only
-import { badRequest, serverError, tooMany } from "../_shared/errors";
+import { badRequest, serverError } from "../_shared/errors";
 
 /* Constants */
 import { PurposeId } from "@shared/constants/purposeId";
@@ -38,13 +37,6 @@ if (!apiKey) {
   throw new Error("OPENAI_API_KEY env var is missing at runtime");
 }
 const openai = new OpenAI({ apiKey });
-/* ---------------------------------------------------------- */
-
-/* -------------------- Rate-limit config -------------------- */
-const dynamo = new DynamoDBClient({});
-const RATE_LIMIT_TABLE = process.env.RATE_LIMIT_TABLE;
-const RATE_WINDOW_SEC = 600;  // 10-minute rolling window
-const RATE_LIMIT_MAX = 10;    // max AI Organize calls per IP per window
 /* ---------------------------------------------------------- */
 
 /* -------------------- Helper functions -------------------- */
@@ -172,32 +164,6 @@ const groupBookmarksCore = async (
   event: APIGatewayProxyEvent,
   cors: ReturnType<typeof evalCors>
 ): Promise<APIGatewayProxyResult> => {
-  // Per-IP rate limiting: 5 calls per 10-minute window, tracked in DynamoDB
-  if (RATE_LIMIT_TABLE) {
-    // HTTP API v2 puts the IP at requestContext.http.sourceIp; v1 uses identity.sourceIp
-    const ip = (event as any).requestContext?.http?.sourceIp
-      ?? event.requestContext?.identity?.sourceIp
-      ?? "unknown";
-    const window = Math.floor(Date.now() / 1000 / RATE_WINDOW_SEC);
-    const pk = `rl#${ip}#${window}`;
-
-    const res = await dynamo.send(new UpdateItemCommand({
-      TableName: RATE_LIMIT_TABLE,
-      Key: { pk: { S: pk } },
-      UpdateExpression: "ADD #n :one SET #ttl = if_not_exists(#ttl, :exp)",
-      ExpressionAttributeNames: { "#n": "n", "#ttl": "ttl" },
-      ExpressionAttributeValues: {
-        ":one": { N: "1" },
-        ":exp": { N: String((window + 1) * RATE_WINDOW_SEC) },
-      },
-      ReturnValues: "UPDATED_NEW",
-    }));
-
-    if (Number(res.Attributes?.n?.N) > RATE_LIMIT_MAX) {
-      throw tooMany("Rate limit exceeded — please wait before using AI Organize again.");
-    }
-  }
-
   if (!event.body) throw badRequest("Missing body");
 
   const rawBody = event.isBase64Encoded

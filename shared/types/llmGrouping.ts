@@ -36,8 +36,6 @@ export type GroupingInput = {
  */
 export type GroupingLLMResponse = {
   groups: CategorizedGroup[];
-  /** True when the remote endpoint returned 429; groups contains the local fallback. */
-  rateLimited?: boolean;
 };
 
 /**
