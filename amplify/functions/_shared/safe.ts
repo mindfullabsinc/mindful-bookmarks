@@ -6,8 +6,9 @@ export const withCorsAndErrors = (
   inner: (event: any, cors: ReturnType<typeof evalCors>) => Promise<any>
 ) => {
   return async (event: any) => {
+    let cors: ReturnType<typeof evalCors> | undefined;
     try {
-      const cors = evalCors(event);
+      cors = evalCors(event);
       const pre = preflightIfNeeded(cors);   if (pre)  return pre;
       const ban = assertCorsOr403(cors);     if (ban)  return ban;
 
@@ -15,12 +16,15 @@ export const withCorsAndErrors = (
       // pass-through full responses; otherwise wrap as 200 in your inner
       return out;
     } catch (err: any) {
-      // We may not have cors if evalCors itself failed; use best-effort headers
-      const headers = {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": process.env.ALLOWED_ORIGIN || "*",
-        "Access-Control-Allow-Credentials": "true",
-      };
+      // Reuse the per-request CORS headers when available so error responses
+      // carry the correct Allow-Origin for this caller's origin.
+      // Fall back to best-effort headers only if evalCors itself threw.
+      const headers = cors
+        ? cors.headers
+        : {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": process.env.ALLOWED_ORIGIN || "*",
+          };
 
       if (err instanceof HttpError) {
         console.error("[HttpError]", { statusCode: err.statusCode, message: err.message, details: err.details });

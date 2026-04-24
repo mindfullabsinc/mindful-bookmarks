@@ -150,7 +150,7 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
   const organizeRunRef = useRef(0);
   const pendingCopyRef = useRef<CopyPayload | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
-  const toast = (msg: string) => setToastMsg(msg);
+  const toast = (msg: string) => { setToastMsg(null); setTimeout(() => setToastMsg(msg), 0); };
 
   // File drag-and-drop state
   const [isDragActive, setIsDragActive] = useState(false);
@@ -372,6 +372,7 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
     const isStale = () => organizeRunRef.current !== runId;
 
     setOrganizePhase('initializing');
+    setOrganizeSucceeded(false);
     setIsOrganizing(true);
     try {
       // Phase: categorizing — API call is now in flight

@@ -61,8 +61,12 @@ kmsKey.grant(loadBookmarksFn, 'kms:Decrypt');
  * Tracks per-IP call counts for the groupBookmarks endpoint.
  * Each item is keyed by "rl#<ip>#<window>" and has a TTL so rows
  * are automatically cleaned up after the window expires.
+ *
+ * Must be created in the groupBookmarks function's own nested stack to avoid
+ * cross-nested-stack reference issues that prevent the env var from resolving
+ * in Amplify sandbox/deployments.
  */
-const rateLimitTable = new dynamodb.Table(stack, 'GroupBookmarksRateLimit', {
+const rateLimitTable = new dynamodb.Table(groupBookmarksFn.stack, 'GroupBookmarksRateLimit', {
   partitionKey: { name: 'pk', type: dynamodb.AttributeType.STRING },
   billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
   timeToLiveAttribute: 'ttl',
