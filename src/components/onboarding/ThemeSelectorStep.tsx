@@ -46,19 +46,19 @@ export const ThemeSelectorStep: React.FC = () => {
       id: ThemeChoice.LIGHT,
       label: "Light",
       icon: Sun, 
-      preview: "/assets/ui-screenshots/light-mode.png",
+      preview: "/assets/screenshots/onboarding/light-mode.png",
     },
     {
       id: ThemeChoice.DARK,
       label: "Dark",
       icon: Moon,
-      preview: "/assets/ui-screenshots/dark-mode.png",
+      preview: "/assets/screenshots/onboarding/dark-mode.png",
     },
     {
       id: ThemeChoice.SYSTEM,
       label: "Match System",
       icon: Monitor,
-      preview: "/assets/ui-screenshots/light-dark-mode.png",
+      preview: "/assets/screenshots/onboarding/light-dark-mode.png",
     },
   ] as const;
 
