@@ -150,10 +150,13 @@ describe('PopUpComponent', () => {
     const form = screen.getByRole('form', { name: /add bookmark/i });
     form.noValidate = true; // equivalent to adding `novalidate`
 
-    // With no valid groups, the combobox is hidden and "New Group Name" input shows directly
-    expect(screen.queryByRole('combobox')).toBeNull();
+    // With no valid groups, a disabled placeholder select is shown first.
+    const groupSelect = screen.getByRole('combobox', { name: /^group$/i });
+    expect(groupSelect).toBeDisabled();
+    expect(screen.getByRole('button', { name: /\+ new group/i })).toBeInTheDocument();
 
-    // "New Group Name" input should be visible
+    // Enter new-group mode explicitly.
+    await userEvent.click(screen.getByRole('button', { name: /\+ new group/i }));
     const newGroupInput = screen.getByLabelText(/New Group Name/i);
 
     // Case 1: try to submit without new group name -> alerts and does not submit
@@ -245,8 +248,9 @@ describe('PopUpComponent', () => {
       </AppContext.Provider>
     );
 
-    // Initially no groups -> combobox is not shown; new-group input shown directly
-    await waitFor(() => expect(screen.queryByRole('combobox')).toBeNull());
+    // Initially no groups -> placeholder select is shown and disabled
+    const placeholderSelect = await screen.findByRole('combobox', { name: /^group$/i });
+    expect(placeholderSelect).toBeDisabled();
 
     // Hydrate with a real group
     rerender(
@@ -304,9 +308,10 @@ describe('PopUpComponent', () => {
     const form = screen.getByRole('form', { name: /add bookmark/i });
     form.noValidate = true;
 
-    // No valid groups -> new-group input shown directly, no combobox
-    expect(screen.queryByRole('combobox')).toBeNull();
-
+    // No valid groups -> placeholder select appears first
+    const groupSelect = screen.getByRole('combobox', { name: /^group$/i });
+    expect(groupSelect).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { name: /\+ new group/i }));
     const newName = screen.getByLabelText(/New Group Name/i);
     await userEvent.type(newName, 'Reading List');
     await userEvent.click(screen.getByRole('button', { name: /add bookmark/i }));
