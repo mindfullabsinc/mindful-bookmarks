@@ -1,6 +1,7 @@
 /* -------------------- Imports -------------------- */
 import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Upload } from "lucide-react";
 import { AppContext, OnboardingStatus } from "@/scripts/AppContextProvider";
 
 
@@ -53,6 +54,7 @@ type OnboardingStepConfig = {
   isFinal?: boolean;
   primaryDisabled?: boolean;
   skipStep?: boolean;
+  onSkip?: () => void;
 };
 /* ---------------------------------------------------------- */
 
@@ -273,7 +275,7 @@ export const OnboardingOverlay: React.FC = () => {
       id: "onboardingFileUpload",
       title: "Import from a file",
       subtitle:
-        "If you exported from another bookmark manager (or from Mindful), bring that file in now.",
+        "If you exported from another bookmark manager, bring that file in now.",
       body: (
         <div className="import-styles mt-4">
           {manualState.jsonData && fileUploadPreview ? (
@@ -292,7 +294,7 @@ export const OnboardingOverlay: React.FC = () => {
             <>
               <p className="json-format-hint">Supported formats: Chrome (.html), Toby (.json), TabMe (.json), Mindful (.json)</p>
               <div
-                className={`json-drop-zone${fileUploadIsDragOver ? " json-drop-zone--active" : ""}`}
+                className={`json-drop-zone onboarding-drop-zone${fileUploadIsDragOver ? " json-drop-zone--active" : ""}`}
                 onDragOver={(e) => { e.preventDefault(); setFileUploadIsDragOver(true); }}
                 onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setFileUploadIsDragOver(false); }}
                 onDrop={async (e) => {
@@ -302,15 +304,18 @@ export const OnboardingOverlay: React.FC = () => {
                   if (file) await processUploadedFile(file);
                 }}
               >
-                <span className="json-drop-zone-label">Drag &amp; drop a file here, or</span>
+                <div className="onboarding-upload-icon-box">
+                  <Upload size={24} />
+                </div>
+                <span className="onboarding-drop-zone-title">Drag &amp; drop a file here</span>
+                <span className="json-drop-zone-hint">.json or .html</span>
                 <button
                   type="button"
-                  className="json-drop-zone-button"
+                  className="onboarding-choose-file-button"
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  Choose File
+                  Choose file
                 </button>
-                <span className="json-drop-zone-hint">.json or .html</span>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -327,8 +332,11 @@ export const OnboardingOverlay: React.FC = () => {
           )}
         </div>
       ),
-      primaryLabel: manualState.jsonData ? "Next" : "Skip",
+      primaryLabel: "Import & continue",
+      primaryDisabled: !manualState.jsonData,
       secondaryLabel: "Back",
+      skipStep: true,
+      onSkip: clearFileUpload,
     });
   }
 
@@ -533,7 +541,7 @@ export const OnboardingOverlay: React.FC = () => {
                 Close
               </button>
             ) : step.skipStep ? (
-              <button type="button" onClick={() => setStepIndex((prev) => Math.min(prev + 1, totalSteps - 1))} className="underline-offset-2 hover:underline cursor-pointer">
+              <button type="button" onClick={() => { step.onSkip?.(); setStepIndex((prev) => Math.min(prev + 1, totalSteps - 1)); }} className="underline-offset-2 hover:underline cursor-pointer">
                 Skip this step
               </button>
             ) : (
