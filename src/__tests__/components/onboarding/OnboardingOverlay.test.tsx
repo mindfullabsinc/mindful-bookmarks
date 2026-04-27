@@ -170,8 +170,8 @@ it("steps through the flow and finishes Smart Import, setting active workspace a
   await user.click(nextButton);
 
   // Step 3: select import sources
-  expect(screen.getByText(/what should we import\?/i)).toBeInTheDocument();
-  nextButton = screen.getByRole("button", { name: /next/i });
+  expect(screen.getByText(/bring your links in/i)).toBeInTheDocument();
+  nextButton = screen.getByRole("button", { name: /import & continue/i });
   await user.click(nextButton);
 
   // Step 4: import bookmarks

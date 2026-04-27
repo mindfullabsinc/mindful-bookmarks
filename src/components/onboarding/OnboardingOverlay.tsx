@@ -52,6 +52,7 @@ type OnboardingStepConfig = {
   hideBack?: boolean;
   isFinal?: boolean;
   primaryDisabled?: boolean;
+  skipStep?: boolean;
 };
 /* ---------------------------------------------------------- */
 
@@ -96,7 +97,7 @@ export const OnboardingOverlay: React.FC = () => {
   // Track what sources the user wants to import (step before importBookmarks)
   const [importSources, setImportSources] = useState({
     chromeBookmarks: true,
-    openTabs: true,
+    openTabs: false,
     importFromFile: false,
   });
   const [tabScope, setTabScope] = useState<OpenTabsScopeType>(OpenTabsScope.All);
@@ -207,7 +208,8 @@ export const OnboardingOverlay: React.FC = () => {
   // 3. What to import
   STEPS.push({
     id: "selectImportSources",
-    title: "What should we import?",
+    title: "Bring your links in",
+    subtitle: "Start with your existing bookmarks. You can organise everything after.",
     body: (
       <div className="import-styles">
         {/* Chrome bookmarks */}
@@ -220,11 +222,15 @@ export const OnboardingOverlay: React.FC = () => {
         >
           <span className={"checkbox-box " + (importSources.chromeBookmarks ? "checkbox-box--checked" : "checkbox-box--unchecked")} aria-hidden="true">✓</span>
           <span className="checkbox-label-container">
-            <span className="checkbox-label">Chrome bookmarks</span>
+            <span className="flex items-center gap-2">
+              <span className="checkbox-label">Chrome bookmarks</span>
+              <span className="import-chip__pill">Recommended</span>
+            </span>
+            <span className="checkbox-label-description">Import all your saved Chrome bookmarks</span>
           </span>
         </button>
 
-        {/* Open tabs + animated scope picker */}
+        {/* Open tabs */}
         <button
           type="button"
           onClick={() => setImportSources((prev) => ({ ...prev, openTabs: !prev.openTabs }))}
@@ -235,45 +241,9 @@ export const OnboardingOverlay: React.FC = () => {
           <span className={"checkbox-box " + (importSources.openTabs ? "checkbox-box--checked" : "checkbox-box--unchecked")} aria-hidden="true">✓</span>
           <span className="checkbox-label-container">
             <span className="checkbox-label">Open tabs</span>
+            <span className="checkbox-label-description">Save everything you have open right now</span>
           </span>
         </button>
-        <AnimatePresence initial={false}>
-          {importSources.openTabs && (
-            <motion.div
-              key="tab-scope"
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.2, ease: "easeInOut" }}
-              style={{ overflow: "hidden" }}
-            >
-              <div className="pl-12 pt-1 pb-1">
-                <p className="text-xs font-normal text-neutral-600 dark:text-neutral-400 mb-1">Which tabs?</p>
-                <div className="space-y-0.5">
-                  {([
-                    { value: OpenTabsScope.All, label: "All open tabs" },
-                    { value: OpenTabsScope.Current, label: "Just this window" },
-                  ] as const).map(({ value, label }) => {
-                    const selected = tabScope === value;
-                    return (
-                      <button
-                        key={value}
-                        type="button"
-                        onClick={() => setTabScope(value)}
-                        className={`tabs-radio-button-row !p-1.5 !rounded-lg ${selected ? "tabs-radio-button-row--selected" : "tabs-radio-button-row--unselected"}`}
-                      >
-                        <div className={`tabs-radio-button-outer-circle ${selected ? "tabs-radio-button-outer-circle--selected" : "tabs-radio-button-outer-circle--unselected"}`}>
-                          {selected && <div className="tabs-radio-button-inner-circle" />}
-                        </div>
-                        <span className="tabs-radio-button-text !text-xs">{label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         {/* Import from a file */}
         <button
@@ -291,8 +261,10 @@ export const OnboardingOverlay: React.FC = () => {
         </button>
       </div>
     ),
-    primaryLabel: "Next",
+    primaryLabel: "Import & continue",
+    primaryDisabled: !importSources.chromeBookmarks && !importSources.openTabs && !importSources.importFromFile,
     secondaryLabel: "Back",
+    skipStep: true,
   });
 
   // 4. File upload (only when user checked "Import from a file")
@@ -447,7 +419,7 @@ export const OnboardingOverlay: React.FC = () => {
       setManualImportPrimaryWorkspaceId(null);
       setImportPrimaryDisabled(true);
       setImportFlow(null);
-      setImportSources({ chromeBookmarks: true, openTabs: true, importFromFile: false });
+      setImportSources({ chromeBookmarks: true, openTabs: false, importFromFile: false });
       setTabScope(OpenTabsScope.All);
       setFileUploadPreview(null);
       setFileUploadError(undefined);
@@ -560,6 +532,10 @@ export const OnboardingOverlay: React.FC = () => {
               <button type="button" onClick={closeOnboarding} className="underline-offset-2 hover:underline cursor-pointer">
                 Close
               </button>
+            ) : step.skipStep ? (
+              <button type="button" onClick={() => setStepIndex((prev) => Math.min(prev + 1, totalSteps - 1))} className="underline-offset-2 hover:underline cursor-pointer">
+                Skip this step
+              </button>
             ) : (
               <button onClick={() => void skipOnboarding()} className="underline-offset-2 hover:underline cursor-pointer">
                 Skip onboarding
@@ -580,45 +556,43 @@ export const OnboardingOverlay: React.FC = () => {
           <div className="mt-4">{step.body}</div>
 
           {/* Footer: navigation + dots */}
-          <div className="mt-6 flex items-center justify-end">
-            <div className="flex items-center gap-3">
-              {/* Dots */}
-              <div className="flex gap-1">
-                {STEPS.map((s, idx) => (
-                  <span
-                    key={s.id}
-                    className={`h-1.5 w-1.5 rounded-full ${
-                      idx === clampedIndex
-                        ? "bg-neutral-900 dark:bg-neutral-100"
-                        : "bg-neutral-300 dark:bg-neutral-700"
-                    }`}
-                  />
-                ))}
-              </div>
+          <div className="mt-6 flex items-center justify-between">
+            {/* Dots */}
+            <div className="flex gap-1">
+              {STEPS.map((s, idx) => (
+                <span
+                  key={s.id}
+                  className={`h-1.5 w-1.5 rounded-full ${
+                    idx === clampedIndex
+                      ? "bg-neutral-900 dark:bg-neutral-100"
+                      : "bg-neutral-300 dark:bg-neutral-700"
+                  }`}
+                />
+              ))}
+            </div>
 
-              {/* Primary / secondary buttons */}
-              <div className="flex items-center gap-2">
-                {step.secondaryLabel && (
-                  <button
-                    type="button"
-                    className="rounded-full border border-neutral-300 dark:border-neutral-700 px-3 py-1.5 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-950 cursor-pointer"
-                    onClick={handleSecondary}
-                    disabled={lockNav}
-                  >
-                    {step.secondaryLabel}
-                  </button>
-                )}
+            {/* Primary / secondary buttons */}
+            <div className="flex items-center gap-2">
+              {step.secondaryLabel && (
                 <button
                   type="button"
-                  className="rounded-full bg-neutral-900 dark:bg-neutral-100 px-4 py-2 text-sm font-medium text-white dark:text-black hover:bg-neutral-800 dark:hover:bg-neutral-200 cursor-pointer disabled:opacity-60 disabled:cursor-default"
-                  onClick={handlePrimary}
-                  disabled={primaryDisabled}
+                  className="rounded-full border border-neutral-300 dark:border-neutral-700 px-3 py-1.5 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-950 cursor-pointer"
+                  onClick={handleSecondary}
+                  disabled={lockNav}
                 >
-                  {isFinishGatedStep
-                    ? (canFinish ? step.primaryLabel : "Finishing up ...")
-                    : step.primaryLabel}
+                  {step.secondaryLabel}
                 </button>
-              </div>
+              )}
+              <button
+                type="button"
+                className="rounded-full bg-neutral-900 dark:bg-neutral-100 px-4 py-2 text-sm font-medium text-white dark:text-black hover:bg-neutral-800 dark:hover:bg-neutral-200 cursor-pointer disabled:opacity-60 disabled:cursor-default"
+                onClick={handlePrimary}
+                disabled={primaryDisabled}
+              >
+                {isFinishGatedStep
+                  ? (canFinish ? step.primaryLabel : "Finishing up ...")
+                  : step.primaryLabel}
+              </button>
             </div>
           </div>
         </motion.div>
