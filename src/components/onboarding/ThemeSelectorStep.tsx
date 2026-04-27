@@ -72,8 +72,7 @@ export const ThemeSelectorStep: React.FC = () => {
           Choose your look
         </p>
         <p className="prompt-subtitle">
-          Pick the theme that feels most natural to you. You can change this
-          anytime in Settings.
+          You can change this anytime in settings.
         </p>
       </div>
 

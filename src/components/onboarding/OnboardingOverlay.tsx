@@ -54,6 +54,8 @@ type OnboardingStepConfig = {
   isFinal?: boolean;
   primaryDisabled?: boolean;
   onSkip?: () => void;
+  heroTitle?: boolean;
+  hideSkip?: boolean;
 };
 /* ---------------------------------------------------------- */
 
@@ -188,12 +190,14 @@ export const OnboardingOverlay: React.FC = () => {
   // 1. Theme
   STEPS.push({
     id: "selectTheme",
-    title: "Welcome to Mindful!",
+    title: "Your new tab, finally useful",
     subtitle:
-      'Create visual groups for different projects, save pages into those groups, and see your "board" every time you open a new tab.',
+      "All your important links, organised and one tab away. Takes about a minute to set up.",
     body: <ThemeSelectorStep />,
     primaryLabel: "Next",
     hideBack: true,
+    heroTitle: true,
+    hideSkip: true,
   });
 
   // 2. Purpose
@@ -537,18 +541,24 @@ export const OnboardingOverlay: React.FC = () => {
               <button type="button" onClick={closeOnboarding} className="underline-offset-2 hover:underline cursor-pointer">
                 Close
               </button>
-            ) : !isLast ? (
+            ) : !isLast && !step.hideSkip ? (
               <button type="button" onClick={() => { step.onSkip?.(); setStepIndex((prev) => Math.min(prev + 1, totalSteps - 1)); }} className="underline-offset-2 hover:underline cursor-pointer">
                 Skip step
               </button>
             ) : null}
           </div>
 
-          <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-            {step.title}
-          </h2>
+          {step.heroTitle ? (
+            <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
+              {step.title}
+            </h2>
+          ) : (
+            <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+              {step.title}
+            </h2>
+          )}
           {step.subtitle && (
-            <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+            <p className={`mt-1 ${step.heroTitle ? "text-base" : "text-sm"} text-neutral-600 dark:text-neutral-400`}>
               {step.subtitle}
             </p>
           )}
