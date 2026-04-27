@@ -53,7 +53,6 @@ type OnboardingStepConfig = {
   hideBack?: boolean;
   isFinal?: boolean;
   primaryDisabled?: boolean;
-  skipStep?: boolean;
   onSkip?: () => void;
 };
 /* ---------------------------------------------------------- */
@@ -266,7 +265,6 @@ export const OnboardingOverlay: React.FC = () => {
     primaryLabel: "Import & continue",
     primaryDisabled: !importSources.chromeBookmarks && !importSources.openTabs && !importSources.importFromFile,
     secondaryLabel: "Back",
-    skipStep: true,
   });
 
   // 4. File upload (only when user checked "Import from a file")
@@ -335,7 +333,6 @@ export const OnboardingOverlay: React.FC = () => {
       primaryLabel: "Import & continue",
       primaryDisabled: !manualState.jsonData,
       secondaryLabel: "Back",
-      skipStep: true,
       onSkip: clearFileUpload,
     });
   }
@@ -540,15 +537,11 @@ export const OnboardingOverlay: React.FC = () => {
               <button type="button" onClick={closeOnboarding} className="underline-offset-2 hover:underline cursor-pointer">
                 Close
               </button>
-            ) : step.skipStep ? (
+            ) : !isLast ? (
               <button type="button" onClick={() => { step.onSkip?.(); setStepIndex((prev) => Math.min(prev + 1, totalSteps - 1)); }} className="underline-offset-2 hover:underline cursor-pointer">
-                Skip this step
+                Skip step
               </button>
-            ) : (
-              <button onClick={() => void skipOnboarding()} className="underline-offset-2 hover:underline cursor-pointer">
-                Skip onboarding
-              </button>
-            )}
+            ) : null}
           </div>
 
           <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
