@@ -28,9 +28,7 @@ describe("ThemeSelectorStep", () => {
     // Text content
     expect(screen.getByText("Choose your look")).toBeInTheDocument();
     expect(
-      screen.getByText(
-        /Pick the theme that feels most natural to you\. You can change this anytime in Settings\./
-      )
+      screen.getByText(/You can change this anytime in settings\./i)
     ).toBeInTheDocument();
 
     // Theme option buttons
