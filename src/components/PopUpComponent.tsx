@@ -124,6 +124,9 @@ export default function PopUpComponent() {
   // Recency order (ids of most-recently-used groups, most-recent first)
   const [recentOrder, setRecentOrder] = useState<string[]>([]);
 
+  // Whether the user has explicitly asked to create a new group (only matters when there are no existing groups)
+  const [showingNewGroupForm, setShowingNewGroupForm] = useState(false);
+
   // Only choose a default once per scope (userId+storageMode+workspaceId)
   const choseInitialRef = useRef(false);
   const scopeKey = `${userId || 'local'}::${storageMode || 'local'}::${activeWorkspaceId}`;
@@ -417,7 +420,31 @@ export default function PopUpComponent() {
         >
           Group
         </label>
-        {selectedGroupId !== SELECT_NEW ? (
+        {availableGroups.length === 0 && !showingNewGroupForm ? (
+          /* ── No groups yet: show placeholder + create CTA ── */
+          <>
+            <select
+              id="group-dropdown"
+              disabled
+              className="w-full rounded-2xl border px-3 py-2 outline-none
+                        bg-white dark:bg-neutral-900
+                        border-neutral-200 dark:border-neutral-800
+                        text-neutral-400 dark:text-neutral-600"
+            >
+              <option>No groups yet</option>
+            </select>
+            <button
+              type="button"
+              onClick={() => setShowingNewGroupForm(true)}
+              className="w-full rounded-2xl border border-dashed border-blue-600 dark:border-blue-400
+                        px-3 py-1.5 text-sm text-blue-600 dark:text-blue-400
+                        hover:bg-blue-50 dark:hover:bg-blue-950 transition-colors cursor-pointer"
+            >
+              + New Group
+            </button>
+          </>
+        ) : selectedGroupId !== SELECT_NEW ? (
+          /* ── Has groups: dropdown ── */
           <>
             <select
               id="group-dropdown"
@@ -453,6 +480,7 @@ export default function PopUpComponent() {
             </button>
           </>
         ) : (
+          /* ── New group input ── */
           <div className="space-y-1">
             <div className="flex items-center justify-between">
               <label
@@ -463,7 +491,13 @@ export default function PopUpComponent() {
               </label>
               <button
                 type="button"
-                onClick={() => setSelectedGroupId(alphaGroups[0]?.id ?? '')}
+                onClick={() => {
+                  if (availableGroups.length > 0) {
+                    setSelectedGroupId(alphaGroups[0]?.id ?? '');
+                  } else {
+                    setShowingNewGroupForm(false);
+                  }
+                }}
                 className="text-xs text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors cursor-pointer"
               >
                 Cancel
