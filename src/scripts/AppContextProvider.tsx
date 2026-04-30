@@ -11,7 +11,6 @@ import {
 
 /* Types */
 import type { BookmarkGroupType } from "@/core/types/bookmarks";
-import type { PurposeIdType } from '@shared/types/purposeId';
 import type { WorkspaceType, WorkspaceIdType } from '@/core/constants/workspaces';
 
 /* Scripts */
@@ -125,9 +124,6 @@ export interface AppContextValue {
   completeOnboarding: () => Promise<void>;
   skipOnboarding: () => Promise<void>;
   restartOnboarding: () => Promise<void>;
-  onboardingPurposes: PurposeIdType[];
-  setOnboardingPurposes: (purposes: PurposeIdType[]) => void;
-
   /* Theme (light/dark/system) for the UI */
   theme: ThemeChoice;
   setThemePreference: (choice: ThemeChoice) => Promise<void>;
@@ -214,7 +210,6 @@ export function AppContextProvider({
     onboardingReopen ||
     onboardingStatus === OnboardingStatus.IN_PROGRESS ||
     (onboardingStatus === OnboardingStatus.NOT_STARTED && hasHydrated && isEmpty);
-  const [onboardingPurposes, setOnboardingPurposes] = useState<PurposeIdType[]>([]);
 
   // Themes
   const [theme, setTheme] = useState<ThemeChoice>(ThemeChoice.SYSTEM);
@@ -1011,9 +1006,6 @@ export function AppContextProvider({
     completeOnboarding,
     skipOnboarding,
     restartOnboarding,
-    onboardingPurposes,
-    setOnboardingPurposes,
-
     /* Theme */
     theme,
     setThemePreference,

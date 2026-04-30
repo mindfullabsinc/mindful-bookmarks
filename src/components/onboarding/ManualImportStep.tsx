@@ -3,11 +3,11 @@ import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 
 /* Types */
 import type { ManualImportSelectionType } from "@/core/types/import";
-import type { PurposeIdType } from "@shared/types/purposeId";
 import type { ImportPhase } from "@/core/types/importPhase";
 
 /* Constants */
 import { ImportPostProcessMode } from "@/core/constants/import";
+import { PurposeId } from "@shared/constants/purposeId";
 
 /* Context */
 import { AppContext } from "@/scripts/AppContextProvider";
@@ -43,7 +43,6 @@ const MANUAL_NOAI_PHASES: readonly ImportPhase[] = [
 
 /* -------------------- Local types -------------------- */
 type ManualImportStepProps = {
-  purposes: PurposeIdType[];
   selection: ManualImportSelectionType;
   onDone: (primaryWorkspaceId: string) => void;
 
@@ -56,7 +55,6 @@ type ManualImportStepProps = {
 
 /* -------------------- Main component -------------------- */
 export const ManualImportStep: React.FC<ManualImportStepProps> = ({
-  purposes,
   selection,
   onDone,
   onBusyChange,
@@ -98,15 +96,10 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
     selectionRef.current = selection;
   }, [selection]);
 
-   // Stable purpose key
-  const purposesKey = useMemo(() => (purposes ?? []).join("|"), [purposes]);
-
-  // StrictMode-safe run token
+   // StrictMode-safe run token
   const runTokenRef = useRef(0);
 
   useEffect(() => {
-    if (!purposes || purposes.length === 0) return;
-
     const token = ++runTokenRef.current;
     let cancelled = false;
 
@@ -122,25 +115,17 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
       onProgress?.("Preparing workspaces...");
 
       try {
-        const refs: { id: string; purpose: PurposeIdType }[] = [];
-        const purposesToCreate = singleWorkspace ? purposes.slice(0, 1) : purposes;
-        for (const p of purposesToCreate) {
-          refs.push(await workspaceService.createWorkspaceForPurpose(p));
-        }
+        const primary = await workspaceService.createWorkspaceForPurpose(PurposeId.Personal);
 
         if (cancelled || token !== runTokenRef.current) return;
 
         bumpWorkspacesVersion();
-
-        const primary = refs[0];
-        if (!primary) throw new Error("Workspace not ready yet.");
 
         // Now committing the import payload
         setBackendPhase("importing");
 
         await commitManualImportIntoWorkspace({
           selection: selectionRef.current,
-          purposes,
           workspaceId: primary.id,
           purpose: primary.purpose,
           singleWorkspace,
@@ -192,7 +177,6 @@ export const ManualImportStep: React.FC<ManualImportStepProps> = ({
       cancelled = true;
     };
   }, [
-    purposesKey,
     workspaceService,
     bumpWorkspacesVersion,
     onBusyChange,

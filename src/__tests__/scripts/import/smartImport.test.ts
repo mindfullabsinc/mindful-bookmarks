@@ -127,34 +127,6 @@ describe("runSmartImport", () => {
     };
   };
 
-  it("returns early and emits a done message when no purposes are provided", async () => {
-    const onProgress = jest.fn();
-
-    const options: SmartImportOptions = {
-      purposes: [],
-      workspaceService: {} as unknown as WorkspaceService,
-      browserSourceService: {
-        collectBookmarks: jest.fn(),
-        collectTabs: jest.fn(),
-        collectHistory: jest.fn(),
-      } as unknown as BrowserSourceService,
-      nsfwFilter: { isSafe: jest.fn() } as unknown as NsfwFilter,
-      llm: { group: jest.fn() } as unknown as GroupingLLM,
-      onProgress,
-    };
-
-    const result = await runSmartImport(options);
-
-    expect(result.primaryWorkspaceId).toBeNull();
-
-    // Should emit exactly one progress update for the early return
-    expect(onProgress).toHaveBeenCalledTimes(1);
-    expect(onProgress).toHaveBeenCalledWith({
-      phase: "done",
-      message: "No purposes selected – skipping Smart Import.",
-    });
-  });
-
   it("runs the full pipeline and returns the primary workspace id", async () => {
     const {
       baseOptions,

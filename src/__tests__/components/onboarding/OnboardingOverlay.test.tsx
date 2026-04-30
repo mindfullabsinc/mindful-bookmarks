@@ -9,9 +9,6 @@ import {
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-/* Constants */
-import { PurposeId } from "@shared/constants/purposeId";
-
 /* Scripts */
 import {
   AppContext,
@@ -24,7 +21,6 @@ import { OnboardingOverlay } from "@/components/onboarding/OnboardingOverlay";
 // ---- Mocks ----
 
 // capture props from step components so tests can call their callbacks
-let lastPurposeStepProps: any;
 let lastImportStepProps: any;
 let lastSmartImportStepProps: any;
 
@@ -39,13 +35,6 @@ jest.mock("framer-motion", () => ({
 
 jest.mock("@/components/onboarding/ThemeSelectorStep", () => ({
   ThemeSelectorStep: () => <div data-testid="theme-step" />,
-}));
-
-jest.mock("@/components/onboarding/PurposeStep", () => ({
-  PurposeStep: (props: any) => {
-    lastPurposeStepProps = props;
-    return <div data-testid="purpose-step" />;
-  },
 }));
 
 jest.mock("@/components/onboarding/ImportBookmarksStep", () => ({
@@ -76,7 +65,6 @@ function createAppContextValue(overrides: CtxOverrides = {}) {
     completeOnboarding: jest.fn().mockResolvedValue(undefined),
     skipOnboarding: jest.fn().mockResolvedValue(undefined),
     restartOnboarding: jest.fn().mockResolvedValue(undefined),
-    onboardingPurposes: [PurposeId.Work],
     setActiveWorkspaceId: jest.fn().mockResolvedValue(undefined),
     bookmarkGroups: [],
     workspaces: {},
@@ -96,7 +84,6 @@ function renderWithContext(overrides: CtxOverrides = {}) {
 }
 
 beforeEach(() => {
-  lastPurposeStepProps = undefined;
   lastImportStepProps = undefined;
   lastSmartImportStepProps = undefined;
   jest.clearAllMocks();
@@ -149,27 +136,12 @@ it("steps through the flow and finishes Smart Import, setting active workspace a
   let nextButton = screen.getByRole("button", { name: /next/i });
   await user.click(nextButton);
 
-  // Step 2: purpose step
-  expect(screen.getByTestId("purpose-step")).toBeInTheDocument();
-  // primary should be disabled until child calls setPrimaryDisabled(false)
-  nextButton = screen.getByRole("button", { name: /next/i });
-  expect(nextButton).toBeDisabled();
-
-  act(() => {
-    lastPurposeStepProps.setPrimaryDisabled(false);
-  });
-
-  // Re-query after state update
-  nextButton = screen.getByRole("button", { name: /next/i });
-  expect(nextButton).toBeEnabled();
-  await user.click(nextButton);
-
-  // Step 3: select import sources
+  // Step 2: select import sources
   expect(screen.getByText(/bring your links in/i)).toBeInTheDocument();
   nextButton = screen.getByRole("button", { name: /import & continue/i });
   await user.click(nextButton);
 
-  // Step 4: import bookmarks
+  // Step 3: import bookmarks
   expect(screen.getByTestId("import-step")).toBeInTheDocument();
 
   // Verify that ImportBookmarksStep can control the primary disabled state too

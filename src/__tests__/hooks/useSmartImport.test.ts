@@ -1,9 +1,7 @@
 import { renderHook, act } from "@testing-library/react";
 import { useSmartImport } from "@/hooks/useSmartImport";
 import { runSmartImport } from "@/scripts/import/smartImport";
-import { PurposeId } from "@shared/constants/purposeId";
 import type { ImportPhase } from "@/core/types/importPhase";
-import type { PurposeIdType } from "@shared/types/purposeId";
 
 jest.mock("@/scripts/import/smartImport", () => ({
   runSmartImport: jest.fn(),
@@ -45,18 +43,13 @@ describe("useSmartImport", () => {
     // Act: run the import
     let returnedWorkspaceId: string | null = null;
     await act(async () => {
-      returnedWorkspaceId = await result.current.start([
-        PurposeId.Personal as PurposeIdType,
-      ]);
+      returnedWorkspaceId = await result.current.start();
     });
 
     // Assert: runSmartImport called with merged options
     expect(mockedRunSmartImport).toHaveBeenCalledTimes(1);
     const callArg = mockedRunSmartImport.mock.calls[0][0];
 
-    expect(callArg).toMatchObject({
-      purposes: [PurposeId.Personal],
-    });
     expect(typeof callArg.onProgress).toBe("function");
 
     // State updated from onProgress
@@ -76,9 +69,7 @@ describe("useSmartImport", () => {
 
     let returnedWorkspaceId: string | null = "dummy";
     await act(async () => {
-      returnedWorkspaceId = await result.current.start([
-        PurposeId.Work as PurposeIdType,
-      ]);
+      returnedWorkspaceId = await result.current.start();
     });
 
     expect(mockedRunSmartImport).toHaveBeenCalledTimes(1);

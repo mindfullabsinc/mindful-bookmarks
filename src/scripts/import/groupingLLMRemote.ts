@@ -35,7 +35,8 @@ export const remoteGroupingLLM: GroupingLLM = {
     }
 
     // Choose a default purpose for fallback / tiny imports
-    const defaultPurpose: PurposeIdType = input.purposes[0] ?? PurposeId.Personal;
+    const purposes: PurposeIdType[] = input.purposes?.length ? input.purposes : [PurposeId.Personal];
+    const defaultPurpose: PurposeIdType = purposes[0];
 
     // Skip LLM for tiny imports to save costs 
     if (input.items.length < MIN_ITEMS_FOR_LLM) {
@@ -54,6 +55,7 @@ export const remoteGroupingLLM: GroupingLLM = {
     const trimmedInput: GroupingInput = {
       ...input,
       items: input.items.slice(0, MAX_ITEMS),
+      purposes,
     };
 
     // Data minimization: sanitize URLs and truncate titles before sending to remote API (OpenAI-backed)
@@ -74,10 +76,6 @@ export const remoteGroupingLLM: GroupingLLM = {
         return next;
       }),
     };
-
-    if (!Array.isArray(input.purposes) || input.purposes.length === 0) {
-      throw new Error("Missing purposes[] (client) — input.purposes must be a non-empty array.");
-    }
 
     const res = await fetch(`${API_BASE_URL}/groupBookmarks`, {
       method: "POST",

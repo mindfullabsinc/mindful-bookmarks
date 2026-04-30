@@ -121,8 +121,7 @@ beforeEach(() => {
 describe("ManualImportStep", () => {
   test("AI-enabled path: creates workspaces, commits, and calls onDone only after visual done", async () => {
     createWorkspaceForPurposeMock
-      .mockResolvedValueOnce({ id: "w1", purpose: "p1" })
-      .mockResolvedValueOnce({ id: "w2", purpose: "p2" });
+      .mockResolvedValueOnce({ id: "w1", purpose: "p1" });
 
     commitManualImportIntoWorkspaceMock.mockImplementation(async ({ onProgress }: any) => {
       onProgress?.("Importing bookmarks...");
@@ -138,7 +137,6 @@ describe("ManualImportStep", () => {
 
     render(
       <ManualImportStep
-        purposes={["p1", "p2"] as any}
         selection={makeSelection({
           importPostProcessMode: ImportPostProcessMode.SemanticGrouping,
         })}
@@ -161,7 +159,7 @@ describe("ManualImportStep", () => {
     await waitFor(() => expect(onBusyChange).toHaveBeenCalledWith(false));
 
     expect(bumpWorkspacesVersionMock).toHaveBeenCalledTimes(2);
-    expect(createWorkspaceForPurposeMock).toHaveBeenCalledTimes(2);
+    expect(createWorkspaceForPurposeMock).toHaveBeenCalledTimes(1);
   });
 
   test("non-AI path: shows committing text and calls onDone when commit completes", async () => {
@@ -179,7 +177,6 @@ describe("ManualImportStep", () => {
 
     render(
       <ManualImportStep
-        purposes={["p1"] as any}
         selection={makeSelection({ importPostProcessMode: undefined })}
         onDone={onDone}
         onBusyChange={onBusyChange}
@@ -209,7 +206,6 @@ describe("ManualImportStep", () => {
 
     render(
       <ManualImportStep
-        purposes={["p1"] as any}
         selection={makeSelection({ importPostProcessMode: undefined })}
         onDone={onDone}
         onBusyChange={onBusyChange}

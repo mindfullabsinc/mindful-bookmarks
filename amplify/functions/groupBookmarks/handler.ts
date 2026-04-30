@@ -219,14 +219,12 @@ const groupBookmarksCore = async (
 
   const isPurposeId = (p: string): p is PurposeIdType =>
     p === PurposeId.Personal || p === PurposeId.School || p === PurposeId.Work;
-  const purposes: PurposeIdType[] = Array.isArray(parsed.purposes)
+  const rawPurposes: PurposeIdType[] = Array.isArray(parsed.purposes)
     ? parsed.purposes.filter(isPurposeId)
     : [];
-  if (!purposes.length) {
-    throw badRequest("Missing purposes[]");
-  }
+  const purposes: PurposeIdType[] = rawPurposes.length ? rawPurposes : [PurposeId.Personal];
 
-  const defaultPurpose = purposes[0] ?? PurposeId.Personal;
+  const defaultPurpose = purposes[0];
 
   // Normalize into RawItem[]
   const items: RawItem[] = rawItems

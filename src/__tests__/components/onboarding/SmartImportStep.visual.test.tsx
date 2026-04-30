@@ -1,7 +1,5 @@
 import React from "react";
 import { waitFor, act } from "@testing-library/react";
-import type { PurposeIdType } from "@shared/types/purposeId";
-import { PurposeId } from "@shared/constants/purposeId";
 
 import {
   mockedUseSmartImport,
@@ -16,7 +14,7 @@ useFakeTimersLifecycle();
 
 describe("SmartImportStep.visual", () => {
   it("advances visual phase towards backend phase over time", async () => {
-    type StartFn = (purposes: PurposeIdType[]) => Promise<string | null>;
+    type StartFn = () => Promise<string | null>;
     const startMock = jest.fn<ReturnType<StartFn>, Parameters<StartFn>>();
     startMock.mockResolvedValue(null);
 
@@ -29,7 +27,7 @@ describe("SmartImportStep.visual", () => {
     });
 
     const { container } = renderWithContext(
-      <SmartImportStep purposes={[PurposeId.Work] as PurposeIdType[]} onDone={jest.fn()} />
+      <SmartImportStep onDone={jest.fn()} />
     );
 
     const bar = container.querySelector(".s_import-progress-bar") as HTMLDivElement | null;

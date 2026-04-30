@@ -1,7 +1,5 @@
 import React from "react";
 import { waitFor } from "@testing-library/react";
-import type { PurposeIdType } from "@shared/types/purposeId";
-import { PurposeId } from "@shared/constants/purposeId";
 
 import {
   mockedUseSmartImport,
@@ -38,7 +36,7 @@ useFakeTimersLifecycle();
 
 describe("SmartImportStep.orchestration", () => {
   it("starts smart import on mount and notifies parent when done", async () => {
-    type StartFn = (purposes: PurposeIdType[]) => Promise<string | null>;
+    type StartFn = () => Promise<string | null>;
     const startMock = jest.fn<ReturnType<StartFn>, Parameters<StartFn>>();
     startMock.mockResolvedValue("ws-123");
 
@@ -52,11 +50,11 @@ describe("SmartImportStep.orchestration", () => {
 
     const onDone = jest.fn();
     const { bumpWorkspacesVersion } = renderWithContext(
-      <SmartImportStep purposes={[PurposeId.Work] as PurposeIdType[]} onDone={onDone} />
+      <SmartImportStep onDone={onDone} />
     );
 
     expect(mockedCreateWorkspaceServiceLocal).toHaveBeenCalledWith("user-123");
-    expect(startMock).toHaveBeenCalledWith([PurposeId.Work]);
+    expect(startMock).toHaveBeenCalled();
 
     await waitFor(() => {
       expect(bumpWorkspacesVersion).toHaveBeenCalled();
@@ -64,27 +62,8 @@ describe("SmartImportStep.orchestration", () => {
     });
   });
 
-  it("does not start smart import when purposes array is empty", () => {
-    type StartFn = (purposes: PurposeIdType[]) => Promise<string | null>;
-    const startMock = jest.fn<ReturnType<StartFn>, Parameters<StartFn>>();
-
-    mockedUseSmartImport.mockReturnValue({
-      phase: "initializing",
-      message: "Init",
-      totalItems: undefined,
-      processedItems: undefined,
-      start: startMock as unknown as StartFn,
-    });
-
-    const onDone = jest.fn();
-    renderWithContext(<SmartImportStep purposes={[]} onDone={onDone} />);
-
-    expect(startMock).not.toHaveBeenCalled();
-    expect(onDone).not.toHaveBeenCalled();
-  });
-
   it("handles errors from start, still bumps workspace version, and does not notify parent", async () => {
-    type StartFn = (purposes: PurposeIdType[]) => Promise<string | null>;
+    type StartFn = () => Promise<string | null>;
     const startMock = jest
       .fn<ReturnType<StartFn>, Parameters<StartFn>>()
       .mockRejectedValue(new Error("boom"));
@@ -101,11 +80,11 @@ describe("SmartImportStep.orchestration", () => {
 
     const onDone = jest.fn();
     const { bumpWorkspacesVersion } = renderWithContext(
-      <SmartImportStep purposes={[PurposeId.Work] as PurposeIdType[]} onDone={onDone} />
+      <SmartImportStep onDone={onDone} />
     );
 
     await waitFor(() => {
-      expect(startMock).toHaveBeenCalledWith([PurposeId.Work]);
+      expect(startMock).toHaveBeenCalled();
       expect(bumpWorkspacesVersion).toHaveBeenCalled();
     });
 

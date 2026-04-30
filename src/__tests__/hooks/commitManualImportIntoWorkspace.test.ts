@@ -352,20 +352,4 @@ describe("commitManualImportIntoWorkspace", () => {
     );
   });
 
-  it("SemanticGrouping: throws if purposes[] missing/empty", async () => {
-    const commitManualImportIntoWorkspace = getSut();
-
-    await expect(
-      commitManualImportIntoWorkspace({
-        selection: {
-          jsonData: JSON.stringify([{ groupName: "X", bookmarks: [{ url: "https://x.com" }] }]),
-          importPostProcessMode: ImportPostProcessMode.SemanticGrouping,
-        } as any,
-        purposes: [] as any,
-        workspaceId: "w1",
-        purpose: "p1" as any,
-        workspaceService,
-      })
-    ).rejects.toThrow("Missing purposes[] (client) — cannot run semantic grouping.");
-  });
 });

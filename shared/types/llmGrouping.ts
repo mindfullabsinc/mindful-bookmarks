@@ -28,7 +28,7 @@ export type CategorizedGroup = {
  */
 export type GroupingInput = {
   items: RawItem[];
-  purposes: PurposeIdType[];
+  purposes?: PurposeIdType[];
 };
 
 /**

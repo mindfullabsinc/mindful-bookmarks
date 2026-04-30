@@ -24,7 +24,6 @@ import { useManualImportWizardState } from "@/hooks/useManualImportWizardState";
 
 /* Components */
 import { ThemeSelectorStep } from "@/components/onboarding/ThemeSelectorStep";
-import { PurposeStep } from "@/components/onboarding/PurposeStep";
 import { ImportBookmarksStep } from "@/components/onboarding/ImportBookmarksStep";
 import { SmartImportStep } from "@/components/onboarding/SmartImportStep";
 import { ManualImportStep } from "@/components/onboarding/ManualImportStep";
@@ -34,7 +33,6 @@ import { PinExtensionStep } from "@/components/onboarding/PinExtensionStep";
 /* -------------------- Local types / interfaces -------------------- */
 type OnboardingStepId =
   | "selectTheme"
-  | "setPurpose"
   | "selectImportSources"
   | "onboardingFileUpload"
   | "importBookmarks"
@@ -69,7 +67,6 @@ export const OnboardingOverlay: React.FC = () => {
     completeOnboarding,
     closeOnboarding,
     skipOnboarding,
-    onboardingPurposes,
     setActiveWorkspaceId,
     bookmarkGroups,
     workspaces,
@@ -200,17 +197,7 @@ export const OnboardingOverlay: React.FC = () => {
     hideSkip: true,
   });
 
-  // 2. Purpose
-  STEPS.push({
-    id: "setPurpose",
-    title: "What brings you to Mindful?",
-    body: <PurposeStep setPrimaryDisabled={setImportPrimaryDisabled} />,
-    primaryLabel: "Next",
-    secondaryLabel: "Back",
-    primaryDisabled: importPrimaryDisabled,
-  });
-
-  // 3. What to import
+  // 2. What to import
   STEPS.push({
     id: "selectImportSources",
     title: "Bring your links in",
@@ -369,7 +356,6 @@ export const OnboardingOverlay: React.FC = () => {
         "We’re pulling in your bookmarks, tabs, and history to build your Mindful workspace.",
       body: (
         <SmartImportStep
-          purposes={onboardingPurposes}
           onBusyChange={setSmartImportBusy}
           singleWorkspace
           fileItems={fileRawItems}
@@ -390,7 +376,6 @@ export const OnboardingOverlay: React.FC = () => {
       title: "Setting things up ...",
       body: (
         <ManualImportStep
-          purposes={onboardingPurposes}
           selection={manualSelection}
           onBusyChange={setManualCommitBusy}
           onProgress={setManualCommitMessage}

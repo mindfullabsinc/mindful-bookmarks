@@ -8,7 +8,6 @@ import React, {
 } from "react";
 
 /* Types */
-import type { PurposeIdType } from "@shared/types/purposeId";
 import type { ImportPhase } from "@/core/types/importPhase";
 import type { RawItem } from "@shared/types/llmGrouping";
 
@@ -32,7 +31,6 @@ import { AiDisclosure } from "@/components/privacy/AiDisclosure";
 
 /* -------------------- Local types -------------------- */
 type SmartImportStepProps = {
-  purposes: PurposeIdType[];
   onDone: (primaryWorkspaceId: string) => void;
   onBusyChange?: (busy: boolean) => void;
   singleWorkspace?: boolean;
@@ -56,7 +54,6 @@ const PHASE_SEQUENCE = [
  * @param props.purposes Ordered list of purposes selected in the onboarding flow.
  */
 export const SmartImportStep: React.FC<SmartImportStepProps> = ({
-  purposes,
   onDone,
   onBusyChange,
   singleWorkspace,
@@ -103,10 +100,9 @@ export const SmartImportStep: React.FC<SmartImportStepProps> = ({
   const [visualDone, setVisualDone] = useState(false);
 
   /**
-   * Kick off the smart import job once the component mounts and purposes are available.
+   * Kick off the smart import job once the component mounts.
    */
   useEffect(() => {
-    if (!purposes || purposes.length === 0) return;
     if (startedRef.current) return;
     startedRef.current = true;
 
@@ -115,7 +111,7 @@ export const SmartImportStep: React.FC<SmartImportStepProps> = ({
 
     (async () => {
       try {
-        const id = await start(purposes);
+        const id = await start();
         if (!cancelled) {
           if (id) setPrimaryWorkspaceId(id);
           await pruneNewWorkspacePlaceholders();
@@ -138,7 +134,7 @@ export const SmartImportStep: React.FC<SmartImportStepProps> = ({
       cancelled = true;
       onBusyChange?.(false);
     };
-  }, [purposes, start, bumpWorkspacesVersion, onBusyChange]);  
+  }, [start, bumpWorkspacesVersion, onBusyChange]);
 
   /**
    * After backend is done, tell parent which workspace to activate.
