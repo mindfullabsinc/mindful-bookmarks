@@ -24,7 +24,8 @@ export const stubGroupingLLM: GroupingLLM = {
    * @returns Stubbed grouping response with either one or many groups.
    */
   async group(input: GroupingInput): Promise<GroupingLLMResponse> {
-    const { items, purposes } = input;
+    const { items } = input;
+    const purposes = input.purposes ?? [];
 
     if (!items.length || !purposes.length) {
       return { groups: [] };
