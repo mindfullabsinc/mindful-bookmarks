@@ -314,7 +314,7 @@ Remember: every input id must appear in at least one group.
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        max_output_tokens: 1200,
+        max_output_tokens: 2000,
         temperature: 0.2,
       },
       { timeout: 20_000 },
