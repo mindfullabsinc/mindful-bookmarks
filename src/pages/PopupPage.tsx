@@ -96,18 +96,25 @@ function broadcastLocalModeEdge() {
 /* ---------------------------------------------------------- */
 
 /* ----------------------- Mode state ----------------------- */
-function usePopupMode(): { mode: AuthModeType; setMode: (next: AuthModeType) => Promise<void> | void; ready: boolean } {
+function usePopupMode(): { mode: AuthModeType; setMode: (next: AuthModeType) => Promise<void> | void; newTabSeen: boolean; ready: boolean } {
   const [mode, setMode] = React.useState<AuthModeType>(AuthMode.ANON);
+  const [newTabSeen, setNewTabSeen] = React.useState(false);
   const [ready, setReady] = React.useState(false);
 
   React.useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const { mindful_auth_mode } =
-          await (chrome.storage?.local?.get?.('mindful_auth_mode') ?? Promise.resolve({})) as { mindful_auth_mode?: AuthModeType };
-        if (!cancelled && (mindful_auth_mode === AuthMode.ANON || mindful_auth_mode === AuthMode.AUTH)) {
-          setMode(mindful_auth_mode);
+        const result =
+          await (chrome.storage?.local?.get?.(['mindful_auth_mode', 'mindful_new_tab_seen']) ?? Promise.resolve({})) as {
+            mindful_auth_mode?: AuthModeType;
+            mindful_new_tab_seen?: boolean;
+          };
+        if (!cancelled) {
+          if (result.mindful_auth_mode === AuthMode.ANON || result.mindful_auth_mode === AuthMode.AUTH) {
+            setMode(result.mindful_auth_mode);
+          }
+          setNewTabSeen(result.mindful_new_tab_seen === true);
         }
       } catch {}
       if (!cancelled) setReady(true);
@@ -120,7 +127,29 @@ function usePopupMode(): { mode: AuthModeType; setMode: (next: AuthModeType) => 
     try { await chrome.storage?.local?.set?.({ mindful_auth_mode: next }); } catch {}
   }, []);
 
-  return { mode, setMode: save, ready };
+  return { mode, setMode: save, newTabSeen, ready };
+}
+
+/* ----------------------- New User View ----------------------- */
+function NewUserView() {
+  return (
+    <div className="flex flex-col items-center text-center py-4 gap-5">
+      <div className="flex items-center gap-3">
+        <img src="/assets/icon-128.png" alt="Mindful" className="h-9 w-9 flex-shrink-0" />
+        <span className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100">Mindful</span>
+      </div>
+      <p className="text-neutral-600 dark:text-neutral-400 text-base leading-snug max-w-[260px]">
+        Open a new tab to set up your bookmark dashboard.
+      </p>
+      <button
+        type="button"
+        onClick={openMindfulTab}
+        className="w-full rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 px-4 transition flex items-center justify-center gap-1.5 cursor-pointer"
+      >
+        Open new tab <span aria-hidden>→</span>
+      </button>
+    </div>
+  );
 }
 /* ---------------------------------------------------------- */
 
@@ -264,7 +293,7 @@ const AnalyticsProviderLazy = React.lazy<React.ComponentType<WithChildren>>(asyn
 
 /* ----------------------- MAIN ----------------------- */
 export default function PopupPage(): ReactElement | null {
-  const { mode, setMode, ready } = usePopupMode();
+  const { mode, setMode, newTabSeen, ready } = usePopupMode();
   const suppressNextSignedOut = React.useRef(false);
 
   // Hub listener is now loaded *only in AUTH mode* and lazily
@@ -300,60 +329,43 @@ export default function PopupPage(): ReactElement | null {
     <div className="popup-root mindful-auth p-4 bg-neutral-50 dark:bg-neutral-950">
       <PopupAutosize selector=".popup-root" maxH={600} />
 
-      {/* Open Mindful button */}
-      <div className="flex justify-end mb-1">
-        <button
-          onClick={openMindfulTab}
-          type="button"
-          className="flex items-center gap-2 rounded-lg border cursor-pointer px-3 py-2
-                   bg-white dark:bg-neutral-900
-                    text-neutral-700 dark:text-neutral-300
-                   border-neutral-300 dark:border-neutral-700
-                   hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
-        >
-          <img
-            src="/assets/icon-128.png"
-            alt="Mindful logo"
-            className="h-[16px] w-[16px] object-contain"
-          />
-          <span className="text-sm font-medium">Open Mindful</span>
-        </button>
-      </div>
-
-      {/* Mode switcher stays in both modes; handlers lazy-load auth only when needed */}
-      {/* TODO: Re-enable mode switcher after remote mode is supported again */}
-      {/* <ModeSwitcher
-        mode={mode}
-        onSwitch={async (next) => {
-          if (next === AuthMode.AUTH) {
-            setMode(AuthMode.AUTH);
-            // Force signOut if a session exists so <Authenticator> shows sign-in immediately.
-            suppressNextSignedOut.current = true;
-            try {
-              const { fetchAuthSession, signOut } = await import('aws-amplify/auth');
-              const s = await fetchAuthSession().catch(() => null as any);
-              if (s && ((s as any).tokens || (s as any).userSub || (s as any).identityId)) {
-                await signOut({ global: true }).catch(() => {});
-              }
-            } catch {}
-          } else {
-            setMode(AuthMode.ANON);
-            broadcastLocalModeEdge();
-            refreshNewTabPagesBestEffort();
-          }
-        }}
-      /> */}
-
-      {mode === AuthMode.ANON ? (
-        // —— ANON: no Amplify/UI; pure local AppContext ——
-        <AppContextProvider user={null} preferredStorageMode="local">
-          <PopUpComponent />
-        </AppContextProvider>
+      {!newTabSeen ? (
+        /* ── New user: simple open-tab prompt, no form ── */
+        <NewUserView />
       ) : (
-        // —— AUTH: lazily load Analytics + Authenticator chunk ——
-        <React.Suspense fallback={<div />}>
-          <AuthInlinePopup />
-        </React.Suspense>
+        <>
+          {/* ── Returning user: small "Open Mindful" button + form ── */}
+          <div className="flex justify-end mb-1">
+            <button
+              onClick={openMindfulTab}
+              type="button"
+              className="flex items-center gap-2 rounded-lg border cursor-pointer px-3 py-2
+                       bg-white dark:bg-neutral-900
+                        text-neutral-700 dark:text-neutral-300
+                       border-neutral-300 dark:border-neutral-700
+                       hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+            >
+              <img
+                src="/assets/icon-128.png"
+                alt="Mindful logo"
+                className="h-[16px] w-[16px] object-contain"
+              />
+              <span className="text-sm font-medium">Open Mindful</span>
+            </button>
+          </div>
+
+          {mode === AuthMode.ANON ? (
+            // —— ANON: no Amplify/UI; pure local AppContext ——
+            <AppContextProvider user={null} preferredStorageMode="local">
+              <PopUpComponent />
+            </AppContextProvider>
+          ) : (
+            // —— AUTH: lazily load Analytics + Authenticator chunk ——
+            <React.Suspense fallback={<div />}>
+              <AuthInlinePopup />
+            </React.Suspense>
+          )}
+        </>
       )}
     </div>
   );

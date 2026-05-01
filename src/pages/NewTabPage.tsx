@@ -66,7 +66,6 @@ type AppCtxShape = {
   workspaces: Record<string, any>;
   bumpPostImport: (previousIds: string[]) => void;
   bumpWorkspacesVersion: () => void;
-  onboardingPurposes: string[];
 };
 
 type NewTabPageProps = {
@@ -119,7 +118,6 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
     workspaces,
     bumpPostImport,
     bumpWorkspacesVersion,
-    onboardingPurposes,
   } = useContext(AppContext) as AppCtxShape;
 
   const gridRef = useRef<GridHandle | null>(null);
@@ -362,9 +360,7 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
       source: ImportSource.Bookmarks as any,
     }));
 
-    const purposes = onboardingPurposes?.length
-      ? onboardingPurposes
-      : [PurposeId.Personal];
+    const purposes = [PurposeId.Personal];
 
     // Snapshot current groups so Undo can restore them
     preOrganizeSnapshotRef.current = [...bookmarkGroupsRaw];
@@ -434,7 +430,7 @@ export function NewTabPage({ user, signIn, signOut }: NewTabPageProps): ReactEle
         setOrganizePhase('initializing');
       }
     }
-  }, [isOrganizing, bookmarkGroupsRaw, onboardingPurposes, updateAndPersistGroups]);
+  }, [isOrganizing, bookmarkGroupsRaw, updateAndPersistGroups]);
 
   /**
    * Revert the workspace to the snapshot captured before the last organize run.

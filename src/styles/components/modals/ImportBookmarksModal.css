@@ -135,6 +135,30 @@
     @apply text-xs text-neutral-400 dark:text-neutral-500 mb-3;
   }
 
+  /* -------------------- Onboarding file upload drop zone -------------------- */
+  .onboarding-drop-zone {
+    @apply py-12 gap-3;
+  }
+
+  .onboarding-upload-icon-box {
+    @apply flex items-center justify-center w-14 h-14 rounded-xl
+           bg-neutral-100 dark:bg-neutral-800
+           text-neutral-600 dark:text-neutral-400;
+  }
+
+  .onboarding-drop-zone-title {
+    @apply text-sm font-bold text-neutral-900 dark:text-neutral-100;
+  }
+
+  .onboarding-choose-file-button {
+    @apply mt-1 px-6 py-2 rounded-lg text-sm font-medium
+           border border-neutral-300 dark:border-neutral-600
+           bg-white dark:bg-neutral-900
+           text-neutral-800 dark:text-neutral-200
+           hover:bg-neutral-50 dark:hover:bg-neutral-800
+           transition-colors cursor-pointer;
+  }
+
   /* -------------------- Shared: JSON drop zone -------------------- */
   .json-drop-zone {
     @apply flex flex-col items-center justify-center gap-2

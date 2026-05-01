@@ -47,7 +47,6 @@ const smallBatch = (ip = "1.2.3.4") =>
         { id: "item-1", title: "Example", url: "https://example.com" },
         { id: "item-2", title: "Test", url: "https://test.com" },
       ],
-      purposes: ["personal"],
     },
     ip
   );
@@ -62,7 +61,6 @@ const largeBatch = (ip = "1.2.3.4") =>
         { id: "item-3", title: "Stack Overflow", url: "https://stackoverflow.com" },
         { id: "item-4", title: "TypeScript", url: "https://typescriptlang.org" },
       ],
-      purposes: ["personal"],
     },
     ip
   );
@@ -193,27 +191,15 @@ describe("groupBookmarks handler", () => {
     });
 
     test("returns 400 when items[] is missing from the body", async () => {
-      const res = await handler(
-        makeEvent({ purposes: ["personal"] })
-      );
+      const res = await handler(makeEvent({}));
       expect(res.statusCode).toBe(400);
     });
 
-    test("returns 400 when purposes[] is missing from the body", async () => {
-      const res = await handler(
-        makeEvent({ items: [{ id: "1", url: "https://example.com" }] })
-      );
-      expect(res.statusCode).toBe(400);
-    });
-
-    test("returns 400 when purposes[] is present but contains no valid values", async () => {
-      const res = await handler(
-        makeEvent({
-          items: [{ id: "1", url: "https://example.com" }],
-          purposes: ["unknown-purpose"],
-        })
-      );
-      expect(res.statusCode).toBe(400);
+    test("defaults to personal purpose when purposes[] is absent", async () => {
+      const res = await handler(smallBatch());
+      expect(res.statusCode).toBe(200);
+      const body = JSON.parse(res.body);
+      expect(body.groups[0].purpose).toBe("personal");
     });
   });
 

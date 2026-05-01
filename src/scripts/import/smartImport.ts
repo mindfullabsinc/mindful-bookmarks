@@ -1,4 +1,7 @@
 /* -------------------- Imports -------------------- */
+/* Constants */
+import { PurposeId } from "@shared/constants/purposeId";
+
 /* Types */
 import type { ImportPhase } from "@/core/types/importPhase";
 import type { WorkspaceRef, WorkspaceService } from "@/core/types/workspaces";
@@ -26,7 +29,7 @@ export type SmartImportResult = {
 }
 
 export type SmartImportOptions = {
-  purposes: PurposeIdType[];
+  purposes?: PurposeIdType[];
   workspaceService: WorkspaceService;
   browserSourceService: BrowserSourceService;
   nsfwFilter: NsfwFilter;
@@ -94,7 +97,6 @@ export async function runSmartImport(
   options: SmartImportOptions
 ): Promise<SmartImportResult> {
   const {
-    purposes,
     workspaceService,
     browserSourceService,
     nsfwFilter,
@@ -103,14 +105,7 @@ export async function runSmartImport(
     fileItems,
   } = options;
 
-  if (!purposes.length) {
-    // Nothing to do, but consider this a "success"
-    emit(options, {
-      phase: "done",
-      message: "No purposes selected – skipping Smart Import.",
-    });
-    return { primaryWorkspaceId: null };
-  }
+  const purposes: PurposeIdType[] = options.purposes?.length ? options.purposes : [PurposeId.Personal];
 
   /* 1) Initialize */
   emit(options, {

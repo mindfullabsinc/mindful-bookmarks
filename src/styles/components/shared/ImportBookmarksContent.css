@@ -83,15 +83,15 @@
 
     /* Yes/no checkbox per wizard step */
     .checkbox-row {
-      @apply mt-4 w-full text-left flex items-start gap-3 rounded-xl px-4 py-3 text-sm cursor-pointer transition;
+      @apply mt-4 w-full text-left flex items-start gap-3 rounded-xl px-4 py-3 text-sm cursor-pointer transition border;
     }
 
     .checkbox-row--checked {
-      @apply bg-blue-500/10;
+      @apply bg-blue-500/10 border-blue-500;
     }
 
     .checkbox-row--unchecked {
-      @apply bg-transparent hover:bg-neutral-100/40 dark:hover:bg-neutral-900/40; 
+      @apply bg-transparent border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100/40 dark:hover:bg-neutral-900/40;
     }
 
     .checkbox-box {

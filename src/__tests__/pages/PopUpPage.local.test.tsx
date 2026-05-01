@@ -64,7 +64,7 @@ beforeAll(() => {
     },
     storage: {
       local: {
-        get: jest.fn().mockResolvedValue({}),            // default: no stored mode
+        get: jest.fn().mockResolvedValue({ mindful_new_tab_seen: true }),
         set: jest.fn().mockResolvedValue(undefined),
       },
     },
@@ -122,6 +122,7 @@ describe('PopupPage (local-only mode)', () => {
   it('if storage explicitly contains ANON, still renders local-only', async () => {
     (global.chrome.storage.local.get as jest.Mock).mockResolvedValueOnce({
       mindful_auth_mode: 'ANON',
+      mindful_new_tab_seen: true,
     });
 
     render(<PopupPage />);

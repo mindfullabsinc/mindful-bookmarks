@@ -3,6 +3,7 @@ import type { PurposeIdType } from "@shared/types/purposeId";
 import type { CategorizedGroup, RawItem } from "@shared/types/llmGrouping";
 
 import { ImportPostProcessMode, ImportSource, JsonImportMode } from "@/core/constants/import";
+import { PurposeId } from "@shared/constants/purposeId";
 import { remoteGroupingLLM } from "@/scripts/import/groupingLLMRemote";
 
 import {
@@ -248,7 +249,7 @@ export function parseFileToRawItems(text: string, fileName: string): RawItem[] {
 
 export type CommitManualImportArgs = {
   selection: ManualImportSelectionType;
-  purposes: PurposeIdType[];          // used only for LLM grouping
+  purposes?: PurposeIdType[];          // used only for LLM grouping
   workspaceId: string;               // the target workspace (active OR new)
   purpose: PurposeIdType;            // the workspace purpose (active OR new)
   /** When true, collapse all file content into workspaceId instead of creating per-workspace entries */
@@ -420,16 +421,12 @@ export async function commitManualImportIntoWorkspace({
     (selection.tabScope !== undefined && selection.tabsImportMode === JsonImportMode.Replace);
 
   if (mode === ImportPostProcessMode.SemanticGrouping) {
-    if (!Array.isArray(purposes) || purposes.length === 0) {
-      throw new Error("Missing purposes[] (client) — cannot run semantic grouping.");
-    }
-
     onProgress?.("Organizing with AI ...");
     const items = flattenCategorizedGroups(allCategorized);
 
     const res = await remoteGroupingLLM.group({
       items,
-      purposes,
+      purposes: (Array.isArray(purposes) && purposes.length) ? purposes : [PurposeId.Personal],
     });
 
     onProgress?.("Saving groups ...");

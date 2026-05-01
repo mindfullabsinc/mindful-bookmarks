@@ -1,6 +1,7 @@
 /* -------------------- Imports -------------------- */
 import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Upload } from "lucide-react";
 import { AppContext, OnboardingStatus } from "@/scripts/AppContextProvider";
 
 
@@ -23,7 +24,6 @@ import { useManualImportWizardState } from "@/hooks/useManualImportWizardState";
 
 /* Components */
 import { ThemeSelectorStep } from "@/components/onboarding/ThemeSelectorStep";
-import { PurposeStep } from "@/components/onboarding/PurposeStep";
 import { ImportBookmarksStep } from "@/components/onboarding/ImportBookmarksStep";
 import { SmartImportStep } from "@/components/onboarding/SmartImportStep";
 import { ManualImportStep } from "@/components/onboarding/ManualImportStep";
@@ -33,7 +33,6 @@ import { PinExtensionStep } from "@/components/onboarding/PinExtensionStep";
 /* -------------------- Local types / interfaces -------------------- */
 type OnboardingStepId =
   | "selectTheme"
-  | "setPurpose"
   | "selectImportSources"
   | "onboardingFileUpload"
   | "importBookmarks"
@@ -52,6 +51,9 @@ type OnboardingStepConfig = {
   hideBack?: boolean;
   isFinal?: boolean;
   primaryDisabled?: boolean;
+  onSkip?: () => void;
+  heroTitle?: boolean;
+  hideSkip?: boolean;
 };
 /* ---------------------------------------------------------- */
 
@@ -65,7 +67,6 @@ export const OnboardingOverlay: React.FC = () => {
     completeOnboarding,
     closeOnboarding,
     skipOnboarding,
-    onboardingPurposes,
     setActiveWorkspaceId,
     bookmarkGroups,
     workspaces,
@@ -96,7 +97,7 @@ export const OnboardingOverlay: React.FC = () => {
   // Track what sources the user wants to import (step before importBookmarks)
   const [importSources, setImportSources] = useState({
     chromeBookmarks: true,
-    openTabs: true,
+    openTabs: false,
     importFromFile: false,
   });
   const [tabScope, setTabScope] = useState<OpenTabsScopeType>(OpenTabsScope.All);
@@ -186,28 +187,21 @@ export const OnboardingOverlay: React.FC = () => {
   // 1. Theme
   STEPS.push({
     id: "selectTheme",
-    title: "Welcome to Mindful!",
+    title: "Your new tab, finally useful",
     subtitle:
-      'Create visual groups for different projects, save pages into those groups, and see your "board" every time you open a new tab.',
+      "All your important links, organised and one tab away. Takes about a minute to set up.",
     body: <ThemeSelectorStep />,
     primaryLabel: "Next",
     hideBack: true,
+    heroTitle: true,
+    hideSkip: true,
   });
 
-  // 2. Purpose
-  STEPS.push({
-    id: "setPurpose",
-    title: "What brings you to Mindful?",
-    body: <PurposeStep setPrimaryDisabled={setImportPrimaryDisabled} />,
-    primaryLabel: "Next",
-    secondaryLabel: "Back",
-    primaryDisabled: importPrimaryDisabled,
-  });
-
-  // 3. What to import
+  // 2. What to import
   STEPS.push({
     id: "selectImportSources",
-    title: "What should we import?",
+    title: "Bring your links in",
+    subtitle: "Start with your existing bookmarks. You can organise everything after.",
     body: (
       <div className="import-styles">
         {/* Chrome bookmarks */}
@@ -220,11 +214,15 @@ export const OnboardingOverlay: React.FC = () => {
         >
           <span className={"checkbox-box " + (importSources.chromeBookmarks ? "checkbox-box--checked" : "checkbox-box--unchecked")} aria-hidden="true">✓</span>
           <span className="checkbox-label-container">
-            <span className="checkbox-label">Chrome bookmarks</span>
+            <span className="flex items-center gap-2">
+              <span className="checkbox-label">Chrome bookmarks</span>
+              <span className="import-chip__pill">Recommended</span>
+            </span>
+            <span className="checkbox-label-description">Import all your saved Chrome bookmarks</span>
           </span>
         </button>
 
-        {/* Open tabs + animated scope picker */}
+        {/* Open tabs */}
         <button
           type="button"
           onClick={() => setImportSources((prev) => ({ ...prev, openTabs: !prev.openTabs }))}
@@ -235,45 +233,9 @@ export const OnboardingOverlay: React.FC = () => {
           <span className={"checkbox-box " + (importSources.openTabs ? "checkbox-box--checked" : "checkbox-box--unchecked")} aria-hidden="true">✓</span>
           <span className="checkbox-label-container">
             <span className="checkbox-label">Open tabs</span>
+            <span className="checkbox-label-description">Save everything you have open right now</span>
           </span>
         </button>
-        <AnimatePresence initial={false}>
-          {importSources.openTabs && (
-            <motion.div
-              key="tab-scope"
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.2, ease: "easeInOut" }}
-              style={{ overflow: "hidden" }}
-            >
-              <div className="pl-12 pt-1 pb-1">
-                <p className="text-xs font-normal text-neutral-600 dark:text-neutral-400 mb-1">Which tabs?</p>
-                <div className="space-y-0.5">
-                  {([
-                    { value: OpenTabsScope.All, label: "All open tabs" },
-                    { value: OpenTabsScope.Current, label: "Just this window" },
-                  ] as const).map(({ value, label }) => {
-                    const selected = tabScope === value;
-                    return (
-                      <button
-                        key={value}
-                        type="button"
-                        onClick={() => setTabScope(value)}
-                        className={`tabs-radio-button-row !p-1.5 !rounded-lg ${selected ? "tabs-radio-button-row--selected" : "tabs-radio-button-row--unselected"}`}
-                      >
-                        <div className={`tabs-radio-button-outer-circle ${selected ? "tabs-radio-button-outer-circle--selected" : "tabs-radio-button-outer-circle--unselected"}`}>
-                          {selected && <div className="tabs-radio-button-inner-circle" />}
-                        </div>
-                        <span className="tabs-radio-button-text !text-xs">{label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         {/* Import from a file */}
         <button
@@ -291,7 +253,8 @@ export const OnboardingOverlay: React.FC = () => {
         </button>
       </div>
     ),
-    primaryLabel: "Next",
+    primaryLabel: "Import & continue",
+    primaryDisabled: !importSources.chromeBookmarks && !importSources.openTabs && !importSources.importFromFile,
     secondaryLabel: "Back",
   });
 
@@ -301,7 +264,7 @@ export const OnboardingOverlay: React.FC = () => {
       id: "onboardingFileUpload",
       title: "Import from a file",
       subtitle:
-        "If you exported from another bookmark manager (or from Mindful), bring that file in now.",
+        "If you exported from another bookmark manager, bring that file in now.",
       body: (
         <div className="import-styles mt-4">
           {manualState.jsonData && fileUploadPreview ? (
@@ -320,7 +283,7 @@ export const OnboardingOverlay: React.FC = () => {
             <>
               <p className="json-format-hint">Supported formats: Chrome (.html), Toby (.json), TabMe (.json), Mindful (.json)</p>
               <div
-                className={`json-drop-zone${fileUploadIsDragOver ? " json-drop-zone--active" : ""}`}
+                className={`json-drop-zone onboarding-drop-zone${fileUploadIsDragOver ? " json-drop-zone--active" : ""}`}
                 onDragOver={(e) => { e.preventDefault(); setFileUploadIsDragOver(true); }}
                 onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setFileUploadIsDragOver(false); }}
                 onDrop={async (e) => {
@@ -330,15 +293,18 @@ export const OnboardingOverlay: React.FC = () => {
                   if (file) await processUploadedFile(file);
                 }}
               >
-                <span className="json-drop-zone-label">Drag &amp; drop a file here, or</span>
+                <div className="onboarding-upload-icon-box">
+                  <Upload size={24} />
+                </div>
+                <span className="onboarding-drop-zone-title">Drag &amp; drop a file here</span>
+                <span className="json-drop-zone-hint">.json or .html</span>
                 <button
                   type="button"
-                  className="json-drop-zone-button"
+                  className="onboarding-choose-file-button"
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  Choose File
+                  Choose file
                 </button>
-                <span className="json-drop-zone-hint">.json or .html</span>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -355,8 +321,10 @@ export const OnboardingOverlay: React.FC = () => {
           )}
         </div>
       ),
-      primaryLabel: manualState.jsonData ? "Next" : "Skip",
+      primaryLabel: "Import & continue",
+      primaryDisabled: !manualState.jsonData,
       secondaryLabel: "Back",
+      onSkip: clearFileUpload,
     });
   }
 
@@ -388,7 +356,6 @@ export const OnboardingOverlay: React.FC = () => {
         "We’re pulling in your bookmarks, tabs, and history to build your Mindful workspace.",
       body: (
         <SmartImportStep
-          purposes={onboardingPurposes}
           onBusyChange={setSmartImportBusy}
           singleWorkspace
           fileItems={fileRawItems}
@@ -409,7 +376,6 @@ export const OnboardingOverlay: React.FC = () => {
       title: "Setting things up ...",
       body: (
         <ManualImportStep
-          purposes={onboardingPurposes}
           selection={manualSelection}
           onBusyChange={setManualCommitBusy}
           onProgress={setManualCommitMessage}
@@ -447,7 +413,7 @@ export const OnboardingOverlay: React.FC = () => {
       setManualImportPrimaryWorkspaceId(null);
       setImportPrimaryDisabled(true);
       setImportFlow(null);
-      setImportSources({ chromeBookmarks: true, openTabs: true, importFromFile: false });
+      setImportSources({ chromeBookmarks: true, openTabs: false, importFromFile: false });
       setTabScope(OpenTabsScope.All);
       setFileUploadPreview(null);
       setFileUploadError(undefined);
@@ -560,18 +526,24 @@ export const OnboardingOverlay: React.FC = () => {
               <button type="button" onClick={closeOnboarding} className="underline-offset-2 hover:underline cursor-pointer">
                 Close
               </button>
-            ) : (
-              <button onClick={() => void skipOnboarding()} className="underline-offset-2 hover:underline cursor-pointer">
-                Skip onboarding
+            ) : !isLast && !step.hideSkip ? (
+              <button type="button" onClick={() => { step.onSkip?.(); setStepIndex((prev) => Math.min(prev + 1, totalSteps - 1)); }} className="underline-offset-2 hover:underline cursor-pointer">
+                Skip step
               </button>
-            )}
+            ) : null}
           </div>
 
-          <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-            {step.title}
-          </h2>
+          {step.heroTitle ? (
+            <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
+              {step.title}
+            </h2>
+          ) : (
+            <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+              {step.title}
+            </h2>
+          )}
           {step.subtitle && (
-            <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+            <p className={`mt-1 ${step.heroTitle ? "text-base" : "text-sm"} text-neutral-600 dark:text-neutral-400`}>
               {step.subtitle}
             </p>
           )}
@@ -580,45 +552,43 @@ export const OnboardingOverlay: React.FC = () => {
           <div className="mt-4">{step.body}</div>
 
           {/* Footer: navigation + dots */}
-          <div className="mt-6 flex items-center justify-end">
-            <div className="flex items-center gap-3">
-              {/* Dots */}
-              <div className="flex gap-1">
-                {STEPS.map((s, idx) => (
-                  <span
-                    key={s.id}
-                    className={`h-1.5 w-1.5 rounded-full ${
-                      idx === clampedIndex
-                        ? "bg-neutral-900 dark:bg-neutral-100"
-                        : "bg-neutral-300 dark:bg-neutral-700"
-                    }`}
-                  />
-                ))}
-              </div>
+          <div className="mt-6 flex items-center justify-between">
+            {/* Dots */}
+            <div className="flex gap-1">
+              {STEPS.map((s, idx) => (
+                <span
+                  key={s.id}
+                  className={`h-1.5 w-1.5 rounded-full ${
+                    idx === clampedIndex
+                      ? "bg-neutral-900 dark:bg-neutral-100"
+                      : "bg-neutral-300 dark:bg-neutral-700"
+                  }`}
+                />
+              ))}
+            </div>
 
-              {/* Primary / secondary buttons */}
-              <div className="flex items-center gap-2">
-                {step.secondaryLabel && (
-                  <button
-                    type="button"
-                    className="rounded-full border border-neutral-300 dark:border-neutral-700 px-3 py-1.5 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-950 cursor-pointer"
-                    onClick={handleSecondary}
-                    disabled={lockNav}
-                  >
-                    {step.secondaryLabel}
-                  </button>
-                )}
+            {/* Primary / secondary buttons */}
+            <div className="flex items-center gap-2">
+              {step.secondaryLabel && (
                 <button
                   type="button"
-                  className="rounded-full bg-neutral-900 dark:bg-neutral-100 px-4 py-2 text-sm font-medium text-white dark:text-black hover:bg-neutral-800 dark:hover:bg-neutral-200 cursor-pointer disabled:opacity-60 disabled:cursor-default"
-                  onClick={handlePrimary}
-                  disabled={primaryDisabled}
+                  className="rounded-full border border-neutral-300 dark:border-neutral-700 px-3 py-1.5 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-950 cursor-pointer"
+                  onClick={handleSecondary}
+                  disabled={lockNav}
                 >
-                  {isFinishGatedStep
-                    ? (canFinish ? step.primaryLabel : "Finishing up ...")
-                    : step.primaryLabel}
+                  {step.secondaryLabel}
                 </button>
-              </div>
+              )}
+              <button
+                type="button"
+                className="rounded-full bg-neutral-900 dark:bg-neutral-100 px-4 py-2 text-sm font-medium text-white dark:text-black hover:bg-neutral-800 dark:hover:bg-neutral-200 cursor-pointer disabled:opacity-60 disabled:cursor-default"
+                onClick={handlePrimary}
+                disabled={primaryDisabled}
+              >
+                {isFinishGatedStep
+                  ? (canFinish ? step.primaryLabel : "Finishing up ...")
+                  : step.primaryLabel}
+              </button>
             </div>
           </div>
         </motion.div>

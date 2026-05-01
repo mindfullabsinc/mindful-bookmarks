@@ -160,6 +160,14 @@ export default function NewTabGate(): ReactElement | null {
 
   /* -------------------- Effects -------------------- */
   useEffect(() => {
+    try {
+      if (typeof chrome !== "undefined" && chrome?.storage?.local?.set) {
+        chrome.storage.local.set({ mindful_new_tab_seen: true });
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
 
     (async () => {

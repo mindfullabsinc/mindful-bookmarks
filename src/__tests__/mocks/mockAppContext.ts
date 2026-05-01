@@ -53,9 +53,6 @@ export function makeAppContext(
     completeOnboarding: async () => {},
     skipOnboarding: async () => {},
     restartOnboarding: async () => {},
-    onboardingPurposes: [],
-    setOnboardingPurposes: () => {},
-
     /* Theme */
     theme: ThemeChoice.SYSTEM,
     setThemePreference: async () => {},
