@@ -303,6 +303,7 @@ Remember: every input id must appear in at least one group.
 `.trim();
 
   let categorized: CategorizedGroup[];
+  const llmStart = Date.now();
 
   try {
     console.info("groupBookmarks: calling OpenAI with", items.length, "items");
@@ -313,12 +314,12 @@ Remember: every input id must appear in at least one group.
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        max_output_tokens: 2500,
+        max_output_tokens: 1200,
         temperature: 0.2,
       },
-      { timeout: 25_000 },
+      { timeout: 20_000 },
     );
-    console.info("groupBookmarks: OpenAI responded");
+    console.info("groupBookmarks: OpenAI responded in", Date.now() - llmStart, "ms");
 
     const jsonText = completion.output_text;
     if (!jsonText) {
@@ -354,7 +355,7 @@ Remember: every input id must appear in at least one group.
       defaultPurpose
     );
   } catch (err) {
-    console.error("OpenAI grouping error, falling back to local group:", err);
+    console.error("OpenAI grouping error after", Date.now() - llmStart, "ms — falling back to local group:", err);
 
     // Safe fallback: one group with everything, so no 500
     categorized = [
