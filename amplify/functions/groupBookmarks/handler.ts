@@ -306,15 +306,18 @@ Remember: every input id must appear in at least one group.
 
   try {
     console.info("groupBookmarks: calling OpenAI with", items.length, "items");
-    const completion = await openai.responses.create({
-      model: "gpt-4.1-mini",
-      input: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      max_output_tokens: 2500,
-      temperature: 0.2,
-    });
+    const completion = await openai.responses.create(
+      {
+        model: "gpt-4.1-mini",
+        input: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        max_output_tokens: 2500,
+        temperature: 0.2,
+      },
+      { timeout: 25_000 },
+    );
     console.info("groupBookmarks: OpenAI responded");
 
     const jsonText = completion.output_text;
