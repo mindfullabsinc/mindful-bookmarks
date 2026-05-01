@@ -164,6 +164,12 @@ describe("groupBookmarks handler", () => {
       jest.useRealTimers();
     });
 
+    test("returns 200 (not 500) when DynamoDB throws a transient error", async () => {
+      dynamoMock.on(UpdateItemCommand).rejects(new Error("DynamoDB service unavailable"));
+      const res = await handler(smallBatch());
+      expect(res.statusCode).toBe(200);
+    });
+
     test("OPTIONS preflight is returned before the rate-limit check (DynamoDB not called)", async () => {
       const res = await handler({
         httpMethod: "OPTIONS",

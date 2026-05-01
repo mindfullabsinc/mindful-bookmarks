@@ -154,6 +154,65 @@ describe("remoteGroupingLLM.group", () => {
     expect(parsedBody.items[99].id).toBe("id-99");
   });
 
+  it("distributes items beyond MAX_ITEMS into existing groups — hostname match", async () => {
+    // 101 items: first 100 sent to API (all example.com), 1 extra (also example.com)
+    const items = [
+      ...makeItems(100),
+      { id: "id-extra", name: "Extra", url: "https://example.com/extra", source: ImportSource.Bookmarks },
+    ];
+
+    // API returns one group covering the 100 items it received
+    const apiResponse: GroupingLLMResponse = {
+      groups: [{ id: "g1", name: "Web", purpose: PurposeId.Work, items: makeItems(100) }],
+    };
+
+    fetchMock.mockResolvedValue({ ok: true, json: async () => apiResponse });
+
+    const result = await remoteGroupingLLM.group({ items, purposes: [PurposeId.Work] });
+
+    const allIds = result.groups.flatMap((g) => g.items.map((i) => i.id));
+    expect(allIds).toContain("id-extra");
+    expect(allIds).toHaveLength(101);
+  });
+
+  it("distributes items beyond MAX_ITEMS into the largest group when no hostname match", async () => {
+    // 100 items from example.com, 1 item from unique-domain.com
+    const baseItems = makeItems(100);
+    const oddItem = { id: "id-odd", name: "Odd", url: "https://unique-domain.com/page", source: ImportSource.Bookmarks };
+    const items = [...baseItems, oddItem];
+
+    // API returns two groups; second one is larger
+    const apiResponse: GroupingLLMResponse = {
+      groups: [
+        { id: "g1", name: "Small", purpose: PurposeId.Work, items: baseItems.slice(0, 30) },
+        { id: "g2", name: "Large", purpose: PurposeId.Work, items: baseItems.slice(30) },
+      ],
+    };
+
+    fetchMock.mockResolvedValue({ ok: true, json: async () => apiResponse });
+
+    const result = await remoteGroupingLLM.group({ items, purposes: [PurposeId.Work] });
+
+    const largeGroup = result.groups.find((g) => g.id === "g2")!;
+    expect(largeGroup.items.some((i) => i.id === "id-odd")).toBe(true);
+  });
+
+  it("distributes LLM-omitted items (within the 100-item cap) into existing groups", async () => {
+    const items = makeItems(10);
+    // API response omits item id-9
+    const apiResponse: GroupingLLMResponse = {
+      groups: [{ id: "g1", name: "Web", purpose: PurposeId.Personal, items: makeItems(10).slice(0, 9) }],
+    };
+
+    fetchMock.mockResolvedValue({ ok: true, json: async () => apiResponse });
+
+    const result = await remoteGroupingLLM.group({ items, purposes: [PurposeId.Personal] });
+
+    const allIds = result.groups.flatMap((g) => g.items.map((i) => i.id));
+    expect(allIds).toContain("id-9");
+    expect(allIds).toHaveLength(10);
+  });
+
   it("falls back to local group when the remote API responds with a non-ok status", async () => {
     const items = makeItems(10);
     const input: GroupingInput = {

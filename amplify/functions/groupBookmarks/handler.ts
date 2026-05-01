@@ -7,7 +7,7 @@ import OpenAI from "openai";
 import { withCorsAndErrors } from "../_shared/safe";
 import { resp } from "../_shared/http";
 import { evalCors } from "../_shared/cors"; // CorsPack type only
-import { badRequest, serverError, tooMany } from "../_shared/errors";
+import { HttpError, badRequest, serverError, tooMany } from "../_shared/errors";
 
 /* Constants */
 import { PurposeId } from "@shared/constants/purposeId";
@@ -181,20 +181,25 @@ const groupBookmarksCore = async (
     const window = Math.floor(Date.now() / 1000 / RATE_WINDOW_SEC);
     const pk = `rl#${ip}#${window}`;
 
-    const res = await dynamo.send(new UpdateItemCommand({
-      TableName: RATE_LIMIT_TABLE,
-      Key: { pk: { S: pk } },
-      UpdateExpression: "ADD #n :one SET #ttl = if_not_exists(#ttl, :exp)",
-      ExpressionAttributeNames: { "#n": "n", "#ttl": "ttl" },
-      ExpressionAttributeValues: {
-        ":one": { N: "1" },
-        ":exp": { N: String((window + 1) * RATE_WINDOW_SEC) },
-      },
-      ReturnValues: "UPDATED_NEW",
-    }));
+    try {
+      const res = await dynamo.send(new UpdateItemCommand({
+        TableName: RATE_LIMIT_TABLE,
+        Key: { pk: { S: pk } },
+        UpdateExpression: "ADD #n :one SET #ttl = if_not_exists(#ttl, :exp)",
+        ExpressionAttributeNames: { "#n": "n", "#ttl": "ttl" },
+        ExpressionAttributeValues: {
+          ":one": { N: "1" },
+          ":exp": { N: String((window + 1) * RATE_WINDOW_SEC) },
+        },
+        ReturnValues: "UPDATED_NEW",
+      }));
 
-    if (Number(res.Attributes?.n?.N) > RATE_LIMIT_MAX) {
-      throw tooMany("Rate limit exceeded — please wait before using AI Organize again.");
+      if (Number(res.Attributes?.n?.N) > RATE_LIMIT_MAX) {
+        throw tooMany("Rate limit exceeded — please wait before using AI Organize again.");
+      }
+    } catch (err) {
+      if (err instanceof HttpError) throw err;
+      console.error("Rate limit DynamoDB error, skipping rate check:", err);
     }
   }
 
@@ -298,19 +303,23 @@ Remember: every input id must appear in at least one group.
 `.trim();
 
   let categorized: CategorizedGroup[];
+  const llmStart = Date.now();
 
   try {
     console.info("groupBookmarks: calling OpenAI with", items.length, "items");
-    const completion = await openai.responses.create({
-      model: "gpt-4.1-mini",
-      input: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      max_output_tokens: 2500,
-      temperature: 0.2,
-    });
-    console.info("groupBookmarks: OpenAI responded");
+    const completion = await openai.responses.create(
+      {
+        model: "gpt-4.1-mini",
+        input: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        max_output_tokens: 2000,
+        temperature: 0.2,
+      },
+      { timeout: 20_000 },
+    );
+    console.info("groupBookmarks: OpenAI responded in", Date.now() - llmStart, "ms");
 
     const jsonText = completion.output_text;
     if (!jsonText) {
@@ -346,7 +355,7 @@ Remember: every input id must appear in at least one group.
       defaultPurpose
     );
   } catch (err) {
-    console.error("OpenAI grouping error, falling back to local group:", err);
+    console.error("OpenAI grouping error after", Date.now() - llmStart, "ms — falling back to local group:", err);
 
     // Safe fallback: one group with everything, so no 500
     categorized = [
